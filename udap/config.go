@@ -434,16 +434,10 @@ func (c *Client) SaveDeviceConfigWithContext(ctx context.Context, device *Device
 		}
 	}
 
-	// Create a copy of all device parameters and add save_data=1
-	allParams := make(map[string]string)
-	maps.Copy(allParams, device.Parameters)
-	// Add the save_data parameter
-	allParams["save_data"] = "1"
-
-	c.logger.Info("Sending save request", "total_params", len(allParams), "note", "including save_data=1")
+	c.logger.Info("Sending save request", "total_params", len(device.Parameters))
 
 	// Single save operation using the corrected net-udap packet format
-	err := c.saveDeviceConfigWithAllParamsCtx(ctx, device, allParams)
+	err := c.saveDeviceConfigWithAllParamsCtx(ctx, device, device.Parameters)
 	if err != nil {
 		return fmt.Errorf("save operation failed: %w", err)
 	}
