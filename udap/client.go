@@ -46,6 +46,7 @@ func NewClientWithLogger(logger Logger) (*Client, error) {
 	// Enable broadcast reception on the listening socket
 	file, err := conn.File()
 	if err == nil {
+		defer file.Close() // Ensure file is always closed
 		fd := int(file.Fd())
 		// Enable SO_BROADCAST for receiving broadcast packets
 		err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
@@ -59,7 +60,6 @@ func NewClientWithLogger(logger Logger) (*Client, error) {
 		if err != nil {
 			logger.Warn("Failed to enable socket option", "option", "SO_REUSEADDR", "socket", "listening", "error", err)
 		}
-		file.Close()
 	}
 
 	return &Client{
@@ -87,9 +87,9 @@ func (c *Client) createUdapPacket(dstMAC [6]byte, method uint16, flags uint8, br
 		DstBroadcast: dstBroadcast,
 		DstType:      AddrTypeETH, // Always use Ethernet addressing
 		DstAddress:   dstMAC,
-		SrcBroadcast: 0,                         // Source is never broadcast
-		SrcType:      AddrTypeETH,               // Use ETH type like Lua implementation
-		SrcAddress:   [6]byte{0, 0, 0, 0, 0, 0}, // All zeros for source
+		SrcBroadcast: 0,                      // Source is never broadcast
+		SrcType:      AddrTypeETH,            // Use ETH type like Lua implementation
+		SrcAddress:   [MACAddressSize]byte{}, // All zeros for source
 		Sequence:     uint16(c.sequence),
 		UDAPType:     TypeUCP, // Always 0xC001
 		UCPFlags:     flags,
@@ -105,10 +105,10 @@ func (c *Client) createUdapPacket(dstMAC [6]byte, method uint16, flags uint8, br
 func (c *Client) CreateDiscoveryPacket() []byte {
 	// Standard discovery uses broadcast to all zeros MAC
 	packet := c.createUdapPacket(
-		[6]byte{0, 0, 0, 0, 0, 0}, // Broadcast MAC
-		MethodDiscover,            // 0x0001
-		FlagsDiscover,             // 0x01
-		true,                      // Broadcast
+		[MACAddressSize]byte{}, // Broadcast MAC
+		MethodDiscover,         // 0x0001
+		FlagsDiscover,          // 0x01
+		true,                   // Broadcast
 	)
 
 	buf := new(bytes.Buffer)
@@ -120,10 +120,10 @@ func (c *Client) CreateDiscoveryPacket() []byte {
 func (c *Client) CreateAdvancedDiscoveryPacket() []byte {
 	// Advanced discovery uses broadcast to all zeros MAC
 	packet := c.createUdapPacket(
-		[6]byte{0, 0, 0, 0, 0, 0}, // Broadcast MAC
-		MethodAdvDisc,             // 0x0009
-		FlagsDiscover,             // 0x01
-		true,                      // Broadcast
+		[MACAddressSize]byte{}, // Broadcast MAC
+		MethodAdvDisc,          // 0x0009
+		FlagsDiscover,          // 0x01
+		true,                   // Broadcast
 	)
 
 	buf := new(bytes.Buffer)
@@ -147,7 +147,7 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
 	var tlvs []TLVData
 	for _, param := range params {
 		tlv := TLVData{
-			Type:   0x01, // Parameter name type
+			Type:   TLVTypeParameterName, // Parameter name type
 			Length: uint8(len(param)),
 			Value:  []byte(param),
 		}
@@ -197,11 +197,11 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 	// Write packet header
 	binary.Write(buf, binary.BigEndian, packet)
 
-	// Write username field (16 bytes of zeros)
-	buf.Write(make([]byte, 16))
+	// Write username field
+	buf.Write(make([]byte, UsernameFieldSize))
 
-	// Write password field (16 bytes of zeros)
-	buf.Write(make([]byte, 16))
+	// Write password field
+	buf.Write(make([]byte, PasswordFieldSize))
 
 	// Build a list of parameters to write (with their settings)
 	type paramEntry struct {

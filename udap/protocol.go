@@ -35,6 +35,28 @@ const (
 
 	// UCP Flags
 	FlagsDiscover = 0x01
+
+	// TLV Types
+	TLVTypeParameterName  = 0x01 // Parameter name
+	TLVTypeParameterValue = 0x02 // Parameter value
+	TLVTypeErrorMessage   = 0x03 // Error message
+
+	// Protocol Field Sizes
+	MACAddressSize    = 6  // MAC address length in bytes
+	UsernameFieldSize = 16 // Username field size in SetData packets
+	PasswordFieldSize = 16 // Password field size in SetData packets
+	UDAPHeaderSize    = 25 // Standard UDAP header size
+
+	// Validation Limits
+	MaxDeviceNameLength = 64    // Maximum device name length
+	MaxTLVValueLength   = 255   // Maximum TLV value length (uint8 max)
+	MaxConfigLength     = 256   // Maximum configuration parameter length
+	MaxNVRAMOffset      = 65535 // Maximum NVRAM offset (uint16 max)
+	MaxTimeoutMinutes   = 10    // Maximum timeout in minutes
+
+	// Common Network Values
+	BroadcastIP = "255.255.255.255"
+	LocalIP     = "0.0.0.0"
 )
 
 // ConfigSetting represents a configuration parameter with its NVRAM offset and length

@@ -37,66 +37,95 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
 
-	// Send the GetData packet first
+	// Use packet capture helper for GetData responses
+	captureConfig := PacketCaptureConfig{
+		Purpose:    "GetData responses",
+		Timeout:    5 * time.Second,
+		SourceIP:   LocalIP,
+		SourcePort: 17784,
+	}
+
+	// Start packet capture in background
+	captureCtx, captureCancel := context.WithCancel(ctx)
+	defer captureCancel()
+
+	type captureResponse struct {
+		result *PacketCaptureResult
+		err    error
+	}
+	captureChan := make(chan captureResponse, 1)
+	go func() {
+		result, err := c.capturePacketWithContext(captureCtx, captureConfig)
+		captureChan <- captureResponse{result: result, err: err}
+	}()
+
+	// Give capture a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// NOW send the GetData packet
 	_, err = c.conn.WriteToUDP(packet, destAddr)
 	if err != nil {
+		captureCancel()
 		return nil, fmt.Errorf("failed to send GetData packet: %w", err)
 	}
 
 	c.logger.Info("Sent GetData request", "device_mac", device.MAC)
 
-	// Use improved packet capture with proper lifecycle management
-	captureConfig := PacketCaptureConfig{
-		Purpose:    "GetData responses",
-		Timeout:    5 * time.Second,
-		SourceIP:   "0.0.0.0",
-		SourcePort: 17784,
-	}
+	// Wait for response
+	select {
+	case <-ctx.Done():
+		captureCancel()
+		return nil, fmt.Errorf("context cancelled while waiting for GetData response: %w", ctx.Err())
+	case resp := <-captureChan:
+		if resp.err != nil {
+			return nil, fmt.Errorf("packet capture failed: %w", resp.err)
+		}
+		if resp.result == nil || len(resp.result.Payload) == 0 {
+			c.logger.Warn("No response received from device")
+			return nil, fmt.Errorf("no GetData response received from device %s", device.MAC)
+		}
 
-	result, err := c.capturePacketWithContext(ctx, captureConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to capture GetData response: %w", err)
-	}
+		result := resp.result
+		c.logger.Info("Captured GetData response", "bytes", len(result.Payload))
 
-	c.logger.Info("Captured GetData response", "bytes", len(result.Payload))
+		// Debug: log raw packet
+		limit := min(len(result.Payload), 50)
+		hexData := fmt.Sprintf("%x", result.Payload[:limit])
+		if len(result.Payload) > 50 {
+			hexData += "..."
+		}
+		c.logger.Debug("Raw response hex", "data", hexData)
 
-	// Debug: log raw packet
-	limit := min(len(result.Payload), 50)
-	hexData := fmt.Sprintf("%x", result.Payload[:limit])
-	if len(result.Payload) > 50 {
-		hexData += "..."
-	}
-	c.logger.Debug("Raw response hex", "data", hexData)
+		// Parse as UDAP packet
+		respPacket, data, err := ParsePacket(result.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse captured response: %w", err)
+		}
 
-	// Parse as UDAP packet
-	respPacket, data, err := ParsePacket(result.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse captured response: %w", err)
-	}
+		// Check if it's a DataResp or Error
+		switch respPacket.UCPMethod {
+		case MethodDataResp:
+			// Parse TLV data
+			tlvs := DecodeTLV(data)
+			var currentParam string
 
-	// Check if it's a DataResp or Error
-	switch respPacket.UCPMethod {
-	case MethodDataResp:
-		// Parse TLV data
-		tlvs := DecodeTLV(data)
-		var currentParam string
-
-		for _, tlv := range tlvs {
-			switch tlv.Type {
-			case 0x01: // Parameter name
-				currentParam = string(tlv.Value)
-			case 0x02: // Parameter value
-				if currentParam != "" {
-					config[currentParam] = string(tlv.Value)
-					currentParam = ""
+			for _, tlv := range tlvs {
+				switch tlv.Type {
+				case TLVTypeParameterName: // Parameter name
+					currentParam = string(tlv.Value)
+				case TLVTypeParameterValue: // Parameter value
+					if currentParam != "" {
+						config[currentParam] = string(tlv.Value)
+						currentParam = ""
+					}
 				}
 			}
+		case MethodError:
+			return nil, fmt.Errorf("device %s returned error response", device.MAC)
 		}
-	case MethodError:
-		return nil, fmt.Errorf("device %s returned error response", device.MAC)
-	}
 
-	return config, nil
+		return config, nil
+	}
 }
 
 // GetAllDeviceConfig retrieves all known parameters from a device
@@ -243,7 +272,7 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 		// Process the response
 		switch respPacket.UCPMethod {
-		case MethodDataResp, MethodSetData:
+		case MethodDataResp, MethodSetData, MethodGetData:
 			c.logger.Info("Device acknowledged configuration change")
 			if len(data) > 0 {
 				tlvs := DecodeTLV(data)
@@ -256,7 +285,7 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 			if len(data) > 0 {
 				tlvs := DecodeTLV(data)
 				for _, tlv := range tlvs {
-					if tlv.Type == 0x03 {
+					if tlv.Type == TLVTypeErrorMessage {
 						return fmt.Errorf("device error: %s", string(tlv.Value))
 					}
 				}
@@ -436,7 +465,7 @@ func (c *Client) saveDeviceConfigWithAllParamsCtx(ctx context.Context, device *D
 	c.logger.Debug("Save packet hex (first 50 bytes)", "data", hexData)
 
 	// Send to device using broadcast
-	destAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("255.255.255.255:%d", Port))
+	destAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", BroadcastIP, Port))
 	if err != nil {
 		return fmt.Errorf("failed to resolve broadcast address: %w", err)
 	}
@@ -509,11 +538,11 @@ func (c *Client) saveDeviceConfigWithAllParamsCtx(ctx context.Context, device *D
 
 		c.logger.Debug("Response packet details", "udap_type", fmt.Sprintf("0x%04x", respPacket.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 
-		// Check for successful save response (save_data uses MethodSetData 0x0002)
+		// Check for successful save response (device may respond with GetData 0x0001)
 		switch respPacket.UCPMethod {
-		case MethodDataResp, MethodSetData:
+		case MethodDataResp, MethodSetData, MethodGetData:
 			c.logger.Info("Device acknowledged save operation")
-			c.logger.Debug("Response method details", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod), "expected", "0x0002", "note", "save_data success")
+			c.logger.Debug("Response method details", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod), "note", "save_data success")
 
 			// For save_data operations, check if we get the expected response
 			if len(data) > 0 {
@@ -525,7 +554,7 @@ func (c *Client) saveDeviceConfigWithAllParamsCtx(ctx context.Context, device *D
 			if len(data) > 0 {
 				tlvs := DecodeTLV(data)
 				for _, tlv := range tlvs {
-					if tlv.Type == 0x03 {
+					if tlv.Type == TLVTypeErrorMessage {
 						return fmt.Errorf("device error: %s", string(tlv.Value))
 					}
 				}
