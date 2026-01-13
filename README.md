@@ -183,4 +183,6 @@ Device Parameters (15 total):
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) for details.
+
+You must retain the copyright notice and license in any copies or substantial portions of the software.
