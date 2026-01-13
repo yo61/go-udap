@@ -37,42 +37,39 @@ The application is structured with a modular design:
 
 ## Common Commands
 
-### Build and Run
+This project uses [Task](https://taskfile.dev/) for build automation. Install with `brew install go-task`.
+
+### Using Task (Recommended)
 ```bash
-go build -o squeezebox-udap main.go
-./squeezebox-udap
+task build              # Build optimized binary for current platform
+task build:all          # Build for all platforms (macOS, Windows, Linux)
+task build:windows      # Cross-compile for Windows
+task build:linux        # Cross-compile for Linux amd64
+task build:linux-arm64  # Cross-compile for Linux arm64
+task test               # Run all tests
+task test:verbose       # Run tests with verbose output
+task test:coverage      # Generate coverage report
+task fmt                # Format all Go files
+task lint               # Run go vet
+task tidy               # Tidy go modules
+task clean              # Remove build artifacts
+task run                # Build and run
+task dev                # Run without building (go run)
 ```
 
-### Optimized Build (smaller binary)
+### Manual Commands
 ```bash
+# Build optimized binary
 go build -ldflags="-s -w" -trimpath -o squeezebox-udap main.go
-```
 
-### Cross-Compilation
-```bash
-# Windows (amd64)
+# Cross-compile for Windows
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap.exe main.go
 
-# Linux (amd64)
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-linux main.go
-
-# Linux (arm64, e.g., Raspberry Pi 4)
-GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-arm64 main.go
-```
-
-### Development
-```bash
-go run main.go
-```
-
-### Testing
-```bash
+# Run tests
 go test ./...
-```
 
-### Format Code
-```bash
-go fmt ./...
+# Development
+go run main.go
 ```
 
 ## CLI Commands (when running the tool)

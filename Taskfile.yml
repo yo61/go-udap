@@ -1,0 +1,106 @@
+version: '3'
+
+vars:
+  BINARY_NAME: squeezebox-udap
+  LDFLAGS: -s -w
+  BUILD_FLAGS: -ldflags="{{.LDFLAGS}}" -trimpath
+
+tasks:
+  default:
+    desc: Build optimized binary for current platform
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} main.go
+    sources:
+      - "**/*.go"
+    generates:
+      - "{{.BINARY_NAME}}"
+
+  build:
+    desc: Build optimized binary for current platform
+    cmds:
+      - task: default
+
+  build:windows:
+    desc: Cross-compile for Windows (amd64)
+    cmds:
+      - GOOS=windows GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}.exe main.go
+    sources:
+      - "**/*.go"
+    generates:
+      - "{{.BINARY_NAME}}.exe"
+
+  build:linux:
+    desc: Cross-compile for Linux (amd64)
+    cmds:
+      - GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-amd64 main.go
+    sources:
+      - "**/*.go"
+    generates:
+      - "{{.BINARY_NAME}}-linux-amd64"
+
+  build:linux-arm64:
+    desc: Cross-compile for Linux (arm64)
+    cmds:
+      - GOOS=linux GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-arm64 main.go
+    sources:
+      - "**/*.go"
+    generates:
+      - "{{.BINARY_NAME}}-linux-arm64"
+
+  build:all:
+    desc: Build for all platforms
+    cmds:
+      - task: build
+      - task: build:windows
+      - task: build:linux
+      - task: build:linux-arm64
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./...
+
+  test:verbose:
+    desc: Run all tests with verbose output
+    cmds:
+      - go test -v ./...
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report generated at coverage.html"
+
+  fmt:
+    desc: Format all Go files
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}.exe
+      - rm -f {{.BINARY_NAME}}-linux-amd64 {{.BINARY_NAME}}-linux-arm64
+      - rm -f coverage.out coverage.html
+
+  run:
+    desc: Build and run the application
+    cmds:
+      - task: build
+      - ./{{.BINARY_NAME}}
+
+  dev:
+    desc: Run without building (for development)
+    cmds:
+      - go run main.go

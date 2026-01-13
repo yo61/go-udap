@@ -22,13 +22,14 @@ const (
 	TypeUCP = 0xC001 // UCP packets (0xC0, 0x01 in big endian/network order)
 
 	// UCP Methods - Based on Lua implementation
-	MethodDiscover = 0x0001 // Discovery method
-	MethodGetIP    = 0x0002 // Get IP method (also used as data response)
-	MethodReset    = 0x0004 // Reset method
-	MethodGetData  = 0x0005 // Get data method
-	MethodSetData  = 0x0006 // Set data method
-	MethodError    = 0x0007 // Error method
-	MethodAdvDisc  = 0x0009 // Advanced discovery method
+	MethodDiscover   = 0x0001 // Discovery method
+	MethodGetIP      = 0x0002 // Get IP method (also used as data response)
+	MethodReset      = 0x0004 // Reset method
+	MethodGetData    = 0x0005 // Get data method
+	MethodSetData    = 0x0006 // Set data method
+	MethodError      = 0x0007 // Error method
+	MethodSetDataAck = 0x0008 // SetData acknowledgment response
+	MethodAdvDisc    = 0x0009 // Advanced discovery method
 
 	// Method aliases for backward compatibility
 	MethodDataResp = MethodGetIP // GetIP (0x0002) is used for data responses
@@ -93,24 +94,9 @@ var ConfigSettings = map[string]ConfigSetting{
 	"wireless_wpa_mode":   {276, 1},
 	"wireless_wpa_on":     {277, 1},
 	"wireless_wpa_psk":    {278, 64},
-	// Alternative parameter names used by some tools
-	// "slimserver_address":    {79, 4}, // Alias for lms_address
-	// "squeezecenter_address": {79, 4}, // Alias for lms_address
-	// Shortened names for wireless params
-	// "mode":       {173, 1},
-	// "SSID":       {183, 33},
-	// "channel":    {216, 1},
-	// "region_id":  {218, 1},
-	// "keylen":     {220, 1},
-	// "wep_key":    {222, 13},
-	// "wep_key_1":  {235, 13},
-	// "wep_key_2":  {248, 13},
-	// "wep_key_3":  {261, 13},
-	// "wep_on":     {274, 1},
-	// "wpa_cipher": {275, 1},
-	// "wpa_mode":   {276, 1},
-	// "wpa_on":     {277, 1},
-	// "wpa_psk":    {278, 64},
+	// Alternative parameter names for compatibility with other tools
+	"slimserver_address":    {71, 4}, // Alias for server_address
+	"squeezecenter_address": {71, 4}, // Alias for server_address
 }
 
 // KnownParameters is a list of all known UDAP parameters

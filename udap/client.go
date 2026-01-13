@@ -27,19 +27,21 @@ func NewClient() (*Client, error) {
 
 // NewClientWithLogger creates a new UDAP client with a custom logger
 func NewClientWithLogger(logger Logger) (*Client, error) {
-	// Listen on all interfaces for UDP port 17784
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", Port))
+	// Listen on all interfaces for UDP port 17784 (explicitly IPv4)
+	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", Port))
 	if err != nil {
 		return nil, err
 	}
 
-	conn, err := net.ListenUDP("udp", addr)
+	conn, err := net.ListenUDP("udp4", addr)
 	if err != nil {
 		return nil, err
 	}
 
 	// Enable broadcast reception on the listening socket
 	enableBroadcast(conn, logger)
+
+	logger.Debug("Created UDP socket", "address", addr.String())
 
 	return &Client{
 		conn:     conn,
@@ -428,13 +430,13 @@ func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCapt
 	}
 
 	// Create a dedicated listening socket on the UDAP port
-	// Use SO_REUSEADDR to allow multiple listeners on the same port
-	listenAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", Port))
+	// Use udp4 explicitly for consistency with the main client socket
+	listenAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", Port))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve listen address for %s: %w", config.Purpose, err)
 	}
 
-	conn, err := net.ListenUDP("udp", listenAddr)
+	conn, err := net.ListenUDP("udp4", listenAddr)
 	if err != nil {
 		// If we can't create a new listener (port in use), use the existing client connection
 		c.logger.Debug("Using existing connection for capture", "reason", err.Error(), "purpose", config.Purpose)
@@ -489,9 +491,37 @@ func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCapt
 	}
 }
 
+// flushStalePackets reads and discards any pending packets from the socket buffer.
+// This prevents stale responses from previous operations being mistaken for new responses.
+func (c *Client) flushStalePackets() {
+	buffer := make([]byte, 2048)
+	flushedCount := 0
+
+	// Set a very short deadline to quickly drain any pending packets
+	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+	defer c.conn.SetReadDeadline(time.Time{})
+
+	for {
+		n, addr, err := c.conn.ReadFromUDP(buffer)
+		if err != nil {
+			// Timeout or other error means no more pending packets
+			break
+		}
+		flushedCount++
+		c.logger.Debug("Flushed stale packet", "bytes", n, "src_ip", addr.IP.String())
+	}
+
+	if flushedCount > 0 {
+		c.logger.Debug("Flushed stale packets from buffer", "count", flushedCount)
+	}
+}
+
 // capturePacketFromExistingConn captures a packet using the client's existing UDP connection.
 // This is used as a fallback when a dedicated capture socket cannot be created.
 func (c *Client) capturePacketFromExistingConn(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
+	// First, flush any stale packets from the buffer by reading with a very short timeout
+	c.flushStalePackets()
+
 	// Set read deadline from context
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetReadDeadline(deadline)
@@ -499,6 +529,7 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 	defer c.conn.SetReadDeadline(time.Time{})
 
 	c.logger.Info("Started UDP capture on existing connection", "purpose", config.Purpose, "port", Port)
+	c.logger.Debug("Capture filter", "expected_source_ip", config.SourceIP, "expected_source_port", config.SourcePort)
 
 	buffer := make([]byte, 2048)
 	for {
@@ -517,11 +548,23 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 			srcIP := srcAddr.IP.String()
 			srcPort := uint16(srcAddr.Port)
 
+			c.logger.Debug("Capture received packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
+
 			// Filter by source criteria
+			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
 			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
 			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
 
-			if ipMatches && portMatches && n > 0 {
+			if !ipMatches {
+				c.logger.Debug("Packet filtered out", "reason", "IP mismatch", "expected", config.SourceIP, "got", srcIP)
+				continue
+			}
+			if !portMatches {
+				c.logger.Debug("Packet filtered out", "reason", "port mismatch", "expected", config.SourcePort, "got", srcPort)
+				continue
+			}
+
+			if n > 0 {
 				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
 
 				result := &PacketCaptureResult{

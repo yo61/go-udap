@@ -272,8 +272,8 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 		// Process the response
 		switch respPacket.UCPMethod {
-		case MethodDataResp, MethodSetData, MethodGetData:
-			c.logger.Info("Device acknowledged configuration change")
+		case MethodDataResp, MethodSetData, MethodGetData, MethodSetDataAck:
+			c.logger.Info("Device acknowledged configuration change", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 			if len(data) > 0 {
 				tlvs := DecodeTLV(data)
 				for _, tlv := range tlvs {
@@ -532,10 +532,10 @@ func (c *Client) saveDeviceConfigWithAllParamsCtx(ctx context.Context, device *D
 
 		c.logger.Debug("Response packet details", "udap_type", fmt.Sprintf("0x%04x", respPacket.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 
-		// Check for successful save response (device may respond with GetData 0x0001)
+		// Check for successful save response (device may respond with GetData 0x0001 or SetDataAck 0x0008)
 		switch respPacket.UCPMethod {
-		case MethodDataResp, MethodSetData, MethodGetData:
-			c.logger.Info("Device acknowledged save operation")
+		case MethodDataResp, MethodSetData, MethodGetData, MethodSetDataAck:
+			c.logger.Info("Device acknowledged save operation", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 			c.logger.Debug("Response method details", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod), "note", "save_data success")
 
 			// For save_data operations, check if we get the expected response
