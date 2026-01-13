@@ -35,10 +35,10 @@ task clean
 
 ```bash
 # Development build
-go build -o squeezebox-udap main.go
+go build -o go-udap main.go
 
 # Optimized build (smaller binary)
-go build -ldflags="-s -w" -trimpath -o squeezebox-udap main.go
+go build -ldflags="-s -w" -trimpath -o go-udap main.go
 
 # Run tests
 go test ./...
@@ -68,13 +68,13 @@ task build:all
 
 ```bash
 # Windows
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap.exe main.go
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap.exe main.go
 
 # Linux (amd64)
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-linux-amd64 main.go
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-amd64 main.go
 
 # Linux (arm64)
-GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-linux-arm64 main.go
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-arm64 main.go
 ```
 
 ### Platform Support
@@ -88,7 +88,7 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-l
 ## Project Structure
 
 ```
-squeezebox-udap/
+go-udap/
 ├── main.go                 # CLI interface and command handling
 ├── udap/
 │   ├── client.go          # UDP client and packet capture

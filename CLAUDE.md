@@ -60,10 +60,10 @@ task dev                # Run without building (go run)
 ### Manual Commands
 ```bash
 # Build optimized binary
-go build -ldflags="-s -w" -trimpath -o squeezebox-udap main.go
+go build -ldflags="-s -w" -trimpath -o go-udap main.go
 
 # Cross-compile for Windows
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap.exe main.go
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap.exe main.go
 
 # Run tests
 go test ./...

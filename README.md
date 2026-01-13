@@ -16,14 +16,14 @@ This tool allows you to:
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/robinbowes/squeezebox-udap/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/robinbowes/go-udap/releases) page.
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/robinbowes/squeezebox-udap.git
-cd squeezebox-udap
-go build -o squeezebox-udap main.go
+git clone https://github.com/robinbowes/go-udap.git
+cd go-udap
+go build -o go-udap main.go
 ```
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed build instructions and cross-compilation.
@@ -33,7 +33,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed build instructions and cross-c
 Run the tool to enter interactive mode:
 
 ```bash
-./squeezebox-udap
+./go-udap
 ```
 
 ### Commands

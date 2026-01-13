@@ -1,4 +1,4 @@
-module squeezebox-udap
+module go-udap
 
 go 1.25.5
 

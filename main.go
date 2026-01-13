@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"squeezebox-udap/udap"
+	"go-udap/udap"
 
 	"github.com/chzyer/readline"
 )
