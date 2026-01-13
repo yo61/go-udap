@@ -8,13 +8,8 @@ import (
 	"net"
 	"sort"
 	"strconv"
-	"sync"
-	"syscall"
+	"strings"
 	"time"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 )
 
 // Client handles UDAP protocol communication
@@ -44,23 +39,7 @@ func NewClientWithLogger(logger Logger) (*Client, error) {
 	}
 
 	// Enable broadcast reception on the listening socket
-	file, err := conn.File()
-	if err == nil {
-		defer file.Close() // Ensure file is always closed
-		fd := int(file.Fd())
-		// Enable SO_BROADCAST for receiving broadcast packets
-		err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
-		if err != nil {
-			logger.Warn("Failed to enable socket option", "option", "SO_BROADCAST", "socket", "listening", "error", err)
-		} else {
-			logger.Debug("Socket option enabled", "option", "SO_BROADCAST", "socket", "listening")
-		}
-		// Enable SO_REUSEADDR to allow multiple listeners
-		err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-		if err != nil {
-			logger.Warn("Failed to enable socket option", "option", "SO_REUSEADDR", "socket", "listening", "error", err)
-		}
-	}
+	enableBroadcast(conn, logger)
 
 	return &Client{
 		conn:     conn,
@@ -380,8 +359,7 @@ func (c *Client) GetDevices() map[string]*Device {
 type PacketCaptureConfig struct {
 	Purpose    string        // Description of what this capture is for
 	Timeout    time.Duration // Timeout for the entire operation
-	Filter     string        // BPF filter (defaults to "udp port 17784")
-	SourceIP   string        // Expected source IP (defaults to "0.0.0.0")
+	SourceIP   string        // Expected source IP (empty string accepts any IP including 0.0.0.0)
 	SourcePort uint16        // Expected source port (defaults to 17784)
 }
 
@@ -392,17 +370,50 @@ type PacketCaptureResult struct {
 	SrcPort uint16
 }
 
-// capturePacketWithContext performs packet capture with proper lifecycle management
+// getActiveNetworkInterface returns a suitable network interface name for packet operations.
+// This replaces pcap.FindAllDevs() with pure Go networking.
+func getActiveNetworkInterface() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", fmt.Errorf("failed to get network interfaces: %w", err)
+	}
+
+	// First pass: prefer "en" (macOS) or "eth" (Linux) interfaces
+	for _, iface := range interfaces {
+		// Skip down or loopback interfaces
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		// Prefer standard interface prefixes
+		if strings.HasPrefix(iface.Name, "en") || strings.HasPrefix(iface.Name, "eth") {
+			addrs, err := iface.Addrs()
+			if err == nil && len(addrs) > 0 {
+				return iface.Name, nil
+			}
+		}
+	}
+
+	// Fallback: return first active interface with addresses
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err == nil && len(addrs) > 0 {
+			return iface.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("no suitable network interface found")
+}
+
+// capturePacketWithContext performs UDP packet capture using standard Go networking.
+// This replaces the previous pcap-based implementation for cross-platform compatibility.
 func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
 	// Set defaults
-	if config.Filter == "" {
-		config.Filter = "udp port 17784"
-	}
-	if config.SourceIP == "" {
-		config.SourceIP = "0.0.0.0"
-	}
 	if config.SourcePort == 0 {
-		config.SourcePort = 17784
+		config.SourcePort = Port
 	}
 	if config.Purpose == "" {
 		config.Purpose = "packet capture"
@@ -416,109 +427,111 @@ func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCapt
 		defer cancel()
 	}
 
-	// Find suitable network interface
-	interfaces, err := pcap.FindAllDevs()
+	// Create a dedicated listening socket on the UDAP port
+	// Use SO_REUSEADDR to allow multiple listeners on the same port
+	listenAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", Port))
 	if err != nil {
-		c.logger.Warn("Could not find network interfaces", "error", err)
-		return nil, fmt.Errorf("failed to find network interfaces: %w", err)
+		return nil, fmt.Errorf("failed to resolve listen address for %s: %w", config.Purpose, err)
 	}
 
-	var selectedInterface string
-	for _, iface := range interfaces {
-		if len(iface.Addresses) > 0 && (len(iface.Name) >= 3 && iface.Name[:2] == "en") {
-			selectedInterface = iface.Name
-			break
-		}
-	}
-
-	if selectedInterface == "" {
-		c.logger.Warn("No suitable network interface found")
-		return nil, fmt.Errorf("no suitable network interface found")
-	}
-
-	// Open interface for capturing
-	handle, err := pcap.OpenLive(selectedInterface, 1600, true, time.Millisecond*100)
+	conn, err := net.ListenUDP("udp", listenAddr)
 	if err != nil {
-		c.logger.Error("Error opening interface", "interface", selectedInterface, "error", err)
-		return nil, fmt.Errorf("failed to open interface %s: %w", selectedInterface, err)
+		// If we can't create a new listener (port in use), use the existing client connection
+		c.logger.Debug("Using existing connection for capture", "reason", err.Error(), "purpose", config.Purpose)
+		return c.capturePacketFromExistingConn(captureCtx, config)
 	}
-	defer handle.Close()
+	defer conn.Close()
 
-	// Set BPF filter
-	err = handle.SetBPFFilter(config.Filter)
-	if err != nil {
-		c.logger.Warn("Could not set BPF filter", "filter", config.Filter, "error", err)
+	// Enable socket options for proper broadcast reception
+	enableBroadcastSimple(conn, c.logger)
+
+	// Set read deadline from context
+	if deadline, ok := captureCtx.Deadline(); ok {
+		conn.SetReadDeadline(deadline)
 	}
 
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	c.logger.Info("Started packet capture", "interface", selectedInterface, "purpose", config.Purpose, "filter", config.Filter)
+	c.logger.Info("Started UDP capture", "purpose", config.Purpose, "port", Port)
 
-	// Use buffered channels to prevent goroutine leaks
-	resultChan := make(chan *PacketCaptureResult, 1)
-	errorChan := make(chan error, 1)
-
-	// Start packet capture in goroutine with proper cleanup
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(resultChan)
-		defer close(errorChan)
-
-		for {
-			select {
-			case <-captureCtx.Done():
-				errorChan <- captureCtx.Err()
-				return
-			case packet := <-packetSource.Packets():
-				if packet == nil {
-					continue
+	buffer := make([]byte, 2048)
+	for {
+		select {
+		case <-captureCtx.Done():
+			return nil, fmt.Errorf("capture timeout for %s: %w", config.Purpose, captureCtx.Err())
+		default:
+			n, srcAddr, err := conn.ReadFromUDP(buffer)
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					return nil, fmt.Errorf("capture timeout for %s: no matching packet received", config.Purpose)
 				}
+				return nil, fmt.Errorf("read error during %s: %w", config.Purpose, err)
+			}
 
-				// Parse IP layer
-				ipLayer := packet.Layer(layers.LayerTypeIPv4)
-				if ipLayer == nil {
-					continue
-				}
-				ip := ipLayer.(*layers.IPv4)
+			srcIP := srcAddr.IP.String()
+			srcPort := uint16(srcAddr.Port)
 
-				// Parse UDP layer
-				udpLayer := packet.Layer(layers.LayerTypeUDP)
-				if udpLayer == nil {
-					continue
-				}
-				udp := udpLayer.(*layers.UDP)
+			// Filter by source criteria
+			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
+			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
+			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
 
-				// Check if this matches our criteria
-				if ip.SrcIP.String() == config.SourceIP && uint16(udp.SrcPort) == config.SourcePort && len(udp.Payload) > 0 {
-					c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", len(udp.Payload))
-					result := &PacketCaptureResult{
-						Payload: make([]byte, len(udp.Payload)),
-						SrcIP:   ip.SrcIP.String(),
-						SrcPort: uint16(udp.SrcPort),
-					}
-					copy(result.Payload, udp.Payload)
-					resultChan <- result
-					return
+			if ipMatches && portMatches && n > 0 {
+				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
+
+				result := &PacketCaptureResult{
+					Payload: make([]byte, n),
+					SrcIP:   srcIP,
+					SrcPort: srcPort,
 				}
+				copy(result.Payload, buffer[:n])
+				return result, nil
 			}
 		}
-	}()
+	}
+}
 
-	// Wait for result or timeout/cancellation
-	select {
-	case result := <-resultChan:
-		if result != nil {
-			wg.Wait() // Ensure goroutine cleanup
-			return result, nil
+// capturePacketFromExistingConn captures a packet using the client's existing UDP connection.
+// This is used as a fallback when a dedicated capture socket cannot be created.
+func (c *Client) capturePacketFromExistingConn(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
+	// Set read deadline from context
+	if deadline, ok := ctx.Deadline(); ok {
+		c.conn.SetReadDeadline(deadline)
+	}
+	defer c.conn.SetReadDeadline(time.Time{})
+
+	c.logger.Info("Started UDP capture on existing connection", "purpose", config.Purpose, "port", Port)
+
+	buffer := make([]byte, 2048)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("capture timeout for %s: %w", config.Purpose, ctx.Err())
+		default:
+			n, srcAddr, err := c.conn.ReadFromUDP(buffer)
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					return nil, fmt.Errorf("capture timeout for %s: no matching packet received", config.Purpose)
+				}
+				return nil, fmt.Errorf("read error during %s: %w", config.Purpose, err)
+			}
+
+			srcIP := srcAddr.IP.String()
+			srcPort := uint16(srcAddr.Port)
+
+			// Filter by source criteria
+			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
+			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
+
+			if ipMatches && portMatches && n > 0 {
+				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
+
+				result := &PacketCaptureResult{
+					Payload: make([]byte, n),
+					SrcIP:   srcIP,
+					SrcPort: srcPort,
+				}
+				copy(result.Payload, buffer[:n])
+				return result, nil
+			}
 		}
-		wg.Wait()
-		return nil, fmt.Errorf("no packet captured")
-	case err := <-errorChan:
-		wg.Wait() // Ensure goroutine cleanup
-		return nil, err
-	case <-captureCtx.Done():
-		wg.Wait() // Ensure goroutine cleanup
-		return nil, captureCtx.Err()
 	}
 }

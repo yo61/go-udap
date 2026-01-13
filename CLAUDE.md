@@ -1,0 +1,155 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is a Squeezebox UDAP (Universal Device Access Protocol) configuration tool written in Go. It provides a command-line interface for discovering and configuring Squeezebox devices on the network using the UDAP protocol over UDP port 17784.
+
+The codebase has been modernized to use current Go best practices and idiomatic patterns.
+
+## Architecture
+
+The application is structured with a modular design:
+
+- **main.go**: Interactive CLI interface with command handling
+- **udap/client.go**: Core client that handles UDP communication and device management
+- **udap/discovery.go**: Device discovery implementation with context support
+- **udap/config.go**: Device configuration management with context-aware operations
+- **udap/protocol.go**: Low-level packet creation/parsing with TLV (Type-Length-Value) encoding
+- **udap/socket_unix.go**: Unix-specific socket options (macOS, Linux)
+- **udap/socket_windows.go**: Windows-specific socket options
+
+### Key Components
+
+- **UDAPClient**: Core client that handles UDP communication and device management
+- **UDAPDevice**: Represents discovered Squeezebox devices with their properties
+- **UDAP Protocol Implementation**: Low-level packet creation/parsing with TLV encoding
+- **Interactive CLI**: Command-line interface with commands for device discovery and configuration
+
+### Key Protocol Details
+
+- Uses UDP broadcast on port 17784 for device discovery (updated from original 3483)
+- Implements UDAP packet format with magic number 0x75646170 ("udap")
+- Supports message types: Discovery, SetData, GetData, DataResp, Error
+- Device responses use TLV encoding for structured data
+- Network byte order (big-endian) for all protocol fields
+
+## Common Commands
+
+### Build and Run
+```bash
+go build -o squeezebox-udap main.go
+./squeezebox-udap
+```
+
+### Optimized Build (smaller binary)
+```bash
+go build -ldflags="-s -w" -trimpath -o squeezebox-udap main.go
+```
+
+### Cross-Compilation
+```bash
+# Windows (amd64)
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap.exe main.go
+
+# Linux (amd64)
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-linux main.go
+
+# Linux (arm64, e.g., Raspberry Pi 4)
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o squeezebox-udap-arm64 main.go
+```
+
+### Development
+```bash
+go run main.go
+```
+
+### Testing
+```bash
+go test ./...
+```
+
+### Format Code
+```bash
+go fmt ./...
+```
+
+## CLI Commands (when running the tool)
+
+- `discover` - Broadcast discovery to find Squeezebox devices
+- `list` - Show all discovered devices
+- `info <mac>` - Display detailed device information
+- `config <mac> get <param>` - Retrieve configuration parameter
+- `config <mac> set <param> <value>` - Set configuration parameter
+- `help` - Show command usage
+- `quit` - Exit the tool
+
+## Development Notes
+
+- The application maintains device state in memory during runtime
+- Network timeouts are set to 5 seconds for device communication
+- Discovery uses broadcast UDP with a configurable timeout
+- All UDAP packets use big-endian byte order for network transmission
+
+## Code Modernization Status
+
+The codebase has been modernized with the following improvements:
+
+### ✅ Completed Modernizations
+
+1. **Switch Statement Conversions**: Converted if-else chains to tagged switch statements for better readability
+2. **Modern Map Operations**: Replaced manual map copying loops with `maps.Copy()` from Go 1.21+
+3. **Context Support**: Added context-aware versions of all timeout-sensitive operations:
+   - `DiscoverDevicesWithContext()` and related discovery functions
+   - `GetDeviceConfigWithContext()`, `SetDeviceConfigWithContext()`
+   - `ResetDeviceWithContext()`, `SaveDeviceConfigWithContext()`
+   - All functions now properly handle context cancellation and timeouts
+4. **Error Handling**: Comprehensive error wrapping improvements:
+   - All errors now use `%w` verb for proper error wrapping
+   - Added device context (MAC addresses) to error messages
+   - Enhanced protocol parsing errors with detailed information
+   - Eliminated bare `return err` statements in favor of descriptive wrapped errors
+5. **Pure Go Networking**: Removed `gopacket/pcap` dependency for cross-platform compatibility:
+   - All networking now uses standard Go `net` package
+   - Platform-specific socket options via build tags (`socket_unix.go`, `socket_windows.go`)
+   - Enables cross-compilation to Windows, Linux, and other platforms without CGO
+   - No external dependencies required (libpcap/WinPcap/Npcap)
+
+### 🚧 In Progress
+
+6. **Structured Logging**: Replace `fmt.Printf` calls with structured logging
+
+### 📋 Pending Modernizations
+
+7. **Goroutine Lifecycle Management**: Improve goroutine management patterns
+8. **Struct Validation Methods**: Add validation methods to data structures
+9. **Magic Number Constants**: Replace magic numbers with named constants
+10. **Resource Cleanup Patterns**: Enhance resource cleanup and defer usage
+
+## Cross-Platform Support
+
+The tool builds and runs on multiple platforms without any external dependencies:
+
+| Platform | Build Command | Binary Size (optimized) |
+|----------|---------------|------------------------|
+| macOS (amd64/arm64) | `go build` | ~2.8 MB |
+| Windows (amd64) | `GOOS=windows GOARCH=amd64 go build` | ~2.9 MB |
+| Linux (amd64) | `GOOS=linux GOARCH=amd64 go build` | ~2.8 MB |
+| Linux (arm64) | `GOOS=linux GOARCH=arm64 go build` | ~2.7 MB |
+
+**Note**: Windows binaries can be further compressed with UPX (`upx --best`) to ~1.2 MB.
+
+## API Compatibility
+
+All public APIs maintain backward compatibility. Context-aware functions are available alongside original timeout-based versions:
+
+```go
+// Legacy API (still supported)
+err := client.DiscoverDevices(5 * time.Second)
+
+// Modern context-aware API
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+err := client.DiscoverDevicesWithContext(ctx)
+```

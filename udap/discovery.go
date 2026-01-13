@@ -5,12 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"syscall"
 	"time"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 )
 
 // DiscoverDevices discovers Squeezebox devices on the network using advanced discovery
@@ -50,198 +45,12 @@ func (c *Client) DiscoverDevicesWithRawCapture(timeout time.Duration, advanced b
 	return c.DiscoverDevicesWithRawCaptureCtx(ctx, advanced)
 }
 
-// DiscoverDevicesWithRawCaptureCtx uses UDP for sending and raw capture for receiving with context
+// DiscoverDevicesWithRawCaptureCtx uses UDP for device discovery.
+// This function delegates to DiscoverDevicesUDPCtx for cross-platform compatibility.
+// The "raw capture" name is kept for API compatibility but now uses pure Go UDP networking.
 func (c *Client) DiscoverDevicesWithRawCaptureCtx(ctx context.Context, advanced bool) error {
-	// Create proper UDAP discovery packet
-	var discoveryPacket []byte
-	if advanced {
-		discoveryPacket = c.CreateAdvancedDiscoveryPacket()
-	} else {
-		discoveryPacket = c.CreateDiscoveryPacket()
-	}
-	c.logger.Debug("Created discovery packet", "size_bytes", len(discoveryPacket), "hex", fmt.Sprintf("%x", discoveryPacket))
-
-	// Start raw packet capture for responses
-	c.logger.Info("Starting raw packet capture", "source_ip", "0.0.0.0")
-	interfaces, err := pcap.FindAllDevs()
-	if err != nil {
-		c.logger.Warn("Could not find network interfaces for raw capture, falling back to UDP", "error", err)
-		return c.DiscoverDevicesUDPCtx(ctx, advanced)
-	}
-
-	// Find a suitable interface (prefer en0, en1, etc.)
-	var selectedInterface string
-	for _, iface := range interfaces {
-		if len(iface.Addresses) > 0 && (len(iface.Name) >= 3 && iface.Name[:2] == "en") {
-			selectedInterface = iface.Name
-			break
-		}
-	}
-
-	if selectedInterface == "" {
-		c.logger.Warn("No suitable network interface found, falling back to UDP only")
-		return c.DiscoverDevicesUDPCtx(ctx, advanced)
-	}
-
-	c.logger.Info("Selected interface for raw packet capture", "interface", selectedInterface)
-
-	// Start raw packet capture with proper lifecycle management
-	responseChannel := make(chan *Device, 10)
-	captureCtx, captureCancel := context.WithCancel(ctx)
-	defer captureCancel()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		c.captureUDAPResponses(selectedInterface, responseChannel, captureCtx)
-	}()
-
-	// Give capture time to start
-	time.Sleep(200 * time.Millisecond)
-
-	// Send UDP broadcast
-	broadcastAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("255.255.255.255:%d", Port))
-	if err != nil {
-		return fmt.Errorf("failed to resolve UDP broadcast address: %w", err)
-	}
-
-	broadcastConn, err := net.DialUDP("udp", nil, broadcastAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create UDP broadcast socket: %w", err)
-	}
-	defer broadcastConn.Close()
-
-	// Enable broadcast
-	if file, err := broadcastConn.File(); err == nil {
-		fd := int(file.Fd())
-		err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
-		file.Close()
-		if err != nil {
-			c.logger.Warn("Failed to enable SO_BROADCAST", "error", err)
-		}
-	}
-
-	c.logger.Info("Sending discovery packet", "target", "255.255.255.255", "port", Port)
-	_, err = broadcastConn.Write(discoveryPacket)
-	if err != nil {
-		return fmt.Errorf("failed to send UDP broadcast: %w", err)
-	}
-
-	c.logger.Info("Waiting for responses via raw packet capture")
-
-	// Wait for responses or timeout
-	deviceCount := 0
-
-	for {
-		select {
-		case device := <-responseChannel:
-			if device != nil {
-				deviceCount++
-				c.devices[device.MAC] = device
-				c.logger.Info("Found device", "name", device.Name, "mac", device.MAC, "ip", device.IP)
-			}
-
-		case <-ctx.Done():
-			c.logger.Info("Discovery timeout reached", "devices_found", deviceCount)
-			captureCancel()
-			wg.Wait() // Ensure goroutine cleanup
-			return nil
-		}
-	}
-}
-
-// captureUDAPResponses captures UDP responses from 0.0.0.0 using raw packet capture
-func (c *Client) captureUDAPResponses(interfaceName string, deviceChan chan<- *Device, ctx context.Context) {
-	defer close(deviceChan)
-
-	// Open interface for capturing
-	handle, err := pcap.OpenLive(interfaceName, 1600, true, time.Millisecond*100)
-	if err != nil {
-		c.logger.Error("Error opening interface", "interface", interfaceName, "error", err)
-		return
-	}
-	defer handle.Close()
-
-	// Filter for UDP packets on port 17784 from 0.0.0.0
-	filter := "udp src port 17784 and src host 0.0.0.0"
-	err = handle.SetBPFFilter(filter)
-	if err != nil {
-		// Fallback to broader filter
-		filter = "udp port 17784"
-		err = handle.SetBPFFilter(filter)
-		if err != nil {
-			c.logger.Warn("Could not set BPF filter", "error", err)
-		}
-	}
-
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	c.logger.Info("Started packet capture", "interface", interfaceName, "filter", filter)
-
-	for {
-		select {
-		case <-ctx.Done():
-			c.logger.Info("Stopping packet capture")
-			return
-
-		case packet := <-packetSource.Packets():
-			if packet == nil {
-				continue
-			}
-
-			// Parse IP layer
-			ipLayer := packet.Layer(layers.LayerTypeIPv4)
-			if ipLayer == nil {
-				continue
-			}
-			ip := ipLayer.(*layers.IPv4)
-
-			// Parse UDP layer
-			udpLayer := packet.Layer(layers.LayerTypeUDP)
-			if udpLayer == nil {
-				continue
-			}
-			udp := udpLayer.(*layers.UDP)
-
-			srcIP := ip.SrcIP.String()
-			srcPort := udp.SrcPort
-
-			// Check if this is a UDAP response from bootstrap device
-			if srcIP == "0.0.0.0" && srcPort == 17784 {
-				c.logger.Debug("Captured UDAP response", "source_ip", "0.0.0.0", "source_port", srcPort, "payload_bytes", len(udp.Payload))
-
-				if len(udp.Payload) > 0 {
-					// Parse as UDAP packet
-					udapPacket, data, err := ParsePacket(udp.Payload)
-					if err != nil {
-						c.logger.Warn("Failed to parse UDAP packet", "error", err)
-						continue
-					}
-
-					c.logger.Debug("Parsed UDAP packet", "type", fmt.Sprintf("0x%04x", udapPacket.UDAPType), "method", fmt.Sprintf("0x%04x", udapPacket.UCPMethod))
-
-					// Check what type of response this is
-					switch udapPacket.UCPMethod {
-					case MethodDiscover, MethodDataResp, MethodAdvDisc:
-						// This is a discovery response - parse device info
-						device := c.parseDiscoveryResponse(data, srcIP, udapPacket)
-						if device != nil {
-							device.IP = "0.0.0.0"
-							deviceChan <- device
-						} else {
-							c.logger.Warn("Could not parse device information from discovery response")
-						}
-					case MethodSetData:
-						// This could be a save_data response (uses MethodSetData 0x0002) - parse configuration parameters
-						c.logger.Info("Received SetData/save_data response", "action", "parsing_config_parameters")
-						c.parseConfigResponse(data)
-					default:
-						c.logger.Debug("Received non-discovery response", "method", fmt.Sprintf("0x%04x", udapPacket.UCPMethod))
-					}
-				}
-			}
-		}
-	}
+	c.logger.Info("Starting UDAP discovery", "advanced", advanced)
+	return c.DiscoverDevicesUDPCtx(ctx, advanced)
 }
 
 // DiscoverDevicesUDP discovers devices using UDP broadcasts (Layer 3) - fallback method
@@ -283,27 +92,15 @@ func (c *Client) DiscoverDevicesUDPCtx(ctx context.Context, advanced bool) error
 	defer broadcastConn.Close()
 
 	// Enable broadcast on the sending socket
-	file, err := broadcastConn.File()
-	if err == nil {
-		fd := int(file.Fd())
-		err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
-		file.Close()
-		if err != nil {
-			c.logger.Warn("Failed to enable SO_BROADCAST", "error", err)
-		} else {
-			c.logger.Debug("Successfully enabled SO_BROADCAST on send socket")
-		}
-	}
+	enableBroadcast(broadcastConn, c.logger)
 
 	// Start a goroutine to listen for responses with proper lifecycle management
 	responseChannel := make(chan bool, 1)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		c.logger.Debug("Started response listener goroutine")
 		c.listenForResponses(responseChannel)
-	}()
+	})
 
 	// Give the listener a moment to start
 	time.Sleep(100 * time.Millisecond)

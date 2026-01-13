@@ -150,9 +150,9 @@ func main() {
 				// Keep first 3 parts (config, mac, set)
 				args = parts[:3]
 				// Find the rest after "set"
-				setIndex := strings.Index(input, "set")
-				if setIndex != -1 {
-					remainder := strings.TrimSpace(input[setIndex+3:])
+				_, after, ok := strings.Cut(input, "set")
+				if ok {
+					remainder := strings.TrimSpace(after)
 					if remainder != "" {
 						// Split by spaces but respect quotes
 						paramArgs := parseParameters(remainder)
