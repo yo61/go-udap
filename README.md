@@ -14,42 +14,19 @@ This tool allows you to:
 
 ## Installation
 
-### Prerequisites
+### Pre-built Binaries
 
-- Go 1.21 or later
-- [Task](https://taskfile.dev/) (optional, for build automation)
+Download the latest release for your platform from the [Releases](https://github.com/robinbowes/squeezebox-udap/releases) page.
 
-### Building from Source
+### Build from Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/robinbowes/squeezebox-udap.git
 cd squeezebox-udap
-
-# Build using Task (recommended)
-task build
-
-# Or build directly with Go
-go build -ldflags="-s -w" -trimpath -o squeezebox-udap main.go
+go build -o squeezebox-udap main.go
 ```
 
-### Cross-Compilation
-
-The tool can be cross-compiled for different platforms:
-
-```bash
-# Windows
-task build:windows
-
-# Linux (amd64)
-task build:linux
-
-# Linux (arm64)
-task build:linux-arm64
-
-# All platforms
-task build:all
-```
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed build instructions and cross-compilation.
 
 ## Usage
 
@@ -95,17 +72,7 @@ Run the tool to enter interactive mode:
    > config 00:04:20:16:06:02 set interface=1 lan_ip_mode=1 server_address=192.168.1.100
    ```
 
-4. **Save the configuration** to persistent storage:
-   ```
-   > save 00:04:20:16:06:02
-   ```
-
-5. **Reset the device** to apply the new configuration:
-   ```
-   > reset 00:04:20:16:06:02
-   ```
-
-   Or use `commit` to save and reset in one step:
+4. **Save and reset** to apply the new configuration:
    ```
    > commit 00:04:20:16:06:02
    ```
@@ -194,13 +161,6 @@ Device Parameters (15 total):
   ...
 ```
 
-## Protocol Details
-
-- Uses UDP broadcast on port 17784 for device discovery
-- Implements UDAP packet format with TLV (Type-Length-Value) encoding
-- Supports both standard discovery (method 0x0001) and advanced discovery (method 0x0009)
-- Compatible with Squeezebox Receiver, Squeezebox Boom, and other UDAP-enabled devices
-
 ## Troubleshooting
 
 ### No devices found
@@ -224,8 +184,3 @@ Device Parameters (15 total):
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Acknowledgments
-
-- Based on the UDAP protocol implementation from [LMS-Community/squeezeplay](https://github.com/LMS-Community/squeezeplay)
-- Inspired by the Perl [Net::UDAP](https://metacpan.org/pod/Net::UDAP) module
