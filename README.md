@@ -133,11 +133,11 @@ Run the tool to enter interactive mode:
 
 ## Examples
 
-### Configure a device for DHCP on wireless
+### Configure a device for DHCP on wireless with WPA2
 
 ```
 > discover
-> config 00:04:20:16:06:02 set interface=0 lan_ip_mode=1 wireless_SSID=MyNetwork wireless_wpa_on=1 wireless_wpa_psk=MyPassword
+> config 00:04:20:16:06:02 set interface=0 lan_ip_mode=1 wireless_SSID=SlimNet wireless_wpa_on=1 wireless_wpa_mode=2 wireless_wpa_psk=secret_shared_key squeezecenter_address=192.168.1.250
 > commit 00:04:20:16:06:02
 ```
 
@@ -159,6 +159,16 @@ Device Parameters (15 total):
   interface = 1
   wireless_SSID = MyNetwork
   ...
+```
+
+### Scripting with piped commands
+
+Commands can be piped to the tool for non-interactive use:
+
+```bash
+./go-udap <<< "discover
+config 00:04:20:16:06:02 set interface=1 lan_ip_mode=1 squeezecenter_address=192.168.1.250
+commit 00:04:20:16:06:02"
 ```
 
 ## Troubleshooting
