@@ -83,7 +83,7 @@ Run the tool to enter interactive mode:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `lan_ip_mode` | Integer (0-1) | 0 = DHCP, 1 = Static IP |
+| `lan_ip_mode` | Integer (0-1) | 0 = Static IP, 1 = DHCP |
 | `lan_network_address` | IP Address | Static IP address for the device |
 | `lan_subnet_mask` | IP Address | Subnet mask (e.g., 255.255.255.0) |
 | `lan_gateway` | IP Address | Default gateway |
@@ -91,7 +91,7 @@ Run the tool to enter interactive mode:
 | `secondary_dns` | IP Address | Secondary DNS server |
 | `hostname` | String (max 33 chars) | Device hostname |
 | `bridging` | Integer (0-1) | Enable/disable bridging mode |
-| `interface` | Integer (0-1) | 0 = Wired (Ethernet), 1 = Wireless |
+| `interface` | Integer (0-1) | 0 = Wireless, 1 = Wired (Ethernet) |
 
 ### Server Parameters
 
@@ -137,7 +137,7 @@ Run the tool to enter interactive mode:
 
 ```
 > discover
-> config 00:04:20:16:06:02 set interface=1 lan_ip_mode=0 wireless_SSID=MyNetwork wireless_wpa_on=1 wireless_wpa_psk=MyPassword
+> config 00:04:20:16:06:02 set interface=0 lan_ip_mode=1 wireless_SSID=MyNetwork wireless_wpa_on=1 wireless_wpa_psk=MyPassword
 > commit 00:04:20:16:06:02
 ```
 
@@ -145,7 +145,7 @@ Run the tool to enter interactive mode:
 
 ```
 > discover
-> config 00:04:20:16:06:02 set interface=0 lan_ip_mode=1 lan_network_address=192.168.1.50 lan_subnet_mask=255.255.255.0 lan_gateway=192.168.1.1 primary_dns=8.8.8.8 server_address=192.168.1.100
+> config 00:04:20:16:06:02 set interface=1 lan_ip_mode=0 lan_network_address=192.168.1.50 lan_subnet_mask=255.255.255.0 lan_gateway=192.168.1.1 primary_dns=8.8.8.8 server_address=192.168.1.100
 > commit 00:04:20:16:06:02
 ```
 
