@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robinbowes/go-udap)
+
 # Squeezebox UDAP Configuration Tool
 
 A command-line tool for discovering and configuring Squeezebox devices on your network using the UDAP (Universal Device Access Protocol).
