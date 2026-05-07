@@ -53,7 +53,7 @@ type StructuredLogger struct {
 func NewStructuredLogger() *StructuredLogger {
 	return &StructuredLogger{
 		level:  LogLevelInfo, // Default to Info level
-		logger: log.New(os.Stdout, "", 0),
+		logger: log.New(os.Stderr, "", 0),
 	}
 }
 
