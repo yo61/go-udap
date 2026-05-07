@@ -34,6 +34,13 @@ func isValidIP(ip string) bool {
 	return parsedIP.To4() != nil
 }
 
+// ValidateParameter validates a single configuration parameter by name and value.
+// Unknown parameter names are accepted (return nil); rejection of unknown names
+// happens at the CLI boundary.
+func ValidateParameter(name, value string) error {
+	return validateParameter(name, value)
+}
+
 // validateParameter validates a configuration parameter based on its name and type
 func validateParameter(name, value string) error {
 	setting, exists := ConfigSettings[name]
