@@ -17,8 +17,6 @@ func (c *Client) GetDeviceConfig(device *Device, params []string) (map[string]st
 
 // GetDeviceConfigWithContext retrieves configuration from a device with context
 func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device, params []string) (map[string]string, error) {
-	config := make(map[string]string)
-
 	// Create GetData packet
 	packet := c.CreateGetDataPacket(device, params)
 
@@ -102,29 +100,18 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 			return nil, fmt.Errorf("failed to parse captured response: %w", err)
 		}
 
-		// Check if it's a DataResp or Error
 		switch respPacket.UCPMethod {
-		case MethodDataResp:
-			// Parse TLV data
-			tlvs := DecodeTLV(data)
-			var currentParam string
-
-			for _, tlv := range tlvs {
-				switch tlv.Type {
-				case TLVTypeParameterName: // Parameter name
-					currentParam = string(tlv.Value)
-				case TLVTypeParameterValue: // Parameter value
-					if currentParam != "" {
-						config[currentParam] = string(tlv.Value)
-						currentParam = ""
-					}
-				}
+		case MethodGetData:
+			parsed, err := parseGetDataResponse(data)
+			if err != nil {
+				return nil, fmt.Errorf("decode GetData response from %s: %w", device.MAC, err)
 			}
+			return parsed, nil
 		case MethodError:
 			return nil, fmt.Errorf("device %s returned error response", device.MAC)
+		default:
+			return nil, fmt.Errorf("device %s returned unexpected method 0x%04x", device.MAC, respPacket.UCPMethod)
 		}
-
-		return config, nil
 	}
 }
 

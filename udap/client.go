@@ -118,9 +118,21 @@ func (c *Client) CreateAdvancedDiscoveryPacket() []byte {
 	return buf.Bytes()
 }
 
-// CreateGetDataPacket creates a UDAP GetData packet for retrieving parameters
+// CreateGetDataPacket creates a UDAP GetData (0x0005) request packet.
+//
+// Wire format, validated against the Perl Net::UDAP reference
+// implementation (perl_code.pcap frame 6):
+//
+//	[27-byte UDAP header, UCPMethod=0x0005]
+//	[16 zero bytes — username]
+//	[16 zero bytes — password]
+//	[uint16 BE count of items]
+//	[N × (uint16 BE NVRAM offset, uint16 BE length-to-read)]
+//
+// Parameter names not present in ConfigSettings are skipped with a warning.
+// Items are sorted by offset for deterministic output, matching
+// CreateSetDataPacket.
 func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
-	// Convert MAC address to bytes
 	macBytes := c.parseMACAddress(device.MAC)
 
 	packet := c.createUdapPacket(
@@ -130,23 +142,32 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
 		false,         // Not broadcast
 	)
 
-	// Create TLV data for parameters
-	var tlvs []TLVData
-	for _, param := range params {
-		tlv := TLVData{
-			Type:   TLVTypeParameterName, // Parameter name type
-			Length: uint8(len(param)),
-			Value:  []byte(param),
-		}
-		tlvs = append(tlvs, tlv)
+	type item struct {
+		name    string
+		setting ConfigSetting
 	}
+	items := make([]item, 0, len(params))
+	for _, name := range params {
+		s, ok := ConfigSettings[name]
+		if !ok {
+			c.logger.Warn("Unknown parameter skipped", "param", name, "device_mac", device.MAC)
+			continue
+		}
+		items = append(items, item{name: name, setting: s})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].setting.Offset < items[j].setting.Offset
+	})
 
-	// Encode packet header
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, packet)
-
-	// Append TLV data
-	buf.Write(EncodeTLV(tlvs))
+	buf.Write(make([]byte, UsernameFieldSize))
+	buf.Write(make([]byte, PasswordFieldSize))
+	binary.Write(buf, binary.BigEndian, uint16(len(items)))
+	for _, it := range items {
+		binary.Write(buf, binary.BigEndian, it.setting.Offset)
+		binary.Write(buf, binary.BigEndian, it.setting.Length)
+	}
 
 	return buf.Bytes()
 }
