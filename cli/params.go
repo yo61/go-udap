@@ -25,6 +25,7 @@ func paramFlags() []paramFlag {
 		{"secondary_dns", "secondary-dns", "Secondary DNS server IPv4 address"},
 		{"server_address", "server-address", "Logitech Media Server IPv4 address"},
 		{"lms_address", "lms-address", "Alternative LMS server IPv4 address"},
+		{"squeezecenter_name", "squeezecenter-name", "Squeezecenter / LMS server name (max 33 chars)"},
 		{"wireless_mode", "wireless-mode", "0=infrastructure, 1=ad-hoc"},
 		{"wireless_SSID", "wireless-ssid", "Wireless SSID (1-32 chars)"},
 		{"wireless_channel", "wireless-channel", "Wireless channel (1-13)"},
