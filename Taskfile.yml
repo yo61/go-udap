@@ -4,6 +4,7 @@ vars:
   BINARY_NAME: go-udap
   LDFLAGS: -s -w
   BUILD_FLAGS: -ldflags="{{.LDFLAGS}}" -trimpath
+  CLI_ARGS: ""
 
 tasks:
   default:
@@ -95,12 +96,12 @@ tasks:
       - rm -f coverage.out coverage.html
 
   run:
-    desc: Build and run the application
+    desc: Build and print help (CLI is single-shot; pass args explicitly)
     cmds:
       - task: build
-      - ./{{.BINARY_NAME}}
+      - ./{{.BINARY_NAME}} --help
 
   dev:
-    desc: Run without building (for development)
+    desc: Run without building; pass CLI args via -- (e.g. task dev -- discover)
     cmds:
-      - go run main.go
+      - go run . {{.CLI_ARGS}}
