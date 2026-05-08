@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+// ANSI Erase in Line (CSI n K) with n=2 clears the entire current line
+// without moving the cursor. We follow it with \r to land at col 0.
+// This avoids the "write 80 spaces" hazard, where on an exactly-80-column
+// terminal the fill wraps to a new line before the trailing \r can return,
+// leaving a stranded blank line above the next stdout output.
+const ansiEraseLine = "\033[2K\r"
+
 const (
 	progressBarWidth   = 20
 	progressTickRate   = 100 * time.Millisecond
@@ -79,5 +86,5 @@ func drawProgressLine(w io.Writer, label string, elapsed, total time.Duration) {
 }
 
 func clearProgressLine(w io.Writer) {
-	fmt.Fprintf(w, "\r%s\r", strings.Repeat(" ", 80))
+	fmt.Fprint(w, ansiEraseLine)
 }
