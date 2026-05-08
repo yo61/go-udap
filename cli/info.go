@@ -11,7 +11,8 @@ import (
 func runInfo(args []string, stdout, stderr io.Writer) error {
 	fs := pflag.NewFlagSet("info", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
-	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout, e.g. 5s, 30s, 2m")
+	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
+	fs.Var(timeout, "timeout", "Discovery timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
 	if err := parseSubcommandFlags(fs, args); err != nil {
 		return err
@@ -30,8 +31,8 @@ func runInfo(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
-	stop := startProgress(stderr, "info", *timeout)
-	device, err := discoverAndFind(client, mac, *timeout)
+	stop := startProgress(stderr, "info", timeout.Value())
+	device, err := discoverAndFind(client, mac, timeout.Value())
 	stop()
 	if err != nil {
 		return err

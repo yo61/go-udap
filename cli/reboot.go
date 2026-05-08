@@ -12,7 +12,8 @@ import (
 func runReboot(args []string, stdout, stderr io.Writer) error {
 	fs := pflag.NewFlagSet("reboot", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
-	timeout := fs.Duration("timeout", 5*time.Second, "Operation timeout, e.g. 5s, 30s, 2m")
+	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
+	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
 	if err := parseSubcommandFlags(fs, args); err != nil {
 		return err
@@ -31,13 +32,13 @@ func runReboot(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
-	stop := startProgress(stderr, "reboot", *timeout)
+	stop := startProgress(stderr, "reboot", timeout.Value())
 	defer stop()
-	device, err := discoverAndFind(client, mac, *timeout)
+	device, err := discoverAndFind(client, mac, timeout.Value())
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
 	defer cancel()
 	if err := client.ResetDeviceWithContext(ctx, device); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("reboot failed: %w", err)}

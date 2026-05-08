@@ -1,6 +1,10 @@
 package cli
 
-import "go-udap/udap"
+import (
+	"time"
+
+	"go-udap/udap"
+)
 
 // paramFlag describes one CLI --flag form of a UDAP parameter, derived
 // from the udap.Parameters table.
@@ -52,3 +56,36 @@ func (s *stringWithPlaceholder) Type() string {
 	}
 	return s.placeholder
 }
+
+// durationWithPlaceholder is the time.Duration analog of
+// stringWithPlaceholder. Used so --timeout shows "DURATION" in the
+// value-form column instead of pflag's default "duration".
+type durationWithPlaceholder struct {
+	val         time.Duration
+	placeholder string
+}
+
+func newDurationWithPlaceholder(placeholder string, def time.Duration) *durationWithPlaceholder {
+	return &durationWithPlaceholder{val: def, placeholder: placeholder}
+}
+
+func (d *durationWithPlaceholder) String() string { return d.val.String() }
+func (d *durationWithPlaceholder) Set(v string) error {
+	parsed, err := time.ParseDuration(v)
+	if err != nil {
+		return err
+	}
+	d.val = parsed
+	return nil
+}
+
+func (d *durationWithPlaceholder) Type() string {
+	if d.placeholder == "" {
+		return "duration"
+	}
+	return d.placeholder
+}
+
+// Value returns the parsed (or default) duration. Convenience accessor
+// since pflag.Value.String returns a string.
+func (d *durationWithPlaceholder) Value() time.Duration { return d.val }
