@@ -12,7 +12,7 @@ The codebase has been modernized to use current Go best practices and idiomatic 
 
 The application is structured with a modular design:
 
-- **main.go**: Interactive CLI interface with command handling
+- **main.go**: Single-shot CLI interface with command handling
 - **udap/client.go**: Core client that handles UDP communication and device management
 - **udap/discovery.go**: Device discovery implementation with context support
 - **udap/config.go**: Device configuration management with context-aware operations
@@ -25,7 +25,7 @@ The application is structured with a modular design:
 - **UDAPClient**: Core client that handles UDP communication and device management
 - **UDAPDevice**: Represents discovered Squeezebox devices with their properties
 - **UDAP Protocol Implementation**: Low-level packet creation/parsing with TLV encoding
-- **Interactive CLI**: Command-line interface with commands for device discovery and configuration
+- **CLI**: Single-shot command-line interface for device discovery and configuration
 
 ### Key Protocol Details
 
@@ -74,19 +74,28 @@ go run main.go
 
 ## CLI Commands (when running the tool)
 
-- `discover` - Broadcast discovery to find Squeezebox devices
-- `list` - Show all discovered devices
-- `info <mac>` - Display detailed device information
-- `config <mac> get <param>` - Retrieve configuration parameter
-- `config <mac> set <param> <value>` - Set configuration parameter
-- `help` - Show command usage
-- `quit` - Exit the tool
+The tool is single-shot CLI; every operation is one invocation. There is no
+interactive shell.
+
+- `go-udap discover [--info]` — Discover devices; MACs only, or full metadata with `--info`
+- `go-udap info <mac>` — Show metadata for one device
+- `go-udap read <mac>` — Read all parameters from a device
+- `go-udap get <mac> <param> [<param>...]` — Read specific parameters
+- `go-udap set <mac> [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win)
+- `go-udap save <mac>` — Save current config to NVRAM
+- `go-udap reset <mac>` — Reboot the device
+- `go-udap commit <mac>` — Save then reset
+
+Global flags: `--timeout DURATION` (default 5s), `--verbose`/`-v`, `--version`, `--help`/`-h`.
+
+Output is on stdout; logs and warnings on stderr. Exit codes: 0 success,
+1 usage error, 2 operation failure.
 
 ## Development Notes
 
-- The application maintains device state in memory during runtime
-- Network timeouts are set to 5 seconds for device communication
-- Discovery uses broadcast UDP with a configurable timeout
+- Each invocation is independent; no persistent state between runs
+- Network timeouts default to 5 seconds (configurable via `--timeout`)
+- Discovery uses broadcast UDP with configurable timeout
 - All UDAP packets use big-endian byte order for network transmission
 
 ## Code Modernization Status
