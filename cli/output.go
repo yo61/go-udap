@@ -41,12 +41,21 @@ func formatGetResult(w io.Writer, requested []string, values map[string]string) 
 }
 
 // formatDeviceInfo writes a multi-line metadata block for one device.
-// Used by `info` and by `discover --info`.
+// Used by `info` and by `discover --info`. Empty fields are skipped so
+// we don't show e.g. "State:" with nothing after it.
 func formatDeviceInfo(w io.Writer, d *udap.Device) {
 	fmt.Fprintf(w, "MAC:      %s\n", d.MAC)
-	fmt.Fprintf(w, "Name:     %s\n", d.Name)
-	fmt.Fprintf(w, "Model:    %s\n", d.Model)
-	fmt.Fprintf(w, "Firmware: %s\n", d.Firmware)
 	fmt.Fprintf(w, "IP:       %s\n", d.IP)
-	fmt.Fprintf(w, "UUID:     %s\n", d.UUID)
+	if d.Name != "" {
+		fmt.Fprintf(w, "Name:     %s\n", d.Name)
+	}
+	if d.Model != "" {
+		fmt.Fprintf(w, "Model:    %s\n", d.Model)
+	}
+	if d.Firmware != "" {
+		fmt.Fprintf(w, "Firmware: %s\n", d.Firmware)
+	}
+	if d.State != "" {
+		fmt.Fprintf(w, "State:    %s\n", d.State)
+	}
 }

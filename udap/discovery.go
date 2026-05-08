@@ -283,7 +283,39 @@ func (c *Client) listenForResponses(done chan<- bool) {
 	}
 }
 
-// parseDiscoveryResponse parses a discovery response and creates a Device
+// Discovery-response TLV codes, per Net::UDAP Constant.pm
+// (UCP_CODE_* constants). The codes are 1-byte; values are
+// length-prefixed bytes.
+const (
+	tlvDeviceName   = 0x02
+	tlvDeviceType   = 0x03
+	tlvFirmwareRev  = 0x09
+	tlvHardwareRev  = 0x0a
+	tlvDeviceID     = 0x0b
+	tlvDeviceStatus = 0x0c
+)
+
+// productNameByID maps a device_id (TLV 0x0b, sent as a 2-char ASCII
+// hex string e.g. "07") to its human-readable product name. Source:
+// Lugi/squeezeplay device tables; Receiver is the one we've physically
+// captured ("07"). Other entries are for completeness — we'd need
+// captures from each model to verify their device_id at the wire.
+var productNameByID = map[string]string{
+	"02": "Squeezebox 2",
+	"03": "Squeezebox 3",
+	"04": "Transporter",
+	"05": "SoftSqueeze",
+	"06": "Squeezebox Boom",
+	"07": "Squeezebox Receiver",
+	"08": "Squeezebox Touch",
+	"09": "Squeezebox Radio",
+	"0a": "Squeezebox Controller",
+	"0b": "Squeezeslave",
+}
+
+// parseDiscoveryResponse parses a discovery response and creates a
+// Device. TLV codes are per Net::UDAP Constant.pm — see the const
+// block above.
 func (c *Client) parseDiscoveryResponse(data []byte, ip string, packet *Packet) *Device {
 	device := &Device{
 		IP:         ip,
@@ -291,93 +323,65 @@ func (c *Client) parseDiscoveryResponse(data []byte, ip string, packet *Packet) 
 		Parameters: make(map[string]string),
 	}
 
-	// Extract MAC from source address if it's ETH type
 	if packet.SrcType == AddrTypeETH {
 		device.MAC = fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
 			packet.SrcAddress[0], packet.SrcAddress[1], packet.SrcAddress[2],
 			packet.SrcAddress[3], packet.SrcAddress[4], packet.SrcAddress[5])
 	} else {
-		// For UDP type, we might not have the MAC directly
-		// Try to parse from data if available, otherwise use IP as identifier
 		device.MAC = fmt.Sprintf("udp:%s", ip)
 	}
 
-	// Parse additional data if present (TLV format or other)
-	if len(data) > 0 {
-		// Try to parse TLV data with proper parsing
-		offset := 0
-		for offset < len(data) {
-			if offset+2 >= len(data) {
-				break
-			}
+	var deviceType, deviceID string
 
-			tagType := data[offset]
-			length := data[offset+1]
-			offset += 2
+	for offset := 0; offset+2 <= len(data); {
+		tagType := data[offset]
+		length := int(data[offset+1])
+		offset += 2
+		if offset+length > len(data) {
+			break
+		}
+		value := data[offset : offset+length]
+		offset += length
 
-			if offset+int(length) > len(data) {
-				break
-			}
-
-			value := data[offset : offset+int(length)]
-
-			switch tagType {
-			case 0x01: // MAC Address
-				device.MAC = string(value)
-			case 0x02: // Device Name
-				device.Name = string(value)
-			case 0x03: // Model
-				device.Model = string(value)
-			case 0x04: // Firmware Version
-				device.Firmware = string(value)
-			case 0x05: // UUID
-				device.UUID = string(value)
-			case 0x1a: // Possible device name (seen in packet)
-				if device.Name == "" {
-					device.Name = string(value)
-				}
-			case 0xad: // Another possible name field (seen in packet)
-				if device.Name == "" {
-					// Null-terminated string
-					nullIndex := 0
-					for i, b := range value {
-						if b == 0 {
-							nullIndex = i
-							break
-						}
-					}
-					if nullIndex > 0 {
-						device.Name = string(value[:nullIndex])
-					} else {
-						device.Name = string(value)
-					}
-				}
-			case 0xb7: // Another field (seen in packet)
-				// This might be model or firmware
-				nullIndex := 0
-				for i, b := range value {
-					if b == 0 {
-						nullIndex = i
-						break
-					}
-				}
-				valueStr := string(value)
-				if nullIndex > 0 {
-					valueStr = string(value[:nullIndex])
-				}
-				if device.Model == "" && valueStr != "" {
-					device.Model = valueStr
-				}
-			}
-
-			offset += int(length)
+		switch tagType {
+		case tlvDeviceName:
+			device.Name = string(value)
+		case tlvDeviceType:
+			deviceType = string(value)
+		case tlvFirmwareRev:
+			device.Firmware = string(value)
+		case tlvDeviceID:
+			deviceID = string(value)
+		case tlvDeviceStatus:
+			device.State = string(value)
+		case tlvHardwareRev:
+			// Not surfaced today; recorded for future use.
+		default:
+			c.logger.Debug("unknown discovery TLV", "tag", fmt.Sprintf("0x%02x", tagType), "len", length)
 		}
 	}
 
-	// Set default name if not provided
+	device.Model = combineModel(deviceType, deviceID)
+
 	if device.Name == "" {
 		device.Name = "Squeezebox Device"
 	}
-
 	return device
+}
+
+// combineModel renders a friendly Model string from the device_type
+// (TLV 0x03, e.g. "squeezebox") and device_id (TLV 0x0b, e.g. "07").
+// Falls back gracefully if either is missing.
+func combineModel(deviceType, deviceID string) string {
+	product, known := productNameByID[deviceID]
+	switch {
+	case known:
+		return product
+	case deviceType != "" && deviceID != "":
+		return fmt.Sprintf("%s (id=%s)", deviceType, deviceID)
+	case deviceType != "":
+		return deviceType
+	default:
+		return ""
+	}
 }

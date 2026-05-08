@@ -45,23 +45,27 @@ func TestParseRealSBRDiscoveryResponse(t *testing.T) {
 		t.Fatal("parseDiscoveryResponse returned nil")
 	}
 
-	t.Logf("MAC=%q Name=%q Model=%q Firmware=%q UUID=%q",
-		device.MAC, device.Name, device.Model, device.Firmware, device.UUID)
+	t.Logf("MAC=%q Name=%q Model=%q Firmware=%q State=%q",
+		device.MAC, device.Name, device.Model, device.Firmware, device.State)
 
 	if device.MAC != "00:04:20:16:05:8f" {
 		t.Errorf("MAC: got %q, want 00:04:20:16:05:8f", device.MAC)
 	}
-	// Whatever Name is, it shouldn't be the default fallback if a real
-	// TLV set it. Empty TLV in this capture means the device has no
-	// configured name; but the parser overwrites empty with the
-	// "Squeezebox Device" default, so we accept that here.
+	// Empty TLV 0x02 in this capture means the device has no configured
+	// hostname; parser substitutes "Squeezebox Device" so the user sees
+	// something — accept that here.
 	if device.Name == "" {
 		t.Errorf("Name unexpectedly empty (default fallback should fire)")
 	}
-
-	// The model TLV (0x03) clearly contains "squeezebox" — this is the
-	// claim under test.
-	if device.Model != "squeezebox" {
-		t.Errorf("Model: got %q, want squeezebox", device.Model)
+	// Model is computed: device_type (TLV 0x03 "squeezebox") + device_id
+	// (TLV 0x0b "07") → "Squeezebox Receiver" via productNameByID lookup.
+	if device.Model != "Squeezebox Receiver" {
+		t.Errorf("Model: got %q, want Squeezebox Receiver", device.Model)
+	}
+	if device.Firmware != "77" {
+		t.Errorf("Firmware: got %q, want 77", device.Firmware)
+	}
+	if device.State != "init" {
+		t.Errorf("State: got %q, want init", device.State)
 	}
 }

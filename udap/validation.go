@@ -7,20 +7,12 @@ import (
 	"strings"
 )
 
-// Regular expressions for validation
-var (
-	macRegex  = regexp.MustCompile(`^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$`)
-	uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-)
+// macRegex validates the canonical XX:XX:XX:XX:XX:XX MAC address form.
+var macRegex = regexp.MustCompile(`^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$`)
 
 // isValidMAC validates MAC address format (XX:XX:XX:XX:XX:XX)
 func isValidMAC(mac string) bool {
 	return macRegex.MatchString(mac)
-}
-
-// isValidUUID validates UUID format
-func isValidUUID(uuid string) bool {
-	return uuid == "" || uuidRegex.MatchString(uuid)
 }
 
 // isValidIP validates IPv4 address format
@@ -117,11 +109,6 @@ func (d *Device) Validate() error {
 	// Validate IP address if not in bootstrap mode
 	if d.IP != "" && d.IP != "0.0.0.0" && !isValidIP(d.IP) {
 		return fmt.Errorf("invalid IP address: %s", d.IP)
-	}
-
-	// Validate UUID if provided
-	if !isValidUUID(d.UUID) {
-		return fmt.Errorf("invalid UUID format: %s", d.UUID)
 	}
 
 	// Validate name length

@@ -232,9 +232,9 @@ func TestDevice(t *testing.T) {
 		MAC:      "00:04:20:12:34:56",
 		IP:       "192.168.1.100",
 		Name:     "Test Device",
-		Model:    "Squeezebox",
-		Firmware: "7.8.0",
-		UUID:     "12345678-1234-1234-1234-123456789abc",
+		Model:    "Squeezebox Receiver",
+		Firmware: "77",
+		State:    "init",
 		LastSeen: time.Now(),
 		Parameters: map[string]string{
 			"hostname":    "testbox",

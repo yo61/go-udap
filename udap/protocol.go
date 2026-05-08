@@ -75,14 +75,23 @@ type Packet struct {
 	UCPMethod    uint16  // UCP method
 }
 
-// Device represents a discovered Squeezebox device
+// Device represents a discovered Squeezebox device. Fields are populated
+// from the discovery-response TLVs (per Net::UDAP Constant.pm code map):
+//
+//	Name      ← TLV 0x02 device_name (the configured hostname)
+//	Model     ← TLV 0x03 device_type + TLV 0x0b device_id, joined into a
+//	            human label (e.g. "Squeezebox Receiver")
+//	Firmware  ← TLV 0x09 firmware_rev (e.g. "77")
+//	State     ← TLV 0x0c device_status (init / wait_slimserver / connected)
+//
+// MAC and IP come from the UDAP packet header / UDP source address.
 type Device struct {
 	MAC        string            `json:"mac"`
 	IP         string            `json:"ip"`
 	Name       string            `json:"name"`
 	Model      string            `json:"model"`
 	Firmware   string            `json:"firmware"`
-	UUID       string            `json:"uuid"`
+	State      string            `json:"state,omitempty"`
 	LastSeen   time.Time         `json:"last_seen"`
 	Parameters map[string]string `json:"parameters"` // Stores all device parameters
 }

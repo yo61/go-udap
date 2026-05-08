@@ -56,16 +56,31 @@ func TestFormatDeviceInfoLines(t *testing.T) {
 	d := &udap.Device{
 		MAC:      "aa:bb:cc:dd:ee:ff",
 		Name:     "Receiver",
-		Model:    "SBR",
+		Model:    "Squeezebox Receiver",
 		Firmware: "77",
 		IP:       "192.168.1.50",
-		UUID:     "1234abcd-...",
+		State:    "wait_slimserver",
 	}
 	formatDeviceInfo(&buf, d)
 	got := buf.String()
-	for _, want := range []string{"aa:bb:cc:dd:ee:ff", "Receiver", "SBR", "77", "192.168.1.50", "1234abcd-..."} {
+	for _, want := range []string{
+		"aa:bb:cc:dd:ee:ff", "Receiver", "Squeezebox Receiver",
+		"77", "192.168.1.50", "wait_slimserver",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("info output missing %q; got %q", want, got)
+		}
+	}
+}
+
+func TestFormatDeviceInfoOmitsEmptyFields(t *testing.T) {
+	var buf bytes.Buffer
+	d := &udap.Device{MAC: "aa:bb:cc:dd:ee:ff", IP: "0.0.0.0"}
+	formatDeviceInfo(&buf, d)
+	got := buf.String()
+	for _, unexpected := range []string{"Name:", "Model:", "Firmware:", "State:"} {
+		if strings.Contains(got, unexpected) {
+			t.Errorf("output should omit %q for empty value; got %q", unexpected, got)
 		}
 	}
 }
