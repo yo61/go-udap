@@ -18,10 +18,15 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	reboot := fs.BoolP("reboot", "r", false, "Reboot the device after applying changes")
 	configPath := fs.String("config", "", "Read parameters from `FILE` (use - for stdin)")
 
-	// Register a string flag for every known UDAP parameter.
+	// Register a string flag for every known UDAP parameter, using
+	// stringWithPlaceholder so each flag's --help line shows a semantic
+	// placeholder (IP, NAME, 0|1, ...) instead of pflag's default "string".
 	pf := paramFlags()
+	paramValues := make(map[string]*stringWithPlaceholder, len(pf))
 	for _, p := range pf {
-		fs.String(p.flagName, "", p.help)
+		v := newStringWithPlaceholder(p.placeholder)
+		fs.Var(v, p.flagName, p.help)
+		paramValues[p.udapName] = v
 	}
 
 	if err := parseSubcommandFlags(fs, args); err != nil {
@@ -41,11 +46,7 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 		if !fs.Changed(p.flagName) {
 			continue
 		}
-		v, err := fs.GetString(p.flagName)
-		if err != nil {
-			return &ExitError{Code: 1, Err: err}
-		}
-		flagValues[p.udapName] = v
+		flagValues[p.udapName] = paramValues[p.udapName].String()
 	}
 
 	// Resolve --config (file path, "-" for stdin, or unset).
