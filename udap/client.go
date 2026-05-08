@@ -8,7 +8,6 @@ import (
 	"net"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -376,12 +375,12 @@ func (c *Client) GetDevices() map[string]*Device {
 	return c.devices
 }
 
-// PacketCaptureConfig configures packet capture behavior
+// PacketCaptureConfig configures packet capture behavior. The capture
+// deadline comes from the caller's context; there's no inner timeout.
 type PacketCaptureConfig struct {
-	Purpose    string        // Description of what this capture is for
-	Timeout    time.Duration // Timeout for the entire operation
-	SourceIP   string        // Expected source IP (empty string accepts any IP including 0.0.0.0)
-	SourcePort uint16        // Expected source port (defaults to 17784)
+	Purpose    string // Description of what this capture is for
+	SourceIP   string // Expected source IP (empty string accepts any IP including 0.0.0.0)
+	SourcePort uint16 // Expected source port (defaults to 17784)
 }
 
 // PacketCaptureResult contains the result of packet capture
@@ -391,48 +390,20 @@ type PacketCaptureResult struct {
 	SrcPort uint16
 }
 
-// getActiveNetworkInterface returns a suitable network interface name for packet operations.
-// This replaces pcap.FindAllDevs() with pure Go networking.
-func getActiveNetworkInterface() (string, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return "", fmt.Errorf("failed to get network interfaces: %w", err)
-	}
-
-	// First pass: prefer "en" (macOS) or "eth" (Linux) interfaces
-	for _, iface := range interfaces {
-		// Skip down or loopback interfaces
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-
-		// Prefer standard interface prefixes
-		if strings.HasPrefix(iface.Name, "en") || strings.HasPrefix(iface.Name, "eth") {
-			addrs, err := iface.Addrs()
-			if err == nil && len(addrs) > 0 {
-				return iface.Name, nil
-			}
-		}
-	}
-
-	// Fallback: return first active interface with addresses
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, err := iface.Addrs()
-		if err == nil && len(addrs) > 0 {
-			return iface.Name, nil
-		}
-	}
-
-	return "", fmt.Errorf("no suitable network interface found")
-}
-
-// capturePacketWithContext performs UDP packet capture using standard Go networking.
-// This replaces the previous pcap-based implementation for cross-platform compatibility.
+// capturePacketWithContext reads packets from the client's UDP socket
+// and returns the first one matching the supplied filter. Deadline
+// comes from ctx — no inner timeout. Stale packets in the socket
+// buffer (responses from previous operations, or our own kernel-looped
+// broadcasts that arrived after a previous capture returned) are
+// drained first so they don't get mistaken for the current operation's
+// response.
+//
+// Earlier versions tried to bind a fresh socket on UDP 17784 first and
+// fell back to c.conn only on EADDRINUSE. The fresh-bind path always
+// failed because c.conn already holds the port, so it was unreachable
+// and just emitted a noisy "Using existing connection" debug line.
+// The fresh-bind path has been removed.
 func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
-	// Set defaults
 	if config.SourcePort == 0 {
 		config.SourcePort = Port
 	}
@@ -440,119 +411,14 @@ func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCapt
 		config.Purpose = "packet capture"
 	}
 
-	// Create context with timeout if specified
-	captureCtx := ctx
-	if config.Timeout > 0 {
-		var cancel context.CancelFunc
-		captureCtx, cancel = context.WithTimeout(ctx, config.Timeout)
-		defer cancel()
-	}
-
-	// Create a dedicated listening socket on the UDAP port
-	// Use udp4 explicitly for consistency with the main client socket
-	listenAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", Port))
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve listen address for %s: %w", config.Purpose, err)
-	}
-
-	conn, err := net.ListenUDP("udp4", listenAddr)
-	if err != nil {
-		// If we can't create a new listener (port in use), use the existing client connection
-		c.logger.Debug("Using existing connection for capture", "reason", err.Error(), "purpose", config.Purpose)
-		return c.capturePacketFromExistingConn(captureCtx, config)
-	}
-	defer conn.Close()
-
-	// Enable socket options for proper broadcast reception
-	enableBroadcastSimple(conn, c.logger)
-
-	// Set read deadline from context
-	if deadline, ok := captureCtx.Deadline(); ok {
-		conn.SetReadDeadline(deadline)
-	}
-
-	c.logger.Info("Started UDP capture", "purpose", config.Purpose, "port", Port)
-
-	buffer := make([]byte, 2048)
-	for {
-		select {
-		case <-captureCtx.Done():
-			return nil, fmt.Errorf("capture timeout for %s: %w", config.Purpose, captureCtx.Err())
-		default:
-			n, srcAddr, err := conn.ReadFromUDP(buffer)
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					return nil, fmt.Errorf("capture timeout for %s: no matching packet received", config.Purpose)
-				}
-				return nil, fmt.Errorf("read error during %s: %w", config.Purpose, err)
-			}
-
-			srcIP := srcAddr.IP.String()
-			srcPort := uint16(srcAddr.Port)
-
-			if isUDAPRequestPacket(buffer, n) {
-				c.logger.Debug("Skipped looped-back request packet", "purpose", config.Purpose, "src_ip", srcIP)
-				continue
-			}
-
-			// Filter by source criteria
-			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
-			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
-			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
-
-			if ipMatches && portMatches && n > 0 {
-				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
-
-				result := &PacketCaptureResult{
-					Payload: make([]byte, n),
-					SrcIP:   srcIP,
-					SrcPort: srcPort,
-				}
-				copy(result.Payload, buffer[:n])
-				return result, nil
-			}
-		}
-	}
-}
-
-// flushStalePackets reads and discards any pending packets from the socket buffer.
-// This prevents stale responses from previous operations being mistaken for new responses.
-func (c *Client) flushStalePackets() {
-	buffer := make([]byte, 2048)
-	flushedCount := 0
-
-	// Set a very short deadline to quickly drain any pending packets
-	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
-	defer c.conn.SetReadDeadline(time.Time{})
-
-	for {
-		n, addr, err := c.conn.ReadFromUDP(buffer)
-		if err != nil {
-			// Timeout or other error means no more pending packets
-			break
-		}
-		flushedCount++
-		c.logger.Debug("Flushed stale packet", "bytes", n, "src_ip", addr.IP.String())
-	}
-
-	if flushedCount > 0 {
-		c.logger.Debug("Flushed stale packets from buffer", "count", flushedCount)
-	}
-}
-
-// capturePacketFromExistingConn captures a packet using the client's existing UDP connection.
-// This is used as a fallback when a dedicated capture socket cannot be created.
-func (c *Client) capturePacketFromExistingConn(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
-	// First, flush any stale packets from the buffer by reading with a very short timeout
 	c.flushStalePackets()
 
-	// Set read deadline from context
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetReadDeadline(deadline)
 	}
 	defer c.conn.SetReadDeadline(time.Time{})
 
-	c.logger.Info("Started UDP capture on existing connection", "purpose", config.Purpose, "port", Port)
+	c.logger.Info("Started UDP capture", "purpose", config.Purpose, "port", Port)
 	c.logger.Debug("Capture filter", "expected_source_ip", config.SourceIP, "expected_source_port", config.SourcePort)
 
 	buffer := make([]byte, 2048)
@@ -571,7 +437,6 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 
 			srcIP := srcAddr.IP.String()
 			srcPort := uint16(srcAddr.Port)
-
 			c.logger.Debug("Capture received packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
 
 			if isUDAPRequestPacket(buffer, n) {
@@ -579,8 +444,8 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 				continue
 			}
 
-			// Filter by source criteria
-			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
+			// Accept if: no specific source IP required OR source IP matches
+			// OR source is 0.0.0.0 (bootstrap mode).
 			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
 			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
 
@@ -592,18 +457,43 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 				c.logger.Debug("Packet filtered out", "reason", "port mismatch", "expected", config.SourcePort, "got", srcPort)
 				continue
 			}
-
-			if n > 0 {
-				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
-
-				result := &PacketCaptureResult{
-					Payload: make([]byte, n),
-					SrcIP:   srcIP,
-					SrcPort: srcPort,
-				}
-				copy(result.Payload, buffer[:n])
-				return result, nil
+			if n == 0 {
+				continue
 			}
+
+			c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
+			result := &PacketCaptureResult{
+				Payload: make([]byte, n),
+				SrcIP:   srcIP,
+				SrcPort: srcPort,
+			}
+			copy(result.Payload, buffer[:n])
+			return result, nil
 		}
+	}
+}
+
+// flushStalePackets reads and discards any pending packets from the socket
+// buffer with a very short read deadline. Prevents responses from previous
+// operations (or our own looped-back broadcasts) being mistaken for the
+// next operation's response.
+func (c *Client) flushStalePackets() {
+	buffer := make([]byte, 2048)
+	flushedCount := 0
+
+	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+	defer c.conn.SetReadDeadline(time.Time{})
+
+	for {
+		n, addr, err := c.conn.ReadFromUDP(buffer)
+		if err != nil {
+			break
+		}
+		flushedCount++
+		c.logger.Debug("Flushed stale packet", "bytes", n, "src_ip", addr.IP.String())
+	}
+
+	if flushedCount > 0 {
+		c.logger.Debug("Flushed stale packets from buffer", "count", flushedCount)
 	}
 }

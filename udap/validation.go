@@ -5,7 +5,6 @@ import (
 	"net"
 	"regexp"
 	"strings"
-	"time"
 )
 
 // Regular expressions for validation
@@ -199,24 +198,12 @@ func (t *TLVData) Validate() error {
 
 // Validate checks if the PacketCaptureConfig struct contains valid data
 func (p *PacketCaptureConfig) Validate() error {
-	// Validate timeout
-	if p.Timeout < 0 {
-		return fmt.Errorf("timeout cannot be negative")
-	}
-	if p.Timeout > MaxTimeoutMinutes*60*time.Second {
-		return fmt.Errorf("timeout too large (max %d minutes)", MaxTimeoutMinutes)
-	}
-
-	// Validate source IP if provided
 	if p.SourceIP != "" && !isValidIP(p.SourceIP) {
 		return fmt.Errorf("invalid source IP: %s", p.SourceIP)
 	}
-
-	// Validate source port
 	if p.SourcePort > 65535 {
 		return fmt.Errorf("invalid source port: %d", p.SourcePort)
 	}
-
 	return nil
 }
 

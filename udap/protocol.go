@@ -53,7 +53,6 @@ const (
 	MaxTLVValueLength   = 255   // Maximum TLV value length (uint8 max)
 	MaxConfigLength     = 256   // Maximum configuration parameter length
 	MaxNVRAMOffset      = 65535 // Maximum NVRAM offset (uint16 max)
-	MaxTimeoutMinutes   = 10    // Maximum timeout in minutes
 
 	// Common Network Values
 	BroadcastIP = "255.255.255.255"

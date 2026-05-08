@@ -125,13 +125,8 @@ func TestClientDeviceManagement(t *testing.T) {
 func TestPacketCaptureConfig(t *testing.T) {
 	config := PacketCaptureConfig{
 		Purpose:    "test capture",
-		Timeout:    5 * time.Second,
 		SourceIP:   "192.168.1.100",
 		SourcePort: 17784,
-	}
-
-	if config.Timeout != 5*time.Second {
-		t.Errorf("Expected timeout 5s, got %v", config.Timeout)
 	}
 
 	if config.Purpose != "test capture" {
@@ -164,19 +159,6 @@ func TestPacketCaptureResult(t *testing.T) {
 
 	if result.SrcPort != 17784 {
 		t.Errorf("Expected SrcPort 17784, got %d", result.SrcPort)
-	}
-}
-
-func TestGetActiveNetworkInterface(t *testing.T) {
-	// Test getting active network interface
-	iface, err := getActiveNetworkInterface()
-
-	// Should return some interface name or an error
-	// We can't test for specific values since it depends on the system
-	if err != nil {
-		t.Logf("No active network interface found: %v", err)
-	} else {
-		t.Logf("Active network interface: %s", iface)
 	}
 }
 

@@ -33,17 +33,3 @@ func enableBroadcast(conn *net.UDPConn, logger Logger) {
 		}
 	})
 }
-
-// enableBroadcastSimple enables SO_BROADCAST + SO_REUSEADDR on a UDP
-// connection without per-option logging. Same blocking-mode rationale as
-// enableBroadcast above.
-func enableBroadcastSimple(conn *net.UDPConn, logger Logger) {
-	rawConn, err := conn.SyscallConn()
-	if err != nil {
-		return
-	}
-	rawConn.Control(func(fd uintptr) {
-		syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
-		syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-	})
-}
