@@ -72,8 +72,8 @@ var Parameters = []Parameter{
 	{"wireless_wep_key_2", 248, 13, "WEP key slot 2"},
 	{"wireless_wep_key_3", 261, 13, "WEP key slot 3"},
 	{"wireless_wep_on", 274, 1, "0=disabled, 1=enabled"},
-	{"wireless_wpa_cipher", 275, 1, "WPA cipher type"},
-	{"wireless_wpa_mode", 276, 1, "WPA mode"},
+	{"wireless_wpa_cipher", 275, 1, "1=TKIP, 2=AES (CCMP), 3=TKIP+AES"},
+	{"wireless_wpa_mode", 276, 1, "1=WPA, 2=WPA2"},
 	{"wireless_wpa_on", 277, 1, "0=disabled, 1=enabled"},
 	{"wireless_wpa_psk", 278, 64, "WPA pre-shared key (8-63 chars)"},
 }
