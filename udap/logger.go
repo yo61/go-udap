@@ -2,6 +2,7 @@ package udap
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -49,11 +50,18 @@ type StructuredLogger struct {
 	logger *log.Logger
 }
 
-// NewStructuredLogger creates a new structured logger
+// NewStructuredLogger creates a new structured logger writing to stderr.
 func NewStructuredLogger() *StructuredLogger {
+	return NewStructuredLoggerWith(os.Stderr)
+}
+
+// NewStructuredLoggerWith creates a structured logger writing to the
+// supplied io.Writer. Used by the CLI to wrap stderr in a writer that
+// serializes with the progress-bar drawing goroutine.
+func NewStructuredLoggerWith(w io.Writer) *StructuredLogger {
 	return &StructuredLogger{
 		level:  LogLevelInfo, // Default to Info level
-		logger: log.New(os.Stderr, "", 0),
+		logger: log.New(w, "", 0),
 	}
 }
 

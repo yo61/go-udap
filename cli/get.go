@@ -33,7 +33,7 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 		}
 	}
 
-	client, err := newClient(*verbose)
+	client, err := newClient(*verbose, stderr)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}

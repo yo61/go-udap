@@ -65,26 +65,32 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 
+	// Wrap stderr in a writer that serializes the progress bar with the
+	// structured logger so they don't smash into each other on the same
+	// terminal row. Subcommands and newClient both pull stderr from
+	// here, so all writes go through the same mutex.
+	syncErr := newStderrSync(stderr)
+
 	cmd := args[0]
 	subArgs := args[1:]
 
 	switch cmd {
 	case "discover":
-		return runDiscover(subArgs, stdout, stderr)
+		return runDiscover(subArgs, stdout, syncErr)
 	case "info":
-		return runInfo(subArgs, stdout, stderr)
+		return runInfo(subArgs, stdout, syncErr)
 	case "read":
-		return runRead(subArgs, stdout, stderr)
+		return runRead(subArgs, stdout, syncErr)
 	case "get":
-		return runGet(subArgs, stdout, stderr)
+		return runGet(subArgs, stdout, syncErr)
 	case "set":
-		return runSet(subArgs, stdout, stderr)
+		return runSet(subArgs, stdout, syncErr)
 	case "save":
-		return runSave(subArgs, stdout, stderr)
+		return runSave(subArgs, stdout, syncErr)
 	case "reset":
-		return runReset(subArgs, stdout, stderr)
+		return runReset(subArgs, stdout, syncErr)
 	case "commit":
-		return runCommit(subArgs, stdout, stderr)
+		return runCommit(subArgs, stdout, syncErr)
 	default:
 		return &ExitError{Code: 1, Err: fmt.Errorf("unknown command: %s", cmd)}
 	}

@@ -25,7 +25,7 @@ func runSave(args []string, stdout, stderr io.Writer) error {
 		return &ExitError{Code: 1, Err: err}
 	}
 
-	client, err := newClient(*verbose)
+	client, err := newClient(*verbose, stderr)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}

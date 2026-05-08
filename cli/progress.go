@@ -37,10 +37,27 @@ const (
 // don't flash a bar on and off. If the operation finishes before the
 // delay elapses, no output is ever written.
 func startProgress(stderr io.Writer, label string, total time.Duration) func() {
-	f, ok := stderr.(*os.File)
-	if !ok {
+	// stderr should be a *stderrSync (cli.Run wraps every subcommand's
+	// stderr in one). Unwrap to get the underlying writer so we can
+	// TTY-detect; if anything else is passed (tests, or a future caller
+	// that bypasses Run), we degrade to the plain *os.File path.
+	var sink barSink
+	var f *os.File
+	switch ww := stderr.(type) {
+	case *stderrSync:
+		osFile, ok := ww.underlying().(*os.File)
+		if !ok {
+			return func() {}
+		}
+		f = osFile
+		sink = ww
+	case *os.File:
+		f = ww
+		sink = directSink{f}
+	default:
 		return func() {}
 	}
+
 	st, err := f.Stat()
 	if err != nil || (st.Mode()&os.ModeCharDevice) == 0 {
 		return func() {}
@@ -59,10 +76,10 @@ func startProgress(stderr io.Writer, label string, total time.Duration) func() {
 		ticker := time.NewTicker(progressTickRate)
 		defer ticker.Stop()
 		for {
-			drawProgressLine(f, label, time.Since(start), total)
+			sink.barDraw(renderProgressLine(label, time.Since(start), total))
 			select {
 			case <-ctx.Done():
-				clearProgressLine(f)
+				sink.barClear()
 				return
 			case <-ticker.C:
 			}
@@ -74,17 +91,29 @@ func startProgress(stderr io.Writer, label string, total time.Duration) func() {
 	}
 }
 
-func drawProgressLine(w io.Writer, label string, elapsed, total time.Duration) {
+// barSink is the small interface startProgress needs from its stderr
+// destination. Both *stderrSync (synchronized with the logger) and
+// directSink (plain stderr, no synchronization) satisfy it.
+type barSink interface {
+	barDraw(text string)
+	barClear()
+}
+
+// directSink writes the bar straight to a writer with no synchronization.
+// Used as a fallback when startProgress is called outside cli.Run's
+// stderrSync wrapping.
+type directSink struct{ w io.Writer }
+
+func (d directSink) barDraw(text string) { fmt.Fprint(d.w, text) }
+func (d directSink) barClear()           { fmt.Fprint(d.w, ansiEraseLine) }
+
+func renderProgressLine(label string, elapsed, total time.Duration) string {
 	pct := float64(elapsed) / float64(total)
 	if pct > 1 {
 		pct = 1
 	}
 	filled := int(pct * float64(progressBarWidth))
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", progressBarWidth-filled)
-	fmt.Fprintf(w, "\r%s: [%s] %3d%% (%.1fs/%.1fs)",
+	return fmt.Sprintf("\r%s: [%s] %3d%% (%.1fs/%.1fs)",
 		label, bar, int(pct*100), elapsed.Seconds(), total.Seconds())
-}
-
-func clearProgressLine(w io.Writer) {
-	fmt.Fprint(w, ansiEraseLine)
 }

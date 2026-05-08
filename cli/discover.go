@@ -22,7 +22,7 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 		return &ExitError{Code: 1, Err: err}
 	}
 
-	client, err := newClient(*verbose)
+	client, err := newClient(*verbose, stderr)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
@@ -58,9 +58,11 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-// newClient constructs a udap.Client; verbose controls log level.
-func newClient(verbose bool) (*udap.Client, error) {
-	logger := udap.NewStructuredLogger()
+// newClient constructs a udap.Client whose logger writes through the
+// supplied stderr writer (typically a *stderrSync that serializes log
+// output with the progress bar).
+func newClient(verbose bool, stderr io.Writer) (*udap.Client, error) {
+	logger := udap.NewStructuredLoggerWith(stderr)
 	if verbose {
 		logger.SetLevel(udap.LogLevelDebug)
 	} else {
