@@ -607,3 +607,245 @@ Each plan produces working, mergeable software on its own.
   combination (decided in Phase 1 plan based on what's cleanest in code).
 - Exact UDAP error packet format the mock returns for `FailOn` (depends on
   capture session step 7).
+
+---
+
+## Appendix A: UDAP packet reference (from real-SBR captures)
+
+Captured 2026-05-08 against two Squeezebox Receivers on the same LAN.
+Both report `Model="squeezebox"` via discovery; firmware version is
+not advertised as an obvious string but the `0x09=07` and `0x0b=37`
+TLVs likely encode the firmware revision (see TLV table below).
+Source pcap: `sbr-capture.pcap` in repo working tree (untracked,
+not committed). Per-packet binary fixtures at
+`mocksbr/testdata/captures/`.
+
+### Packet header (27 bytes)
+
+The earlier `UDAPHeaderSize = 25` was wrong; the struct serialises to 27
+bytes. Fixed in commit `239b11b` on `robin/cli-redesign`.
+
+| Offset | Bytes | Field | Notes |
+|---|---|---|---|
+| 0 | 1 | DstBroadcast | 0x01 in client→device requests; 0x00 in responses |
+| 1 | 1 | DstType | 0x01 = ETH (always seen) |
+| 2 | 6 | DstAddress | target MAC; all-zeros in client broadcasts; client's MAC in responses |
+| 8 | 1 | SrcBroadcast | always 0x00 |
+| 9 | 1 | SrcType | 0x01 = ETH (always seen) |
+| 10 | 6 | SrcAddress | sender's MAC; all-zeros in client requests; device MAC in responses |
+| 16 | 2 | Sequence | client picks; device echoes |
+| 18 | 2 | UDAPType | 0xC001 = UCP (always seen) |
+| 20 | 1 | UCPFlags | 0x01 = request; 0x00 = response |
+| 21 | 4 | UAPClass | always 0x00, 0x01, 0x00, 0x01 |
+| 25 | 2 | UCPMethod | see method table below |
+
+### UCP methods observed
+
+| Method | Direction | Meaning |
+|---|---|---|
+| 0x0001 | request (broadcast) | Discover (basic) |
+| 0x0002 | response | DataResp / GetIP — used as ack for **set** with status |
+| 0x0003 | request | (seen as small-payload response from device after large request — may be hardware-revision/info; needs further investigation) |
+| 0x0004 | request → echo response | Reset (request to device; device echoes method on ack) |
+| 0x0005 | request | GetData |
+| 0x0006 | request → response | SetData / SaveData (same wire method); response carries 2-byte status payload |
+| 0x0007 | response | Error (not observed in this capture; device silently ignores invalid input) |
+| 0x0008 | response | "ack-only" — device received the request but no data follows. Observed as response to GetData when device has no data to return |
+| 0x0009 | request (broadcast) | AdvDisc (advanced discovery) |
+
+### Discovery response TLVs (factory device)
+
+61-byte packet = 27-byte header + 34-byte TLV payload. TLVs are
+plain `type:1 length:1 value:length` bytes (no padding).
+
+Fixture: `mocksbr/testdata/captures/discovery-factory.bin`
+
+| TLV type | Length | Value | Meaning |
+|---|---|---|---|
+| 0x0c | 4 | `init` | **Device state** — `init` = factory state, ready for setup |
+| 0x0b | 2 | `07` | Firmware revision part — major or hardware? |
+| 0x0a | 4 | `0005` | Hardware/device class ID (constant across both SBRs) |
+| 0x09 | 2 | `77` | Firmware revision part — minor or build? |
+| 0x03 | 10 | `squeezebox` | **Model** |
+| 0x02 | 0 | (empty) | **Name** — empty when device has no configured hostname |
+
+### Discovery response TLVs (configured device, IP 192.168.1.116)
+
+84-byte packet = 27-byte header + 57-byte TLV payload. Differences
+from factory state:
+
+Fixture: `mocksbr/testdata/captures/discovery-configured.bin`
+
+| TLV type | Length | Value | Notes vs. factory |
+|---|---|---|---|
+| 0x0c | 15 | `wait_slimserver` | **State changed** — device is configured, waiting to connect to LMS |
+| 0x0b | 2 | `07` | unchanged |
+| 0x0a | 4 | `0005` | unchanged |
+| 0x09 | 2 | `77` | unchanged |
+| 0x03 | 10 | `squeezebox` | unchanged |
+| 0x02 | 12 | `capture-test` | **Name now populated** with the configured hostname |
+
+**Important behavioural insight:** the source IP of a configured
+device's discovery response is its real LAN IP (e.g. `192.168.1.116`),
+not `0.0.0.0`. Factory devices respond from `0.0.0.0`. The udap
+client's `device.IP` is set from the UDP source IP of the discovery
+response, so this works automatically — no IP TLV in the discovery
+payload.
+
+### SetData request payload format (verified)
+
+Documented in `udap/client.go:CreateSetDataPacket` and confirmed by
+captures:
+
+```
+| 16 bytes username (zeros) | 16 bytes password (zeros) |
+| 2 bytes count (uint16 BE) |
+| repeated count times: { 2 bytes offset BE | 2 bytes length BE | length bytes value } |
+```
+
+Offset+length identifies the param via `udap.ConfigSettings`. Value
+encoding per length: 4 → IPv4 octets, 1/2 → big-endian unsigned
+integer, other → string with trailing-zero padding to length.
+
+### SetData/SaveData response (`0x0006` ack)
+
+29-byte packet = 27-byte header + 2-byte payload.
+
+The 2-byte payload is **the count of params accepted**, big-endian uint16.
+
+| Status | Capture context |
+|---|---|
+| 0x0003 | initial set with 3 params (hostname, interface, lan_ip_mode) |
+| 0x0001 | set with 1 param (`wireless_keylen=99`) |
+| 0x0000 | save with empty payload (RMW fell back to no params) |
+
+Fixtures: `setdata-status-ack.bin` (status=0x0003), `savedata-status-ack.bin` (status=0x0000).
+
+### GetData response — empirical finding
+
+When the client sends a GetData request listing param names (TLV type
+0x01), the device responds with a 27-byte header-only packet using
+method **0x0008** (SetDataAck). **No DataResp (0x0002) packet was
+observed** carrying actual param values.
+
+Fixture: `setdata-empty-ack.bin` (header-only ack to GetData).
+
+This contradicts the existing client code's assumption that GetData
+yields a 0x0002 DataResp packet with TLV-encoded param values. Two
+possible interpretations:
+1. SBRs in `wait_slimserver` state ignore GetData (the device tested
+   was in this state; no factory-state GetData was attempted because
+   factory devices don't have a stable IP for unicast).
+2. Real SBRs never return GetData responses; the existing
+   `udap.GetDeviceConfig` flow has always been broken against real
+   devices and the codebase only sort-of-worked because callers
+   tolerated the timeout.
+
+Either way, the practical implication for the mock: **the mock should
+return a real DataResp (0x0002) packet to GetData requests** —
+otherwise tests of `go-udap read`/`get` won't have a working baseline.
+The mock will deliberately diverge from real-SBR behavior here, since
+the real behavior is "the request is silently dropped" which makes
+testing impossible.
+
+### Reset request and response
+
+Request: 27-byte header-only packet, method 0x0004.
+
+Response: 27-byte header-only packet, method 0x0004 (echo). Fixture:
+`reset-ack.bin`.
+
+**Reboot duration: ~11 seconds** (measured from user's session).
+Mock default `RebootDelay = 100ms` remains correct for fast tests;
+tests wanting realistic timing can set 10s.
+
+### Error responses — empirical finding
+
+Step 7 of the playbook attempted to elicit an error response by
+setting `wireless-keylen=99` (invalid per the udap validation table).
+**The device accepted the value silently** — responding with a
+normal SetData ack (`status=0x0001` = 1 param accepted). No
+`MethodError (0x0007)` packet was observed.
+
+Implication for Phase 3 failure injection: **real SBRs do NOT emit
+UDAP error packets for invalid input.** Mock failure injection
+(`FailOn=[OpSet]` etc.) should therefore default to **dropping
+responses** (causing client timeouts) rather than emitting error
+packets — that matches real-device "failure" behavior. An optional
+`FailMode` knob could later allow synthetic error-packet emission
+for tests that specifically want to exercise the client's
+error-response code path.
+
+### Device state machine — observed
+
+The `0x0c` TLV value reveals state. Observed values:
+
+- `init` — factory-reset, ready to accept configuration via UDAP.
+- `wait_slimserver` — configured, looking for LMS.
+- (other states presumably exist for "playing", "buffering", etc.)
+
+The user's session strongly suggests **devices in `wait_slimserver`
+state stop responding meaningfully to UDAP commands** other than
+discovery and reset. Specifically:
+- GetData → header-only ack with no data (every time).
+- SetData → may or may not work; the user saw timeouts after the
+  initial configuration.
+- SaveData → similar.
+- Reset → still works (device echoes ack and reboots).
+
+**Implication for the mock:** the mock should NOT model this state
+restriction. The mock's purpose is to be a controllable test target;
+forcing tests to deal with a "device-only-talks-when-in-init-state"
+quirk would make `go-udap`'s test suite painful without adding
+testing value. The mock's devices remain UDAP-responsive in all
+states. Test scenarios that specifically need to exercise the
+"no-response" path can use Phase 3's `Unreachable=true` knob.
+
+### Summary of plan tweaks driven by these captures
+
+These will be folded into the Phase 1 implementation plan:
+
+1. **`buildDiscoveryResponse` TLV byte mapping** (Phase 1 plan
+   Task 11) — replace placeholder bytes with the real layout from
+   this appendix:
+   - 0x0c (state, default `init`)
+   - 0x0b (`07`)
+   - 0x0a (`0005`)
+   - 0x09 (`77` — keep as a placeholder for now since we don't have
+     a confirmed firmware decode)
+   - 0x03 (`squeezebox`)
+   - 0x02 (name, empty in factory)
+2. **Discovery response: factory-state advertises `0.0.0.0`** as
+   source IP via the UDP layer; configured devices advertise their
+   real IP. Mock just responds from its actual binding socket — no
+   IP TLV in payload.
+3. **`buildDataResp` (Phase 1 plan Task 12)** — even though real
+   SBRs don't return DataResp packets, the mock MUST, otherwise
+   `go-udap read`/`get` are untestable. Document this as a
+   deliberate divergence.
+4. **The "if `len(params) > 5` also save" heuristic** in Task 13's
+   SetData handler can be DELETED. SetData and SaveData are the
+   same wire method 0x0006; the mock can't tell them apart from
+   the wire format. The mock should treat every 0x0006 as
+   "set into working memory" and rely on the explicit Save path
+   for NVRAM updates. (For tests that assert NVRAM behavior, the
+   mock can't see "Save vs Set intent" — but tests can verify by
+   sending Reset and reading back.)
+5. **SetData/SaveData ack: 2-byte payload = uint16 BE param count.**
+   The mock's `buildAck` for these methods should include the
+   accepted-param-count payload, not a header-only ack.
+6. **Reset ack: header-only packet, method 0x0004 echo.**
+   Mock's `buildAck` for Reset should NOT use 0x0008
+   (SetDataAck — what the existing client code accepts) but the
+   echo of 0x0004. The existing `udap` client also accepts 0x0001
+   (per net-udap notes in the codebase); the mock can pick either.
+7. **Failure injection (Phase 3) should default to "no response"**
+   rather than synthetic error packets, matching observed real-SBR
+   behavior on invalid input.
+
+### Pcap-not-committed reminder
+
+The source `sbr-capture.pcap` is left untracked at the repo root.
+Add to `.gitignore` separately if convenient. Per-packet `.bin`
+fixtures in `mocksbr/testdata/captures/` ARE committed so tests
+can reference them.

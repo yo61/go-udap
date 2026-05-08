@@ -26,3 +26,10 @@ go.work.sum
 
 # env file
 .env
+
+# Capture session artifacts (per-packet fixtures in mocksbr/testdata/captures/
+# ARE committed; raw pcaps and notes are not)
+*.pcap
+capture-notes*.txt
+sbr-capture-pdf.pdf
+sbr-capture.pdf
