@@ -499,6 +499,11 @@ func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCapt
 			srcIP := srcAddr.IP.String()
 			srcPort := uint16(srcAddr.Port)
 
+			if isUDAPRequestPacket(buffer, n) {
+				c.logger.Debug("Skipped looped-back request packet", "purpose", config.Purpose, "src_ip", srcIP)
+				continue
+			}
+
 			// Filter by source criteria
 			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
 			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
@@ -577,6 +582,11 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 			srcPort := uint16(srcAddr.Port)
 
 			c.logger.Debug("Capture received packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
+
+			if isUDAPRequestPacket(buffer, n) {
+				c.logger.Debug("Skipped looped-back request packet", "purpose", config.Purpose, "src_ip", srcIP)
+				continue
+			}
 
 			// Filter by source criteria
 			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
