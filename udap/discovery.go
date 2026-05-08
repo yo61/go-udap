@@ -7,67 +7,20 @@ import (
 	"time"
 )
 
-// DiscoverDevices discovers Squeezebox devices on the network using advanced discovery
-func (c *Client) DiscoverDevices(timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return c.DiscoverDevicesWithContext(ctx)
-}
-
-// DiscoverDevicesWithContext discovers devices using the provided context for cancellation
+// DiscoverDevicesWithContext broadcasts a UDAP advanced-discovery
+// (method 0x0009) request and collects responses until ctx is done.
+// Discovered devices are stored on the Client and accessible via
+// GetDevice / ListDevices / GetDevices.
+//
+// The previous code path layered seven function shims
+// (DiscoverDevices → ...WithContext → ...Advanced → ...AdvancedWithContext
+// → discoverWithMethodCtx → ...WithRawCapture → ...WithRawCaptureCtx →
+// ...UDPCtx). All but this one were unused — basic (non-advanced)
+// discovery was dead code, and the timeout-based shims were never
+// called by the CLI. Collapsed to one function.
 func (c *Client) DiscoverDevicesWithContext(ctx context.Context) error {
-	return c.DiscoverDevicesAdvancedWithContext(ctx)
-}
-
-// DiscoverDevicesAdvanced uses advanced discovery (method 0x0009)
-func (c *Client) DiscoverDevicesAdvanced(timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return c.DiscoverDevicesAdvancedWithContext(ctx)
-}
-
-// DiscoverDevicesAdvancedWithContext uses advanced discovery with context
-func (c *Client) DiscoverDevicesAdvancedWithContext(ctx context.Context) error {
-	c.logger.Info("Starting advanced UDAP discovery", "method", "0x0009")
-	return c.discoverWithMethodCtx(ctx, true)
-}
-
-// discoverWithMethodCtx performs discovery using the specified method with context
-func (c *Client) discoverWithMethodCtx(ctx context.Context, advanced bool) error {
-	return c.DiscoverDevicesWithRawCaptureCtx(ctx, advanced)
-}
-
-// DiscoverDevicesWithRawCapture uses UDP for sending and raw capture for receiving
-func (c *Client) DiscoverDevicesWithRawCapture(timeout time.Duration, advanced bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return c.DiscoverDevicesWithRawCaptureCtx(ctx, advanced)
-}
-
-// DiscoverDevicesWithRawCaptureCtx uses UDP for device discovery.
-// This function delegates to DiscoverDevicesUDPCtx for cross-platform compatibility.
-// The "raw capture" name is kept for API compatibility but now uses pure Go UDP networking.
-func (c *Client) DiscoverDevicesWithRawCaptureCtx(ctx context.Context, advanced bool) error {
-	c.logger.Info("Starting UDAP discovery", "advanced", advanced)
-	return c.DiscoverDevicesUDPCtx(ctx, advanced)
-}
-
-// DiscoverDevicesUDP discovers devices using UDP broadcasts (Layer 3) - fallback method
-func (c *Client) DiscoverDevicesUDP(timeout time.Duration, advanced bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return c.DiscoverDevicesUDPCtx(ctx, advanced)
-}
-
-// DiscoverDevicesUDPCtx discovers devices using UDP broadcasts with context
-func (c *Client) DiscoverDevicesUDPCtx(ctx context.Context, advanced bool) error {
-	// Create proper UDAP discovery packet
-	var discoveryPacket []byte
-	if advanced {
-		discoveryPacket = c.CreateAdvancedDiscoveryPacket()
-	} else {
-		discoveryPacket = c.CreateDiscoveryPacket()
-	}
+	c.logger.Info("Starting UDAP discovery", "method", "0x0009")
+	discoveryPacket := c.CreateAdvancedDiscoveryPacket()
 	c.logger.Debug("Created UDP discovery packet", "size_bytes", len(discoveryPacket), "hex", fmt.Sprintf("%x", discoveryPacket))
 
 	// Prepare broadcast address - send from c.conn so responses come back to the same socket

@@ -116,8 +116,8 @@ func ParameterByName(name string) (Parameter, bool) {
 }
 
 // ParameterNames returns a fresh slice of all canonical parameter names
-// in their declared order. Used by GetAllDeviceConfig to request every
-// known param.
+// in their declared order. Used by GetAllDeviceConfigWithContext to
+// request every known param.
 func ParameterNames() []string {
 	out := make([]string, len(Parameters))
 	for i := range Parameters {

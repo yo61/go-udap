@@ -8,13 +8,6 @@ import (
 	"time"
 )
 
-// GetDeviceConfig retrieves configuration from a device
-func (c *Client) GetDeviceConfig(device *Device, params []string) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return c.GetDeviceConfigWithContext(ctx, device, params)
-}
-
 // GetDeviceConfigWithContext retrieves configuration from a device with context
 func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device, params []string) (map[string]string, error) {
 	// Create GetData packet
@@ -115,15 +108,6 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 	}
 }
 
-// GetAllDeviceConfig retrieves all known parameters using a hardcoded
-// 5-second timeout. Prefer GetAllDeviceConfigWithContext to honor a
-// caller-supplied deadline (e.g. the CLI's --timeout flag).
-func (c *Client) GetAllDeviceConfig(device *Device) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return c.GetAllDeviceConfigWithContext(ctx, device)
-}
-
 // GetAllDeviceConfigWithContext retrieves all known parameters using the
 // caller-supplied context for cancellation/timeout.
 func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Device) error {
@@ -141,13 +125,6 @@ func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Devi
 
 	c.logger.Info("Read parameters from device", "param_count", len(config), "device_mac", device.MAC)
 	return nil
-}
-
-// SetDeviceConfig sets configuration parameters on a device
-func (c *Client) SetDeviceConfig(device *Device, config map[string]string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return c.SetDeviceConfigWithContext(ctx, device, config)
 }
 
 // SetDeviceConfigWithContext sets configuration parameters on a device with context
@@ -289,13 +266,6 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 			return fmt.Errorf("unexpected response method: 0x%04x", respPacket.UCPMethod)
 		}
 	}
-}
-
-// ResetDevice sends a reset command to restart the device
-func (c *Client) ResetDevice(device *Device) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	return c.ResetDeviceWithContext(ctx, device)
 }
 
 // ResetDeviceWithContext sends a reset command to restart the device with context
