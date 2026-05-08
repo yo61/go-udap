@@ -1852,6 +1852,11 @@ func TestNetworkReceiveGetDataReturnsParamValues(t *testing.T) {
 	disc := c.CreateAdvancedDiscoveryPacket()
 	net.Receive(disc)
 
+	// Pre-set hostname so we can verify the returned value.
+	mac := strings.ToLower("00:04:20:00:00:01")
+	d := net.devices[mac]
+	d.workingMemory["hostname"] = "mock-host"
+
 	// Now build a GetData packet for one known param.
 	dev := &udap.Device{MAC: "00:04:20:00:00:01"}
 	pkt := c.CreateGetDataPacket(dev, []string{"hostname"})
@@ -1863,12 +1868,39 @@ func TestNetworkReceiveGetDataReturnsParamValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse reply: %v", err)
 	}
-	if resp.UCPMethod != udap.MethodDataResp {
-		t.Errorf("expected MethodDataResp (0x%04x), got 0x%04x", udap.MethodDataResp, resp.UCPMethod)
+	if resp.UCPMethod != udap.MethodGetData {
+		t.Errorf("expected MethodGetData (0x%04x), got 0x%04x", udap.MethodGetData, resp.UCPMethod)
 	}
-	tlvs := udap.DecodeTLV(data)
-	if len(tlvs) < 2 {
-		t.Fatalf("expected at least name+value TLVs, got %d", len(tlvs))
+	// Response payload: uint16 count, then count × (offset, length, value).
+	if len(data) < 2 {
+		t.Fatalf("payload too short: %d bytes", len(data))
+	}
+	count := binary.BigEndian.Uint16(data[:2])
+	if count != 1 {
+		t.Fatalf("expected count=1, got %d", count)
+	}
+	if len(data) < 6 {
+		t.Fatalf("payload truncated: %d bytes", len(data))
+	}
+	offset := binary.BigEndian.Uint16(data[2:4])
+	length := binary.BigEndian.Uint16(data[4:6])
+	if offset != udap.ConfigSettings["hostname"].Offset {
+		t.Errorf("offset: got %d, want %d", offset, udap.ConfigSettings["hostname"].Offset)
+	}
+	if length != udap.ConfigSettings["hostname"].Length {
+		t.Errorf("length: got %d, want %d", length, udap.ConfigSettings["hostname"].Length)
+	}
+	if int(6+length) > len(data) {
+		t.Fatalf("value bytes truncated")
+	}
+	value := data[6 : 6+length]
+	// hostname is NUL-padded to 33 bytes; trim trailing zeros.
+	end := len(value)
+	for end > 0 && value[end-1] == 0 {
+		end--
+	}
+	if got := string(value[:end]); got != "mock-host" {
+		t.Errorf("value: got %q, want %q", got, "mock-host")
 	}
 }
 
@@ -1900,7 +1932,7 @@ func TestNetworkReceiveSetDataMutatesWorkingMemory(t *testing.T) {
 }
 ```
 
-Add `"strings"` to the imports if not already present.
+Add `"encoding/binary"` and `"strings"` to the imports if not already present.
 
 - [ ] **Step 2: Run, verify failure**
 
@@ -1912,10 +1944,17 @@ Expected: FAIL — handlers return 0 replies for GetData/SetData.
 Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/responses.go`. Append:
 
 ```go
-// buildDataResp constructs the response to a GetData request. Returns
-// TLV-encoded param-name/param-value pairs for each requested name that
-// the device has a value for.
-func buildDataResp(d *device, dstMAC [6]byte, sequence uint16, requestedParams []string) []byte {
+// buildDataResp constructs the response to a GetData request. Real
+// SBRs reply with method 0x0005 in offset/length/value format —
+// mirroring SetData on the wire, just in the response direction.
+// Format: 27-byte header, uint16 count BE, then count × (offset BE,
+// length BE, length-bytes value). See the spec Appendix A "GetData
+// request and response" section.
+//
+// requested is the list of (offset, length) pairs from the incoming
+// GetData request, in the order the client sent them. We preserve
+// that order in the reply.
+func buildDataResp(d *device, dstMAC [6]byte, sequence uint16, requested []paramRequest) []byte {
 	srcMAC := macToBytes(d.cfg.MAC)
 	hdr := udap.Packet{
 		DstBroadcast: 0,
@@ -1926,23 +1965,64 @@ func buildDataResp(d *device, dstMAC [6]byte, sequence uint16, requestedParams [
 		SrcAddress:   srcMAC,
 		Sequence:     sequence,
 		UDAPType:     udap.TypeUCP,
-		UCPFlags:     0x02,
+		UCPFlags:     0x00, // response, not request
 		UAPClass:     [4]byte{0x00, 0x01, 0x00, 0x01},
-		UCPMethod:    udap.MethodDataResp,
+		UCPMethod:    udap.MethodGetData,
 	}
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, hdr)
 
 	wm := d.snapshotWorking()
-	for _, name := range requestedParams {
-		val, ok := wm[name]
-		if !ok {
-			continue
-		}
-		writeTLV(buf, udap.TLVTypeParameterName, []byte(name))
-		writeTLV(buf, udap.TLVTypeParameterValue, []byte(val))
+	binary.Write(buf, binary.BigEndian, uint16(len(requested)))
+	for _, req := range requested {
+		binary.Write(buf, binary.BigEndian, req.offset)
+		binary.Write(buf, binary.BigEndian, req.length)
+		// Encode the value into exactly req.length bytes, mirroring
+		// CreateSetDataPacket's encoding rules. Unknown offsets get
+		// zero bytes.
+		val := wm[req.name]
+		buf.Write(encodeParamValue(req.length, val))
 	}
 	return buf.Bytes()
+}
+
+// paramRequest carries the (offset, length, name) triple parsed from a
+// GetData request. Name is resolved via udap.ConfigSettings reverse
+// lookup; empty if the offset isn't recognized.
+type paramRequest struct {
+	offset uint16
+	length uint16
+	name   string
+}
+
+// encodeParamValue renders s into exactly length bytes, matching the
+// encoding udap.CreateSetDataPacket uses (so the round-trip via mock
+// devices is byte-faithful). Unknown/garbage values fall back to zeros.
+func encodeParamValue(length uint16, s string) []byte {
+	out := make([]byte, length)
+	switch length {
+	case 1:
+		if v, err := strconv.ParseUint(s, 10, 8); err == nil {
+			out[0] = byte(v)
+		}
+	case 2:
+		if v, err := strconv.ParseUint(s, 10, 16); err == nil {
+			binary.BigEndian.PutUint16(out, uint16(v))
+		}
+	case 4:
+		if ip := net.ParseIP(s); ip != nil {
+			if v4 := ip.To4(); v4 != nil {
+				copy(out, v4)
+			}
+		}
+	default:
+		raw := []byte(s)
+		if len(raw) > int(length) {
+			raw = raw[:length]
+		}
+		copy(out, raw)
+	}
+	return out
 }
 
 // buildAck constructs a generic ack packet that mirrors the existing
@@ -2042,7 +2122,46 @@ func renderValue(name string, raw []byte, length uint16) string {
 }
 ```
 
-Add `"fmt"` to the imports if not already present.
+Add `"encoding/binary"`, `"fmt"`, `"net"`, and `"strconv"` to the imports
+if not already present (they are needed by buildDataResp and
+encodeParamValue above as well as parseSetDataPayload).
+
+Append the GetData request parser to `mocksbr/responses.go`:
+
+```go
+// parseGetDataRequest extracts (offset, length, name) triples from a
+// GetData (0x0005) request's data portion. Format matches the spec
+// Appendix A "GetData request" section:
+//   - 16 bytes username (zeros)
+//   - 16 bytes password (zeros)
+//   - 2 bytes count
+//   - count × { 2 bytes offset, 2 bytes length }    -- no value bytes
+// Each offset is mapped back to the canonical param name via
+// udap.ConfigSettings (alphabetically-first name on offset collisions,
+// matching udap.parseGetDataResponse).
+func parseGetDataRequest(data []byte) []paramRequest {
+	if len(data) < 34 {
+		return nil
+	}
+	pos := 32 // skip username + password
+	count := int(binary.BigEndian.Uint16(data[pos : pos+2]))
+	pos += 2
+	offToName := make(map[uint16]string, len(udap.ConfigSettings))
+	for name, s := range udap.ConfigSettings {
+		if existing, ok := offToName[s.Offset]; !ok || name < existing {
+			offToName[s.Offset] = name
+		}
+	}
+	out := make([]paramRequest, 0, count)
+	for i := 0; i < count && pos+4 <= len(data); i++ {
+		ofs := binary.BigEndian.Uint16(data[pos : pos+2])
+		ln := binary.BigEndian.Uint16(data[pos+2 : pos+4])
+		pos += 4
+		out = append(out, paramRequest{offset: ofs, length: ln, name: offToName[ofs]})
+	}
+	return out
+}
+```
 
 - [ ] **Step 5: Wire handlers**
 
@@ -2063,14 +2182,9 @@ Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers.go`. Replace 
 
 		switch packet.UCPMethod {
 		case udap.MethodGetData:
-			// Extract requested param names from TLVs.
-			tlvs := udap.DecodeTLV(data)
-			var requested []string
-			for _, tlv := range tlvs {
-				if tlv.Type == udap.TLVTypeParameterName {
-					requested = append(requested, string(tlv.Value))
-				}
-			}
+			// Parse offset/length pairs from the request payload.
+			// Format mirrors SetData but with no value bytes.
+			requested := parseGetDataRequest(data)
 			return [][]byte{buildDataResp(d, packet.SrcAddress, packet.Sequence, requested)}
 		case udap.MethodSetData:
 			params := parseSetDataPayload(data)

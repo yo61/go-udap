@@ -650,7 +650,7 @@ bytes. Fixed in commit `239b11b` on `robin/cli-redesign`.
 | 0x0005 | request | GetData |
 | 0x0006 | request → response | SetData / SaveData (same wire method); response carries 2-byte status payload |
 | 0x0007 | response | Error (not observed in this capture; device silently ignores invalid input) |
-| 0x0008 | response | "ack-only" — device received the request but no data follows. Observed as response to GetData when device has no data to return |
+| 0x0008 | response | "ack-only". Originally believed to be GetData's normal response; later proven wrong (see GetData response section below) — real SBRs return method 0x0005 with offset/length/value triples. The 0x0008 ack was the device's silent rejection of our broken TLV-of-names request. |
 | 0x0009 | request (broadcast) | AdvDisc (advanced discovery) |
 
 ### Discovery response TLVs (factory device)
@@ -721,32 +721,63 @@ The 2-byte payload is **the count of params accepted**, big-endian uint16.
 
 Fixtures: `setdata-status-ack.bin` (status=0x0003), `savedata-status-ack.bin` (status=0x0000).
 
-### GetData response — empirical finding
+### GetData request and response (verified against Perl Net::UDAP)
 
-When the client sends a GetData request listing param names (TLV type
-0x01), the device responds with a 27-byte header-only packet using
-method **0x0008** (SetDataAck). **No DataResp (0x0002) packet was
-observed** carrying actual param values.
+A second capture session run with the Perl Net::UDAP reference shell
+(`perl_code.pcap`, `perl_shell_session.txt`) proved that real SBRs DO
+return GetData responses — the earlier "0x0008 ack means no data"
+finding was an artefact of `go-udap`'s wrong request format. The
+correct format mirrors SetData minus the value bytes.
 
-Fixture: `setdata-empty-ack.bin` (header-only ack to GetData).
+#### GetData request (0x0005)
 
-This contradicts the existing client code's assumption that GetData
-yields a 0x0002 DataResp packet with TLV-encoded param values. Two
-possible interpretations:
-1. SBRs in `wait_slimserver` state ignore GetData (the device tested
-   was in this state; no factory-state GetData was attempted because
-   factory devices don't have a stable IP for unicast).
-2. Real SBRs never return GetData responses; the existing
-   `udap.GetDeviceConfig` flow has always been broken against real
-   devices and the codebase only sort-of-worked because callers
-   tolerated the timeout.
+Frame 6 of `perl_code.pcap`, fixture
+`udap/testdata/captures/getdata-request-26params.bin` (165 bytes):
 
-Either way, the practical implication for the mock: **the mock should
-return a real DataResp (0x0002) packet to GetData requests** —
-otherwise tests of `go-udap read`/`get` won't have a working baseline.
-The mock will deliberately diverge from real-SBR behavior here, since
-the real behavior is "the request is silently dropped" which makes
-testing impossible.
+```
+| 27-byte UDAP header (UCPMethod=0x0005)               |
+| 16 bytes username (zeros)                            |
+| 16 bytes password (zeros)                            |
+| 2 bytes count (uint16 BE) — number of items requested|
+| count × { 2 bytes NVRAM offset BE | 2 bytes length BE } |
+```
+
+Each (offset, length) pair identifies a parameter to read. No value
+bytes — that's the only difference from a SetData request.
+
+#### GetData response (0x0005)
+
+Frame 7 of `perl_code.pcap`, fixture
+`udap/testdata/captures/getdata-response-26params.bin` (387 bytes):
+
+```
+| 27-byte UDAP header (UCPMethod=0x0005, UCPFlags=0x00)|
+| 2 bytes count (uint16 BE) — number of items returned |
+| count × { 2 bytes offset | 2 bytes length | length bytes value } |
+```
+
+Same offset/length triple as a SetData REQUEST, but in the response
+direction. Value encoding matches SetData: 1- and 2-byte numerics as
+big-endian unsigned integers, 4-byte values as raw IPv4 octets, longer
+values as NUL-padded strings.
+
+#### What the 0x0008 ack actually meant
+
+When `go-udap` historically sent a TLV-of-parameter-names GetData
+request, the device couldn't parse it, dropped the request silently,
+and the only thing left in the capture was an unrelated header-only
+0x0008 ack from a different operation. The `setdata-empty-ack.bin`
+fixture is now a misnomer — it's not a GetData response at all.
+
+#### Implication for the mock
+
+The mock implements GetData faithfully — parse the offset/length pairs
+from the request, look up each (offset, length) → param-name via
+`udap.ConfigSettings`, and return a 0x0005 response with offset/length/
+value triples. **No deliberate divergence from real-SBR behavior is
+needed.** The mock should also include `squeezecenter_name` (NVRAM
+offset 83, length 33) which the Perl session reads — `udap.ConfigSettings`
+gained that entry in commit `9469dac` on `robin/cli-redesign`.
 
 ### Reset request and response
 
@@ -784,22 +815,23 @@ The `0x0c` TLV value reveals state. Observed values:
 - `wait_slimserver` — configured, looking for LMS.
 - (other states presumably exist for "playing", "buffering", etc.)
 
-The user's session strongly suggests **devices in `wait_slimserver`
-state stop responding meaningfully to UDAP commands** other than
-discovery and reset. Specifically:
-- GetData → header-only ack with no data (every time).
-- SetData → may or may not work; the user saw timeouts after the
-  initial configuration.
-- SaveData → similar.
-- Reset → still works (device echoes ack and reboots).
+An earlier draft of this section claimed that **devices in
+`wait_slimserver` state stop responding meaningfully to UDAP commands
+other than discovery and reset.** That claim has been retracted: the
+Perl Net::UDAP session showed a configured `wait_slimserver` device
+responding correctly to `get_data`, `set_data`, and `reset`. The
+apparent state-dependent failures `go-udap` saw were caused by:
+1. The wrong GetData wire format (TLV-of-names instead of
+   offset/length).
+2. The packet-capture `SourceIP="0.0.0.0"` filter rejecting responses
+   from configured devices' real LAN IPs.
 
-**Implication for the mock:** the mock should NOT model this state
-restriction. The mock's purpose is to be a controllable test target;
-forcing tests to deal with a "device-only-talks-when-in-init-state"
-quirk would make `go-udap`'s test suite painful without adding
-testing value. The mock's devices remain UDAP-responsive in all
-states. Test scenarios that specifically need to exercise the
-"no-response" path can use Phase 3's `Unreachable=true` knob.
+Both fixed on `robin/cli-redesign`. State `wait_slimserver` does not
+imply a UDAP service restriction.
+
+**Implication for the mock:** the mock's devices remain UDAP-responsive
+in every state. Test scenarios that need a "no-response" path can use
+Phase 3's `Unreachable=true` knob.
 
 ### Summary of plan tweaks driven by these captures
 
@@ -819,10 +851,13 @@ These will be folded into the Phase 1 implementation plan:
    source IP via the UDP layer; configured devices advertise their
    real IP. Mock just responds from its actual binding socket — no
    IP TLV in payload.
-3. **`buildDataResp` (Phase 1 plan Task 12)** — even though real
-   SBRs don't return DataResp packets, the mock MUST, otherwise
-   `go-udap read`/`get` are untestable. Document this as a
-   deliberate divergence.
+3. **`buildDataResp` (Phase 1 plan Task 12)** — must produce the
+   real-SBR offset/length/value response (UCPMethod=0x0005), not a
+   TLV-of-names DataResp. Parse the incoming request's
+   `(offset, length)` pairs, look each up in `udap.ConfigSettings`
+   to get the param name, fetch the current value from working
+   memory, and emit it back as `(offset, length, value)`. No
+   divergence from real-SBR behavior.
 4. **The "if `len(params) > 5` also save" heuristic** in Task 13's
    SetData handler can be DELETED. SetData and SaveData are the
    same wire method 0x0006; the mock can't tell them apart from
