@@ -221,68 +221,6 @@ func (c *Client) listenForResponsesWithCancel(done chan<- bool, cancel <-chan st
 	}
 }
 
-// listenForResponses handles the response listening in a separate goroutine (legacy)
-func (c *Client) listenForResponses(done chan<- bool) {
-	defer func() { done <- true }()
-
-	buffer := make([]byte, 1024)
-	responseCount := 0
-
-	// Get our own IP addresses to filter out self-received packets
-	localIPs := getLocalIPs()
-	c.logger.Debug("Local IPs for filtering", "count", len(localIPs))
-
-	c.logger.Info("Listening for UDP responses on socket")
-
-	for {
-		n, addr, err := c.conn.ReadFromUDP(buffer)
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				c.logger.Info("Discovery timeout reached", "responses_received", responseCount)
-				break
-			}
-			c.logger.Error("Read error", "error", err)
-			return
-		}
-
-		c.logger.Info("Received UDP packet", "bytes", n, "source_ip", addr.IP.String(), "source_port", addr.Port)
-
-		// Skip our own packets, but allow 0.0.0.0 (devices in bootstrap mode)
-		if addr.IP.String() != "0.0.0.0" && localIPs[addr.IP.String()] {
-			c.logger.Debug("Ignoring self-received packet", "source_ip", addr.IP.String())
-			continue
-		}
-
-		responseCount++
-		c.logger.Debug("Processing response", "bytes", n, "source_ip", addr.IP.String(), "source_port", addr.Port, "hex", fmt.Sprintf("%x", buffer[:n]))
-
-		packet, data, err := ParsePacket(buffer[:n])
-		if err != nil {
-			c.logger.Warn("Failed to parse packet", "source_ip", addr.IP.String(), "error", err, "raw_data", string(buffer[:n]))
-			continue
-		}
-
-		c.logger.Debug("Parsed packet", "udap_type", fmt.Sprintf("0x%04x", packet.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", packet.UCPMethod), "dst_type", packet.DstType, "src_type", packet.SrcType)
-
-		// Check packet type and method
-		switch {
-		case packet.UDAPType == TypeUCP:
-			// Check if it's a discovery response or contains device info
-			device := c.parseDiscoveryResponse(data, addr.IP.String(), packet)
-			if device != nil {
-				c.recordDevice(device)
-				c.logger.Info("Found device", "name", device.Name, "mac", device.MAC, "ip", device.IP)
-			} else {
-				c.logger.Warn("UCP packet received but no device info parsed", "source_ip", addr.IP.String())
-			}
-		case packet.UCPMethod == MethodDiscover:
-			c.logger.Debug("Received discovery packet from another UDAP client", "source_ip", addr.IP.String())
-		default:
-			c.logger.Debug("Received unexpected packet", "udap_type", fmt.Sprintf("0x%04x", packet.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", packet.UCPMethod), "source_ip", addr.IP.String())
-		}
-	}
-}
-
 // Discovery-response TLV codes, per Net::UDAP Constant.pm
 // (UCP_CODE_* constants). The codes are 1-byte; values are
 // length-prefixed bytes.

@@ -176,10 +176,14 @@ func TestParsePacket(t *testing.T) {
 			expectedMethod: MethodDiscover,
 		},
 		{
-			name:           "raw response packet",
-			data:           []byte{0x00, 0x01, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78}, // Method 0x0001 with some data
-			expectError:    false,
-			expectedMethod: MethodDiscover,
+			// This was previously accepted via a permissive Format-2
+			// fallback that interpreted bytes 0-1 as UCPMethod for any
+			// 4+-byte payload. That fallback was a workaround for a
+			// since-fixed off-by-2 in UDAPHeaderSize. Real UDAP packets
+			// are always >= 27 bytes; rejecting short ones is correct.
+			name:        "short packet (no longer accepted as raw response)",
+			data:        []byte{0x00, 0x01, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78},
+			expectError: true,
 		},
 		{
 			name:        "too short packet",
@@ -189,6 +193,14 @@ func TestParsePacket(t *testing.T) {
 		{
 			name:        "empty packet",
 			data:        []byte{},
+			expectError: true,
+		},
+		{
+			// 27-byte buffer with the right size but UDAPType=0x0000,
+			// which would be a non-UCP packet — should be rejected
+			// rather than parsed as garbage.
+			name:        "header-sized buffer but non-UCP UDAPType",
+			data:        make([]byte, UDAPHeaderSize), // all zeros, UDAPType=0
 			expectError: true,
 		},
 	}

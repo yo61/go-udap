@@ -143,54 +143,37 @@ func DecodeTLV(data []byte) []TLVData {
 	return tlvs
 }
 
-// ParsePacket parses a UDAP packet and returns packet structure
+// ParsePacket parses a UDAP packet header and returns the parsed
+// header, the remaining payload bytes (or nil if the packet was
+// header-only), and any decode error.
+//
+// Real UDAP packets are at least UDAPHeaderSize (27) bytes — the
+// header is fixed-width — and the UDAPType field at bytes 18-19 must
+// equal TypeUCP (0xC001). Anything shorter or with a non-UCP UDAPType
+// is junk on our socket (mDNS leakage, stray broadcasts) and is
+// rejected so callers don't try to interpret garbage.
+//
+// An earlier permissive Format-2 fallback parsed any 4+-byte payload
+// by taking bytes 0-1 as a UCPMethod; that was a workaround for a
+// since-fixed off-by-2 in UDAPHeaderSize and is no longer needed.
 func ParsePacket(packetData []byte) (*Packet, []byte, error) {
-	if len(packetData) < 4 {
-		return nil, nil, fmt.Errorf("packet too short: %d bytes", len(packetData))
+	if len(packetData) < UDAPHeaderSize {
+		return nil, nil, fmt.Errorf("packet too short: %d bytes (minimum %d)", len(packetData), UDAPHeaderSize)
 	}
 
-	// Check for different packet formats
-	// Format 1: Standard UDAP packet (starts with destination broadcast flag)
-	if len(packetData) >= UDAPHeaderSize {
-		var packet Packet
-		buf := bytes.NewReader(packetData)
-		err := binary.Read(buf, binary.BigEndian, &packet)
-		if err == nil {
-			// Check if this looks like a valid UDAP packet
-			if packet.UDAPType == TypeUCP || packet.DstType <= 2 || packet.SrcType <= 2 {
-				var data []byte
-				if len(packetData) > UDAPHeaderSize {
-					data = packetData[UDAPHeaderSize:]
-				}
-				return &packet, data, nil
-			}
-		}
+	var packet Packet
+	if err := binary.Read(bytes.NewReader(packetData), binary.BigEndian, &packet); err != nil {
+		return nil, nil, fmt.Errorf("decode UDAP header: %w", err)
+	}
+	if packet.UDAPType != TypeUCP {
+		return nil, nil, fmt.Errorf("not a UDAP/UCP packet: UDAPType=0x%04x", packet.UDAPType)
 	}
 
-	// Format 2: Raw response packet (like we're seeing in the capture)
-	// Starts with method indicator (00 01 = discovery response, 00 02 = set response, etc)
-	if len(packetData) >= 4 {
-		method := binary.BigEndian.Uint16(packetData[0:2])
-		// Create a minimal packet structure for raw responses
-		packet := &Packet{
-			UCPMethod: method,
-			UDAPType:  TypeUCP,
-			DstType:   AddrTypeUDP,
-			SrcType:   AddrTypeUDP,
-		}
-
-		// Skip the method bytes and return the rest as data
-		var data []byte
-		if len(packetData) > 4 {
-			data = packetData[4:]
-		}
-
-		// Note: This is in a package-level function, would need logger parameter to use structured logging
-		// For now, keeping the printf statement as it's used in packet parsing
-		return packet, data, nil
+	var data []byte
+	if len(packetData) > UDAPHeaderSize {
+		data = packetData[UDAPHeaderSize:]
 	}
-
-	return nil, nil, fmt.Errorf("unrecognized packet format: length=%d bytes", len(packetData))
+	return &packet, data, nil
 }
 
 // getLocalIPs returns a map of all local IP addresses for filtering
