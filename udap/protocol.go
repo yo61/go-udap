@@ -46,7 +46,7 @@ const (
 	MACAddressSize    = 6  // MAC address length in bytes
 	UsernameFieldSize = 16 // Username field size in SetData packets
 	PasswordFieldSize = 16 // Password field size in SetData packets
-	UDAPHeaderSize    = 25 // Standard UDAP header size
+	UDAPHeaderSize    = 27 // Serialized size of the Packet struct (sum of fields, no padding)
 
 	// Validation Limits
 	MaxDeviceNameLength = 64    // Maximum device name length

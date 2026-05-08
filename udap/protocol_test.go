@@ -295,8 +295,10 @@ func TestPacketStructure(t *testing.T) {
 		t.Fatalf("Failed to serialize packet: %v", err)
 	}
 
-	// Test that we get expected size
-	expectedSize := 25 // UDAP header size
+	// Test that we get expected size. The Packet struct serializes via
+	// encoding/binary to the sum of its field sizes (no padding):
+	// 1+1+6+1+1+6+2+2+1+4+2 = 27 bytes.
+	expectedSize := UDAPHeaderSize
 	if buf.Len() != expectedSize {
 		t.Errorf("Expected packet size %d, got %d", expectedSize, buf.Len())
 	}
