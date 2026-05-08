@@ -14,6 +14,9 @@ This tool allows you to:
 - Save configuration to device persistent storage
 - Reset devices to apply new configuration
 
+The tool is single-shot and command-line driven; every operation is one
+invocation. There is no interactive shell.
+
 ## Installation
 
 ### Pre-built Binaries
@@ -25,176 +28,208 @@ Download the latest release for your platform from the [Releases](https://github
 ```bash
 git clone https://github.com/robinbowes/go-udap.git
 cd go-udap
-go build -o go-udap main.go
+go build -o go-udap .
 ```
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed build instructions and cross-compilation.
 
 ## Usage
 
-Run the tool to enter interactive mode:
-
-```bash
-./go-udap
+```
+go-udap [global flags] <command> [args] [flags]
 ```
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `discover` | Discover Squeezebox devices on the network |
-| `list` | List all discovered devices |
-| `info <mac>` | Show detailed information about a device |
-| `read <mac>` | Read all configuration parameters from a device |
-| `config <mac> get <param>` | Get a specific configuration parameter |
-| `config <mac> set <param>=<value> ...` | Set one or more configuration parameters |
-| `save <mac>` | Save configuration to device persistent storage |
-| `reset <mac>` | Reset/reboot the device |
-| `commit <mac>` | Save configuration and reset device (combined operation) |
-| `help` | Show available commands |
-| `quit` / `exit` | Exit the tool |
+| `discover [--info]` | Discover devices; print MAC addresses (or full metadata with `--info`) |
+| `info <mac>` | Show metadata for one device |
+| `read <mac>` | Read all parameters from a device |
+| `get <mac> <param> [<param>...]` | Read specific parameters |
+| `set <mac> [--config FILE] [--<param> VALUE ...]` | Set parameters from any combination of `--config FILE` (or `--config -` for stdin), piped stdin, and per-param flags |
+| `save <mac>` | Save current config to NVRAM |
+| `reset <mac>` | Reboot the device |
+| `commit <mac>` | Save then reset (combined) |
 
-### Typical Workflow
+### Global flags
 
-1. **Discover devices** on your network:
-   ```
-   > discover
-   Discovery complete. Found 1 devices.
-   ```
+| Flag | Default | Purpose |
+|---|---|---|
+| `--timeout DURATION` | `5s` | Operation timeout |
+| `--verbose, -v` | off | Debug logging to stderr |
+| `--version` | — | Print version and exit |
+| `--help, -h` | — | Print help |
 
-2. **List discovered devices** to see MAC addresses:
-   ```
-   > list
-   Discovered devices:
-     00:04:20:16:06:02 - Squeezebox Device () at 0.0.0.0
-   ```
+### Output
 
-3. **Configure the device** with your settings:
-   ```
-   > config 00:04:20:16:06:02 set interface=1 lan_ip_mode=1 server_address=192.168.1.100
-   ```
+Command output is on **stdout**; logs and warnings are on **stderr**. This
+keeps stdout machine-parseable.
 
-4. **Save and reset** to apply the new configuration:
-   ```
-   > commit 00:04:20:16:06:02
-   ```
+- `discover` — one MAC per line.
+- `discover --info` — multi-line metadata block per device.
+- `read` — `param=value` lines, sorted by name.
+- `get <mac> <param>` (single) — bare value.
+- `get <mac> <p1> <p2>` (multi) — `param=value` lines in request order.
+
+### Examples
+
+Discover devices on the LAN:
+
+```bash
+go-udap discover
+# 00:04:20:16:06:02
+```
+
+Show full metadata:
+
+```bash
+go-udap discover --info
+```
+
+Read all parameters and save them as a backup:
+
+```bash
+go-udap read 00:04:20:16:06:02 > backup.conf
+```
+
+Configure a device for DHCP on wireless with WPA2:
+
+```bash
+go-udap set 00:04:20:16:06:02 \
+  --interface 0 --lan-ip-mode 1 \
+  --wireless-ssid SlimNet --wireless-wpa-on 1 --wireless-wpa-mode 2 \
+  --wireless-wpa-psk 'shared-secret' \
+  --server-address 192.168.1.250
+go-udap commit 00:04:20:16:06:02
+```
+
+Apply a saved config file (and override one value at the CLI):
+
+```bash
+go-udap set 00:04:20:16:06:02 --config backup.conf --hostname new-name
+go-udap commit 00:04:20:16:06:02
+```
+
+Pipe parameters from stdin (here-string or here-doc):
+
+```bash
+go-udap set 00:04:20:16:06:02 <<< "lan_ip_mode=1
+wireless_SSID=foo"
+
+go-udap set 00:04:20:16:06:02 <<EOF
+interface=1
+lan_ip_mode=0
+lan_network_address=192.168.1.50
+lan_subnet_mask=255.255.255.0
+lan_gateway=192.168.1.1
+EOF
+```
+
+Get a single value for use in a script:
+
+```bash
+ip=$(go-udap get 00:04:20:16:06:02 lan_network_address)
+```
+
+### Config file format
+
+INI-style: one `key=value` per line; `#` and `;` start comments; blank
+lines ignored. Keys must be canonical UDAP parameter names (e.g.
+`wireless_SSID`, not `wireless-ssid`). The format matches `read` output, so
+round-tripping works without conversion.
+
+```ini
+# Network
+interface=1
+lan_ip_mode=1
+
+# Wireless
+wireless_SSID=MyNet
+wireless_wpa_on=1
+wireless_wpa_psk=secret
+```
 
 ## Configuration Parameters
 
-### Network Parameters
+### Network
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `lan_ip_mode` | Integer (0-1) | 0 = Static IP, 1 = DHCP |
-| `lan_network_address` | IP Address | Static IP address for the device |
-| `lan_subnet_mask` | IP Address | Subnet mask (e.g., 255.255.255.0) |
-| `lan_gateway` | IP Address | Default gateway |
-| `primary_dns` | IP Address | Primary DNS server |
-| `secondary_dns` | IP Address | Secondary DNS server |
-| `hostname` | String (max 33 chars) | Device hostname |
-| `bridging` | Integer (0-1) | Enable/disable bridging mode |
-| `interface` | Integer (0-1) | 0 = Wireless, 1 = Wired (Ethernet) |
+| `lan_network_address` | IPv4 | Static IP address |
+| `lan_subnet_mask` | IPv4 | Subnet mask |
+| `lan_gateway` | IPv4 | Default gateway |
+| `primary_dns` | IPv4 | Primary DNS |
+| `secondary_dns` | IPv4 | Secondary DNS |
+| `hostname` | String (max 33) | Device hostname |
+| `bridging` | Integer (0-1) | Enable/disable bridging |
+| `interface` | Integer (0-1) | 0 = Wireless, 1 = Wired |
 
-### Server Parameters
+### Server
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `server_address` | IP Address | Logitech Media Server address |
-| `lms_address` | IP Address | Alternative LMS address field |
-| `squeezecenter_address` | IP Address | Alias for server_address (compatibility) |
-| `slimserver_address` | IP Address | Alias for server_address (compatibility) |
+| `server_address` | IPv4 | LMS address |
+| `lms_address` | IPv4 | Alternative LMS address |
+| `squeezecenter_address` | IPv4 | Alias for `server_address` |
+| `slimserver_address` | IPv4 | Alias for `server_address` |
 
-### Wireless Parameters
+### Wireless
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `wireless_mode` | Integer (0-1) | 0 = Infrastructure, 1 = Ad-hoc |
-| `wireless_SSID` | String (max 33 chars) | Wireless network name |
-| `wireless_channel` | Integer (1-13) | Wireless channel |
-| `wireless_region_id` | Integer | Wireless region identifier |
+| `wireless_SSID` | String (1-32) | Network name |
+| `wireless_channel` | Integer (1-13) | Channel |
+| `wireless_region_id` | Integer | Region |
 
-### Wireless Security - WEP
+### Wireless security — WEP
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `wireless_wep_on` | Integer (0-1) | Enable/disable WEP |
-| `wireless_keylen` | Integer (5 or 13) | WEP key length |
+| `wireless_keylen` | Integer (5/13) | WEP key length |
 | `wireless_wep_key` | String | Primary WEP key |
-| `wireless_wep_key_1` | String | WEP key slot 1 |
-| `wireless_wep_key_2` | String | WEP key slot 2 |
-| `wireless_wep_key_3` | String | WEP key slot 3 |
+| `wireless_wep_key_1`..`_3` | String | WEP key slots 1-3 |
 
-### Wireless Security - WPA/WPA2
+### Wireless security — WPA/WPA2
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `wireless_wpa_on` | Integer (0-1) | Enable/disable WPA |
 | `wireless_wpa_mode` | Integer | WPA mode |
-| `wireless_wpa_cipher` | Integer | WPA cipher type |
-| `wireless_wpa_psk` | String (8-64 chars) | WPA pre-shared key |
+| `wireless_wpa_cipher` | Integer | WPA cipher |
+| `wireless_wpa_psk` | String (8-63) | WPA pre-shared key |
 
-## Examples
+### Factory reset
 
-### Configure a device for DHCP on wireless with WPA2
-
-```
-> discover
-> config 00:04:20:16:06:02 set interface=0 lan_ip_mode=1 wireless_SSID=SlimNet wireless_wpa_on=1 wireless_wpa_mode=2 wireless_wpa_psk=secret_shared_key squeezecenter_address=192.168.1.250
-> commit 00:04:20:16:06:02
-```
-
-### Configure a device with static IP on wired connection
-
-```
-> discover
-> config 00:04:20:16:06:02 set interface=1 lan_ip_mode=0 lan_network_address=192.168.1.50 lan_subnet_mask=255.255.255.0 lan_gateway=192.168.1.1 primary_dns=8.8.8.8 server_address=192.168.1.100
-> commit 00:04:20:16:06:02
-```
-
-### Read current device configuration
-
-```
-> discover
-> read 00:04:20:16:06:02
-Device Parameters (15 total):
-  lan_ip_mode = 0
-  interface = 1
-  wireless_SSID = MyNetwork
-  ...
-```
-
-### Scripting with piped commands
-
-Commands can be piped to the tool for non-interactive use:
-
-```bash
-./go-udap <<< "discover
-config 00:04:20:16:06:02 set interface=1 lan_ip_mode=1 squeezecenter_address=192.168.1.250
-commit 00:04:20:16:06:02"
-```
+Factory reset is **not** exposed by the protocol. Perform it on the device
+itself: hold the front button for ~6 seconds until it blinks fast red.
+See https://wiki.lyrion.org/index.php/SBRFrontButtonAndLED.
 
 ## Troubleshooting
 
 ### No devices found
 
-- Ensure your Squeezebox device is powered on and connected to the network
-- Devices in "bootstrap mode" (unconfigured) will show IP address 0.0.0.0
-- Make sure you're on the same network segment as the device
-- Check that UDP port 17784 is not blocked by a firewall
+- Ensure the device is powered on and on the same network segment.
+- Devices in bootstrap mode (unconfigured) report IP `0.0.0.0` and are still
+  reachable via broadcast.
+- Make sure UDP port 17784 is not blocked by a firewall.
 
 ### Configuration not applying
 
-- After setting parameters, you must run `save` to persist the configuration
-- After saving, run `reset` to reboot the device with new settings
-- Or use `commit` to do both in one step
+- After `set`, run `save` to persist, then `reset` to reboot.
+- Or use `commit` to save and reset in one step.
 
 ### Permission errors
 
-- On Linux/macOS, you may need to run with elevated privileges to bind to UDP port 17784
-- Try running with `sudo` if you encounter permission errors
+- Binding to UDP 17784 typically does not require root, but on some platforms
+  you may need elevated privileges if the port is otherwise restricted.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
-You must retain the copyright notice and license in any copies or substantial portions of the software.
+You must retain the copyright notice and license in any copies or substantial
+portions of the software.
