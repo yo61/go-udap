@@ -100,6 +100,7 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
 	}
+	stop()
 
 	// Echo what we sent for confirmation, sorted.
 	if err := formatParamMap(stdout, merged); err != nil {

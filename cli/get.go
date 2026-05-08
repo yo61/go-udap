@@ -51,6 +51,7 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("get failed: %w", err)}
 	}
+	stop()
 	if err := formatGetResult(stdout, params, values); err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}

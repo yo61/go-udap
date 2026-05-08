@@ -39,6 +39,7 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	if err := client.GetAllDeviceConfig(device); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("read failed: %w", err)}
 	}
+	stop()
 	if err := formatParamMap(stdout, device.Parameters); err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
