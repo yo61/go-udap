@@ -43,13 +43,13 @@ func ValidateParameter(name, value string) error {
 
 // validateParameter validates a configuration parameter based on its name and type
 func validateParameter(name, value string) error {
-	setting, exists := ConfigSettings[name]
+	p, exists := ParameterByName(name)
 	if !exists {
 		// Unknown parameter, but we'll allow it
 		return nil
 	}
 
-	switch setting.Length {
+	switch p.Length {
 	case 1:
 		// Single byte numeric value
 		var val uint8
@@ -69,8 +69,8 @@ func validateParameter(name, value string) error {
 		}
 	default:
 		// String parameters
-		if len(value) > int(setting.Length) {
-			return fmt.Errorf("value too long (max %d chars), got %d", setting.Length, len(value))
+		if len(value) > int(p.Length) {
+			return fmt.Errorf("value too long (max %d chars), got %d", p.Length, len(value))
 		}
 	}
 
@@ -192,24 +192,6 @@ func (t *TLVData) Validate() error {
 	// Check for maximum length (uint8 max)
 	if len(t.Value) > MaxTLVValueLength {
 		return fmt.Errorf("TLV value too long: %d bytes (max %d)", len(t.Value), MaxTLVValueLength)
-	}
-
-	return nil
-}
-
-// Validate checks if the ConfigSetting struct contains valid data
-func (c *ConfigSetting) Validate() error {
-	// Check for reasonable offset (NVRAM typically < 64KB)
-	if c.Offset > MaxNVRAMOffset {
-		return fmt.Errorf("offset too large: %d", c.Offset)
-	}
-
-	// Check for reasonable length
-	if c.Length == 0 {
-		return fmt.Errorf("length cannot be zero")
-	}
-	if c.Length > MaxConfigLength {
-		return fmt.Errorf("length too large: %d (max %d)", c.Length, MaxConfigLength)
 	}
 
 	return nil

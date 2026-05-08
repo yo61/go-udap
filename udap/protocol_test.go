@@ -23,8 +23,7 @@ func TestConstants(t *testing.T) {
 	}
 }
 
-func TestConfigSettings(t *testing.T) {
-	// Test that essential parameters exist
+func TestParametersIncludeEssentials(t *testing.T) {
 	essentialParams := []string{
 		"lan_ip_mode",
 		"lan_network_address",
@@ -33,35 +32,33 @@ func TestConfigSettings(t *testing.T) {
 		"wireless_wpa_psk",
 	}
 
-	for _, param := range essentialParams {
-		setting, exists := ConfigSettings[param]
+	for _, name := range essentialParams {
+		p, exists := ParameterByName(name)
 		if !exists {
-			t.Errorf("Essential parameter %s not found in ConfigSettings", param)
+			t.Errorf("Essential parameter %s not found in Parameters", name)
 			continue
 		}
-
-		// Test that settings have valid values
-		if setting.Length == 0 {
-			t.Errorf("Parameter %s has zero length", param)
-		}
-
-		if setting.Offset > MaxNVRAMOffset {
-			t.Errorf("Parameter %s has offset %d exceeding maximum %d", param, setting.Offset, MaxNVRAMOffset)
+		if err := p.Validate(); err != nil {
+			t.Errorf("Parameter %s failed validation: %v", name, err)
 		}
 	}
 }
 
-func TestKnownParameters(t *testing.T) {
-	// Test that all known parameters have corresponding config settings
-	for _, param := range KnownParameters {
-		if _, exists := ConfigSettings[param]; !exists {
-			t.Errorf("Known parameter %s not found in ConfigSettings", param)
-		}
+func TestParametersAreNonEmpty(t *testing.T) {
+	if len(Parameters) == 0 {
+		t.Error("Parameters should not be empty")
 	}
+	if len(ParameterNames()) != len(Parameters) {
+		t.Errorf("ParameterNames length %d != Parameters length %d",
+			len(ParameterNames()), len(Parameters))
+	}
+}
 
-	// Test that we have the expected number of parameters
-	if len(KnownParameters) == 0 {
-		t.Error("KnownParameters should not be empty")
+func TestParameterAliasesResolve(t *testing.T) {
+	for alias := range parameterAliases {
+		if _, ok := ParameterByName(alias); !ok {
+			t.Errorf("alias %q does not resolve via ParameterByName", alias)
+		}
 	}
 }
 
@@ -259,18 +256,21 @@ func TestDevice(t *testing.T) {
 	}
 }
 
-func TestConfigSettingStructure(t *testing.T) {
-	setting := ConfigSetting{
+func TestParameterStructure(t *testing.T) {
+	p := Parameter{
+		Name:   "test_param",
 		Offset: 100,
 		Length: 32,
+		Help:   "Test parameter",
 	}
-
-	if setting.Offset != 100 {
-		t.Errorf("Expected offset 100, got %d", setting.Offset)
+	if p.Offset != 100 || p.Length != 32 {
+		t.Errorf("field round-trip failed: %+v", p)
 	}
-
-	if setting.Length != 32 {
-		t.Errorf("Expected length 32, got %d", setting.Length)
+	if got := p.FlagName(); got != "test-param" {
+		t.Errorf("FlagName: got %q, want %q", got, "test-param")
+	}
+	if err := p.Validate(); err != nil {
+		t.Errorf("Validate: %v", err)
 	}
 }
 

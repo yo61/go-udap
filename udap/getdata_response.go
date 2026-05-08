@@ -6,16 +6,12 @@ import (
 	"strconv"
 )
 
-// configParamByOffset is a reverse index of ConfigSettings, mapping NVRAM
-// offset to the canonical parameter name. Aliases (multiple names sharing
-// the same offset) are resolved deterministically by picking the
-// alphabetically-first name; this gives a stable, predictable lookup.
+// configParamByOffset is a reverse index of Parameters, mapping NVRAM
+// offset to the canonical parameter name.
 var configParamByOffset = func() map[uint16]string {
-	out := make(map[uint16]string, len(ConfigSettings))
-	for name, s := range ConfigSettings {
-		if existing, ok := out[s.Offset]; !ok || name < existing {
-			out[s.Offset] = name
-		}
+	out := make(map[uint16]string, len(Parameters))
+	for _, p := range Parameters {
+		out[p.Offset] = p.Name
 	}
 	return out
 }()
@@ -28,8 +24,8 @@ var configParamByOffset = func() map[uint16]string {
 //	uint16 BE count
 //	count × (uint16 BE offset, uint16 BE length, length × byte value)
 //
-// Each NVRAM offset is mapped back to its parameter name via
-// ConfigSettings. Values are formatted to round-trip through
+// Each NVRAM offset is mapped back to its parameter name via the
+// Parameters table. Values are formatted to round-trip through
 // CreateSetDataPacket: 1- and 2-byte numerics as decimal, 4-byte values as
 // dotted-quad IPv4, longer values as NUL-trimmed strings.
 //

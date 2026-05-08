@@ -6,23 +6,24 @@ import (
 	"go-udap/udap"
 )
 
-func TestParamFlagsCoverAllKnownParameters(t *testing.T) {
+// TestParamFlagsCoverAllParameters guards against forgetting to surface
+// a newly-added udap.Parameter through the CLI. Since paramFlags() is
+// derived from udap.Parameters this is structurally guaranteed today,
+// but the test stays as a regression guard for any future divergence
+// (e.g. if someone introduces a hand-written override list).
+func TestParamFlagsCoverAllParameters(t *testing.T) {
 	flags := paramFlags()
+	if len(flags) != len(udap.Parameters) {
+		t.Fatalf("paramFlags length %d != udap.Parameters length %d",
+			len(flags), len(udap.Parameters))
+	}
 	byUDAP := make(map[string]paramFlag, len(flags))
 	for _, f := range flags {
 		byUDAP[f.udapName] = f
 	}
-	for _, name := range udap.KnownParameters {
-		if _, ok := byUDAP[name]; !ok {
-			t.Errorf("missing flag table entry for known parameter %q", name)
-		}
-	}
-}
-
-func TestParamFlagsAllReferenceConfigSettings(t *testing.T) {
-	for _, f := range paramFlags() {
-		if _, ok := udap.ConfigSettings[f.udapName]; !ok {
-			t.Errorf("flag table entry %q does not match any ConfigSettings key", f.udapName)
+	for _, p := range udap.Parameters {
+		if _, ok := byUDAP[p.Name]; !ok {
+			t.Errorf("missing flag table entry for parameter %q", p.Name)
 		}
 	}
 }

@@ -77,9 +77,9 @@ func TestCreateGetDataPacketWireFormat(t *testing.T) {
 		got[ofs] = ln
 	}
 	for _, name := range perlGetDataParams {
-		want, ok := ConfigSettings[name]
+		want, ok := ParameterByName(name)
 		if !ok {
-			t.Fatalf("test bug: %q not in ConfigSettings", name)
+			t.Fatalf("test bug: %q not in Parameters", name)
 		}
 		ln, present := got[want.Offset]
 		if !present {
@@ -149,9 +149,9 @@ func extractPairs(b []byte) map[uint16]uint16 {
 // (perl_code.pcap frame 7) and verifies parseGetDataResponse decodes the
 // payload into the expected param values.
 //
-// The response contains 26 params. We assert key values for params that
-// are present in ConfigSettings — anything Perl recognized that we don't
-// is parsed as raw hex under a synthetic offset_NNN key.
+// The response contains 26 params. We assert key values for params
+// present in the Parameters table — anything Perl recognized that we
+// don't is parsed as raw hex under a synthetic offset_NNN key.
 func TestParseGetDataResponseFromPerl(t *testing.T) {
 	fixture := filepath.Join("testdata", "captures", "getdata-response-26params.bin")
 	raw, err := os.ReadFile(fixture)

@@ -34,7 +34,7 @@ func ParseINI(r io.Reader) (map[string]string, error) {
 		}
 		key := strings.TrimSpace(trimmed[:eq])
 		value := strings.TrimSpace(trimmed[eq+1:])
-		if _, known := udap.ConfigSettings[key]; !known {
+		if _, known := udap.ParameterByName(key); !known {
 			return nil, fmt.Errorf("line %d: unknown parameter %q", lineNum, key)
 		}
 		if err := udap.ValidateParameter(key, value); err != nil {

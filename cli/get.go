@@ -28,7 +28,7 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 	}
 	params := fs.Args()[1:]
 	for _, p := range params {
-		if _, ok := udap.ConfigSettings[p]; !ok {
+		if _, ok := udap.ParameterByName(p); !ok {
 			return &ExitError{Code: 1, Err: fmt.Errorf("get: unknown parameter %q", p)}
 		}
 	}

@@ -129,7 +129,7 @@ func (c *Client) GetAllDeviceConfig(device *Device) error {
 func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Device) error {
 	c.logger.Info("Reading all device parameters", "device_mac", device.MAC)
 
-	config, err := c.GetDeviceConfigWithContext(ctx, device, KnownParameters)
+	config, err := c.GetDeviceConfigWithContext(ctx, device, ParameterNames())
 	if err != nil {
 		return fmt.Errorf("failed to read device parameters: %w", err)
 	}

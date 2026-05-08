@@ -142,21 +142,17 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
 		false,         // Not broadcast
 	)
 
-	type item struct {
-		name    string
-		setting ConfigSetting
-	}
-	items := make([]item, 0, len(params))
+	items := make([]Parameter, 0, len(params))
 	for _, name := range params {
-		s, ok := ConfigSettings[name]
+		p, ok := ParameterByName(name)
 		if !ok {
 			c.logger.Warn("Unknown parameter skipped", "param", name, "device_mac", device.MAC)
 			continue
 		}
-		items = append(items, item{name: name, setting: s})
+		items = append(items, p)
 	}
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].setting.Offset < items[j].setting.Offset
+		return items[i].Offset < items[j].Offset
 	})
 
 	buf := new(bytes.Buffer)
@@ -165,8 +161,8 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
 	buf.Write(make([]byte, PasswordFieldSize))
 	binary.Write(buf, binary.BigEndian, uint16(len(items)))
 	for _, it := range items {
-		binary.Write(buf, binary.BigEndian, it.setting.Offset)
-		binary.Write(buf, binary.BigEndian, it.setting.Length)
+		binary.Write(buf, binary.BigEndian, it.Offset)
+		binary.Write(buf, binary.BigEndian, it.Length)
 	}
 
 	return buf.Bytes()
@@ -213,27 +209,22 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 
 	// Build a list of parameters to write (with their settings)
 	type paramEntry struct {
-		name    string
-		value   string
-		setting ConfigSetting
+		value string
+		Parameter
 	}
 	var paramList []paramEntry
 
-	for param, value := range params {
-		if setting, exists := ConfigSettings[param]; exists {
-			paramList = append(paramList, paramEntry{
-				name:    param,
-				value:   value,
-				setting: setting,
-			})
+	for name, value := range params {
+		if p, ok := ParameterByName(name); ok {
+			paramList = append(paramList, paramEntry{value: value, Parameter: p})
 		} else {
-			c.logger.Warn("Unknown parameter skipped", "param", param, "device_mac", device.MAC)
+			c.logger.Warn("Unknown parameter skipped", "param", name, "device_mac", device.MAC)
 		}
 	}
 
 	// Sort parameters by offset for consistent ordering
 	sort.Slice(paramList, func(i, j int) bool {
-		return paramList[i].setting.Offset < paramList[j].setting.Offset
+		return paramList[i].Offset < paramList[j].Offset
 	})
 
 	// Write number of parameters (2 bytes big-endian)
@@ -243,15 +234,15 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 	// Write each parameter using offset/length format
 	for _, entry := range paramList {
 		// Write offset (2 bytes big-endian)
-		binary.Write(buf, binary.BigEndian, entry.setting.Offset)
+		binary.Write(buf, binary.BigEndian, entry.Offset)
 
 		// Write length (2 bytes big-endian)
-		binary.Write(buf, binary.BigEndian, entry.setting.Length)
+		binary.Write(buf, binary.BigEndian, entry.Length)
 
 		// Convert value based on parameter type
 		var data []byte
 
-		switch entry.setting.Length {
+		switch entry.Length {
 		case 4:
 			// Check if this is an IP address parameter (all 4-byte parameters are IP addresses)
 			// Parse IP address and convert to 4 bytes
@@ -261,11 +252,11 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 				if ip != nil {
 					data = []byte(ip)
 				} else {
-					c.logger.Warn("Invalid IPv4 address", "param", entry.name, "value", entry.value, "device_mac", device.MAC)
+					c.logger.Warn("Invalid IPv4 address", "param", entry.Name, "value", entry.value, "device_mac", device.MAC)
 					data = make([]byte, 4) // Use zeros
 				}
 			} else {
-				c.logger.Warn("Could not parse IP address", "param", entry.name, "value", entry.value, "device_mac", device.MAC)
+				c.logger.Warn("Could not parse IP address", "param", entry.Name, "value", entry.value, "device_mac", device.MAC)
 				data = make([]byte, 4) // Use zeros
 			}
 		case 1:
@@ -273,7 +264,7 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 			if val, err := strconv.ParseUint(entry.value, 10, 8); err == nil {
 				data = []byte{byte(val)}
 			} else {
-				c.logger.Warn("Invalid numeric value", "param", entry.name, "value", entry.value, "type", "uint8", "device_mac", device.MAC)
+				c.logger.Warn("Invalid numeric value", "param", entry.Name, "value", entry.value, "type", "uint8", "device_mac", device.MAC)
 				data = []byte{0} // Use zero as fallback
 			}
 		case 2:
@@ -282,27 +273,27 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 				data = make([]byte, 2)
 				binary.BigEndian.PutUint16(data, uint16(val))
 			} else {
-				c.logger.Warn("Invalid numeric value", "param", entry.name, "value", entry.value, "type", "uint16", "device_mac", device.MAC)
+				c.logger.Warn("Invalid numeric value", "param", entry.Name, "value", entry.value, "type", "uint16", "device_mac", device.MAC)
 				data = make([]byte, 2) // Use zeros as fallback
 			}
 		default:
 			// String data
 			data = []byte(entry.value)
-			if len(data) > int(entry.setting.Length) {
-				data = data[:entry.setting.Length] // Truncate if too long
+			if len(data) > int(entry.Length) {
+				data = data[:entry.Length] // Truncate if too long
 			}
 		}
 
 		// Pad with zeros to reach the required length
-		padded := make([]byte, entry.setting.Length)
+		padded := make([]byte, entry.Length)
 		copy(padded, data)
 		buf.Write(padded)
 
 		c.logger.Debug("Parameter details",
-			"param", entry.name,
-			"offset_hex", fmt.Sprintf("0x%04x", entry.setting.Offset),
-			"offset_dec", entry.setting.Offset,
-			"length", entry.setting.Length,
+			"param", entry.Name,
+			"offset_hex", fmt.Sprintf("0x%04x", entry.Offset),
+			"offset_dec", entry.Offset,
+			"length", entry.Length,
 			"value", entry.value)
 	}
 
