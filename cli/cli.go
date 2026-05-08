@@ -148,9 +148,16 @@ var (
 
 // moveGlobalFlagsAfterSubcommand reorders args so leading global flags
 // land after the subcommand. This lets `go-udap -v read <mac>` work in
-// addition to `go-udap read -v <mac>`. Args after `--` are not touched.
-// Unknown flags or anything that doesn't look like a flag stop the
-// scan — that token is treated as the subcommand.
+// addition to `go-udap read -v <mac>`. Unknown flags or anything that
+// doesn't look like a flag stop the scan — that token is treated as
+// the subcommand.
+//
+// `--` is honored as the POSIX flag terminator: if it appears before
+// any non-flag token, args are returned unchanged so the rest of the
+// argv is treated as positional by the subcommand. (Without this guard
+// the prior implementation would hoist the leading flag past `--` and
+// then make `--` itself look like the subcommand name, producing
+// "unknown command: --".)
 func moveGlobalFlagsAfterSubcommand(args []string) []string {
 	var leading []string
 	i := 0
@@ -158,7 +165,9 @@ scan:
 	for ; i < len(args); i++ {
 		a := args[i]
 		if a == "--" {
-			break
+			// POSIX terminator before subcommand — bail out and let
+			// the subcommand parser see the original argv.
+			return args
 		}
 		// --foo=bar form
 		if strings.HasPrefix(a, "--") {

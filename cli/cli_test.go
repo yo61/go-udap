@@ -95,6 +95,21 @@ func TestMoveGlobalFlagsAfterSubcommand(t *testing.T) {
 			in:   []string{"-v"},
 			want: []string{"-v"},
 		},
+		{
+			name: "leading -- terminator: args returned unchanged",
+			in:   []string{"--", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"--", "read", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "leading global flag then -- terminator: no hoist",
+			in:   []string{"-v", "--", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"-v", "--", "read", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "leading --timeout value then -- terminator: no hoist",
+			in:   []string{"--timeout", "5s", "--", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"--timeout", "5s", "--", "read", "aa:bb:cc:dd:ee:ff"},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
