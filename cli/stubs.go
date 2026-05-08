@@ -7,9 +7,6 @@ import (
 
 // These stubs are replaced one per task in the following tasks.
 
-func runInfo(args []string, stdout, stderr io.Writer) error {
-	return notImplemented("info")
-}
 func runRead(args []string, stdout, stderr io.Writer) error {
 	return notImplemented("read")
 }
