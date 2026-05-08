@@ -30,12 +30,20 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
-	if err := client.DiscoverDevicesWithContext(ctx); err != nil {
+	stopProgress := startProgress(stderr, "Discovering", *timeout)
+	err = client.DiscoverDevicesWithContext(ctx)
+	stopProgress()
+	if err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("discovery failed: %w", err)}
 	}
 
 	devices := client.ListDevices()
 	sort.Slice(devices, func(i, j int) bool { return devices[i].MAC < devices[j].MAC })
+
+	if len(devices) == 0 {
+		fmt.Fprintf(stderr, "no devices found within %s\n", *timeout)
+		return nil
+	}
 
 	for i, d := range devices {
 		if *info {
