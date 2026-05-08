@@ -39,17 +39,43 @@ func normalizeMAC(in string) (string, error) {
 	return "", fmt.Errorf("invalid MAC address: %q", in)
 }
 
-// discoverAndFind broadcasts a discovery, waits up to timeout, and returns
-// the device whose MAC matches. Returns an *ExitError with code 2 if not
-// found within the timeout.
+// findPollInterval is how often discoverAndFind checks for the target MAC
+// while discovery runs. Small enough to feel instant, large enough to
+// avoid pointless CPU on the device map.
+const findPollInterval = 50 * time.Millisecond
+
+// discoverAndFind broadcasts a discovery and returns the device whose MAC
+// matches as soon as it appears, cancelling discovery early instead of
+// waiting for the full timeout. Returns an *ExitError with code 2 if no
+// matching device responds within the timeout.
 func discoverAndFind(client *udap.Client, mac string, timeout time.Duration) (*udap.Device, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if err := client.DiscoverDevicesWithContext(ctx); err != nil {
-		return nil, &ExitError{Code: 2, Err: fmt.Errorf("discovery failed: %w", err)}
+
+	discoverDone := make(chan error, 1)
+	go func() {
+		discoverDone <- client.DiscoverDevicesWithContext(ctx)
+	}()
+
+	ticker := time.NewTicker(findPollInterval)
+	defer ticker.Stop()
+	for {
+		if d := client.GetDevice(mac); d != nil {
+			cancel()
+			<-discoverDone
+			return d, nil
+		}
+		select {
+		case <-ticker.C:
+			continue
+		case err := <-discoverDone:
+			if d := client.GetDevice(mac); d != nil {
+				return d, nil
+			}
+			if err != nil && ctx.Err() == nil {
+				return nil, &ExitError{Code: 2, Err: fmt.Errorf("discovery failed: %w", err)}
+			}
+			return nil, &ExitError{Code: 2, Err: fmt.Errorf("device %s not found within %s", mac, timeout)}
+		}
 	}
-	if d := client.GetDevice(mac); d != nil {
-		return d, nil
-	}
-	return nil, &ExitError{Code: 2, Err: fmt.Errorf("device %s not found within %s", mac, timeout)}
 }
