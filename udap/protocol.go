@@ -80,6 +80,7 @@ var ConfigSettings = map[string]ConfigSetting{
 	"secondary_dns":       {67, 4},
 	"server_address":      {71, 4},
 	"lms_address":         {79, 4},
+	"squeezecenter_name":  {83, 33},
 	"wireless_mode":       {173, 1},
 	"wireless_SSID":       {183, 33},
 	"wireless_channel":    {216, 1},
