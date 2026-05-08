@@ -65,7 +65,7 @@ var Parameters = []Parameter{
 	{"wireless_mode", 173, 1, "0=infrastructure, 1=ad-hoc"},
 	{"wireless_SSID", 183, 33, "Wireless SSID (1-32 chars)"},
 	{"wireless_channel", 216, 1, "Wireless channel (1-13)"},
-	{"wireless_region_id", 218, 1, "Wireless region identifier"},
+	{"wireless_region_id", 218, 1, "Wireless region identifier (4=US, 6=CA, 7=AU, 13=FR, 14=EU, 16=JP, 21=TW, 23=CH)"},
 	{"wireless_keylen", 220, 1, "WEP key length: 5 or 13"},
 	{"wireless_wep_key", 222, 13, "Primary WEP key"},
 	{"wireless_wep_key_1", 235, 13, "WEP key slot 1"},
