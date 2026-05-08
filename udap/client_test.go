@@ -1,13 +1,12 @@
 package udap
 
 import (
-	"context"
 	"testing"
 	"time"
 )
 
 func TestNewClient(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
@@ -32,7 +31,7 @@ func TestNewClient(t *testing.T) {
 
 func TestNewClientWithLogger(t *testing.T) {
 	logger := &TestLogger{logs: make([]LogEntry, 0)}
-	client, err := NewClientWithLogger(logger)
+	client, err := newClientWithPort(0, logger)
 	if err != nil {
 		t.Fatalf("Failed to create new client with logger: %v", err)
 	}
@@ -49,7 +48,7 @@ func TestNewClientWithLogger(t *testing.T) {
 }
 
 func TestClientClose(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
@@ -62,7 +61,7 @@ func TestClientClose(t *testing.T) {
 }
 
 func TestClientDeviceManagement(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
@@ -182,20 +181,15 @@ func TestGetActiveNetworkInterface(t *testing.T) {
 }
 
 func TestClientValidation(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
 	defer client.Close()
 
-	// Test context validation
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	// These should not panic or error due to invalid contexts
-	err = client.DiscoverDevicesWithContext(ctx)
-	// Error is expected since we're not actually sending packets
-	t.Logf("DiscoverDevicesWithContext error (expected): %v", err)
+	if err := client.Validate(); err != nil {
+		t.Errorf("Validate on a fresh client should pass, got: %v", err)
+	}
 }
 
 func TestGetLocalIPsFromClient(t *testing.T) {
@@ -307,11 +301,15 @@ func (l *TestLogger) ClearLogs() {
 
 func TestClientWithTestLogger(t *testing.T) {
 	logger := &TestLogger{logs: make([]LogEntry, 0)}
-	client, err := NewClientWithLogger(logger)
+	client, err := newClientWithPort(0, logger)
 	if err != nil {
 		t.Fatalf("Failed to create client with test logger: %v", err)
 	}
 	defer client.Close()
+
+	// Discard log entries emitted during socket setup so we only assert on
+	// the entries this test triggers below.
+	logger.ClearLogs()
 
 	// Trigger some logging
 	client.logger.Info("Test message", "key", "value")
