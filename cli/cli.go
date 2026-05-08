@@ -94,12 +94,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runGet(subArgs, stdout, syncErr)
 	case "set":
 		return runSet(subArgs, stdout, syncErr)
-	case "save":
-		return runSave(subArgs, stdout, syncErr)
-	case "reset":
-		return runReset(subArgs, stdout, syncErr)
-	case "commit":
-		return runCommit(subArgs, stdout, syncErr)
+	case "reboot":
+		return runReboot(subArgs, stdout, syncErr)
 	default:
 		return &ExitError{Code: 1, Err: fmt.Errorf("unknown command: %s", cmd)}
 	}
@@ -181,13 +177,15 @@ Commands:
   info <mac>                     Show metadata for one device
   read <mac>                     Read all parameters from a device
   get <mac> <param> [<param>...] Read specific parameters
-  set <mac> [--config FILE] [--<param> VALUE ...]
+  set <mac> [--reboot] [--config FILE] [--<param> VALUE ...]
                                  Set parameters from any combination of
                                  --config FILE (or --config - for stdin),
                                  piped stdin, and per-param --flags.
-  save <mac>                     Save current config to NVRAM
-  reset <mac>                    Reboot the device
-  commit <mac>                   Save then reset
+                                 Pass --reboot/-r to also reboot the device
+                                 after writing (the wire op writes NVRAM
+                                 immediately, but some changes only take
+                                 effect after reboot).
+  reboot <mac>                   Reboot the device
 
 Global flags:
   --timeout DURATION  Operation timeout (default 5s)

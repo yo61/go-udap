@@ -47,10 +47,8 @@ go-udap [global flags] <command> [args] [flags]
 | `info <mac>` | Show metadata for one device |
 | `read <mac>` | Read all parameters from a device |
 | `get <mac> <param> [<param>...]` | Read specific parameters |
-| `set <mac> [--config FILE] [--<param> VALUE ...]` | Set parameters from any combination of `--config FILE` (or `--config -` for stdin), piped stdin, and per-param flags |
-| `save <mac>` | Save current config to NVRAM |
-| `reset <mac>` | Reboot the device |
-| `commit <mac>` | Save then reset (combined) |
+| `set <mac> [--reboot/-r] [--config FILE] [--<param> VALUE ...]` | Set parameters from any combination of `--config FILE` (or `--config -` for stdin), piped stdin, and per-param flags. The wire op writes NVRAM directly; pass `--reboot/-r` to also reboot afterward. |
+| `reboot <mac>` | Reboot the device |
 
 ### Global flags
 
@@ -100,15 +98,14 @@ go-udap set 00:04:20:16:06:02 \
   --interface 0 --lan-ip-mode 1 \
   --wireless-ssid SlimNet --wireless-wpa-on 1 --wireless-wpa-mode 2 \
   --wireless-wpa-psk 'shared-secret' \
-  --server-address 192.168.1.250
-go-udap commit 00:04:20:16:06:02
+  --server-address 192.168.1.250 \
+  --reboot
 ```
 
-Apply a saved config file (and override one value at the CLI):
+Apply a saved config file (and override one value at the CLI), then reboot:
 
 ```bash
-go-udap set 00:04:20:16:06:02 --config backup.conf --hostname new-name
-go-udap commit 00:04:20:16:06:02
+go-udap set 00:04:20:16:06:02 --config backup.conf --hostname new-name --reboot
 ```
 
 Pipe parameters from stdin (here-string or here-doc):
@@ -219,8 +216,9 @@ See https://wiki.lyrion.org/index.php/SBRFrontButtonAndLED.
 
 ### Configuration not applying
 
-- After `set`, run `save` to persist, then `reset` to reboot.
-- Or use `commit` to save and reset in one step.
+- `set` writes to NVRAM directly on the wire (single UCP_METHOD_SET_DATA op
+  per the Net::UDAP reference). Pass `--reboot/-r` to also reboot, or run
+  `reboot <mac>` separately, since some changes only take effect after reboot.
 
 ### Permission errors
 

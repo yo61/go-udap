@@ -349,13 +349,6 @@ func (c *Client) CreateResetPacket(device *Device) []byte {
 	return buf.Bytes()
 }
 
-// CreateSaveDataPacket creates a UDAP SaveData packet using the correct Lua format
-// This is an alias for CreateSetDataPacket since save_data uses the SetData method
-func (c *Client) CreateSaveDataPacket(device *Device, allParams map[string]string) []byte {
-	// Save data uses the same format as SetData with method 0x0006
-	return c.CreateSetDataPacket(device, allParams)
-}
-
 // ListDevices returns a list of discovered devices
 func (c *Client) ListDevices() []*Device {
 	devices := make([]*Device, 0, len(c.devices))

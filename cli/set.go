@@ -15,6 +15,7 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	timeout := fs.Duration("timeout", 5*time.Second, "Operation timeout")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
+	reboot := fs.BoolP("reboot", "r", false, "Reboot the device after applying changes")
 	configPath := fs.String("config", "", "Read parameters from FILE (use - for stdin)")
 
 	// Register a string flag for every known UDAP parameter.
@@ -99,6 +100,11 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	defer cancel()
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
+	}
+	if *reboot {
+		if err := client.ResetDeviceWithContext(ctx, device); err != nil {
+			return &ExitError{Code: 2, Err: fmt.Errorf("set --reboot failed during reset: %w", err)}
+		}
 	}
 	stop()
 

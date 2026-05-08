@@ -81,10 +81,8 @@ interactive shell.
 - `go-udap info <mac>` — Show metadata for one device
 - `go-udap read <mac>` — Read all parameters from a device
 - `go-udap get <mac> <param> [<param>...]` — Read specific parameters
-- `go-udap set <mac> [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win)
-- `go-udap save <mac>` — Save current config to NVRAM
-- `go-udap reset <mac>` — Reboot the device
-- `go-udap commit <mac>` — Save then reset
+- `go-udap set <mac> [--reboot/-r] [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win). The wire op writes NVRAM directly (every UCP_METHOD_SET_DATA writes — there is no separate save_data wire method per the Net::UDAP reference). Pass `--reboot/-r` to also reboot after writing.
+- `go-udap reboot <mac>` — Reboot the device
 
 Global flags: `--timeout DURATION` (default 5s), `--verbose`/`-v`, `--version`, `--help`/`-h`.
 
