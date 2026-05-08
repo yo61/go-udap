@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 // Version is the binary version string, surfaced by --version.
@@ -27,6 +29,28 @@ func (e *ExitError) Error() string {
 }
 
 func (e *ExitError) Unwrap() error { return e.Err }
+
+// parseSubcommandFlags wraps fs.Parse and translates pflag.ErrHelp (the
+// signal pflag returns when --help is requested, after it has already
+// printed usage to stderr) into a nil-error, exit-0 ExitError sentinel.
+// Other parse errors become exit-1 ExitErrors with the parse message.
+//
+// Subcommands call this and return its result directly; main.go's "error:"
+// prefix is suppressed by the nil Err inside the sentinel ExitError.
+func parseSubcommandFlags(fs *pflag.FlagSet, args []string) error {
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return errHelpRequested
+		}
+		return &ExitError{Code: 1, Err: err}
+	}
+	return nil
+}
+
+// errHelpRequested is the sentinel returned by parseSubcommandFlags when
+// --help was passed. Subcommands propagate it; cli.Run swaps it for nil
+// so main.go reports exit 0 with no "error:" line.
+var errHelpRequested = errors.New("help requested")
 
 // ExitCode maps an error to a process exit code:
 //   - nil           → 0
@@ -83,6 +107,14 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	cmd := args[0]
 	subArgs := args[1:]
 
+	err := dispatch(cmd, subArgs, stdout, syncErr)
+	if errors.Is(err, errHelpRequested) {
+		return nil
+	}
+	return err
+}
+
+func dispatch(cmd string, subArgs []string, stdout, syncErr io.Writer) error {
 	switch cmd {
 	case "discover":
 		return runDiscover(subArgs, stdout, syncErr)

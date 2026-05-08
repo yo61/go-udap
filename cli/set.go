@@ -24,8 +24,8 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 		fs.String(p.flagName, "", p.help)
 	}
 
-	if err := fs.Parse(args); err != nil {
-		return &ExitError{Code: 1, Err: err}
+	if err := parseSubcommandFlags(fs, args); err != nil {
+		return err
 	}
 	if fs.NArg() != 1 {
 		return &ExitError{Code: 1, Err: fmt.Errorf("set: expected exactly one MAC argument")}

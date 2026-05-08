@@ -13,8 +13,8 @@ func runInfo(args []string, stdout, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
-	if err := fs.Parse(args); err != nil {
-		return &ExitError{Code: 1, Err: err}
+	if err := parseSubcommandFlags(fs, args); err != nil {
+		return err
 	}
 	if fs.NArg() != 1 {
 		return &ExitError{Code: 1, Err: fmt.Errorf("info: expected exactly one MAC argument")}

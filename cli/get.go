@@ -16,8 +16,8 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	timeout := fs.Duration("timeout", 5*time.Second, "Operation timeout")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
-	if err := fs.Parse(args); err != nil {
-		return &ExitError{Code: 1, Err: err}
+	if err := parseSubcommandFlags(fs, args); err != nil {
+		return err
 	}
 	if fs.NArg() < 2 {
 		return &ExitError{Code: 1, Err: fmt.Errorf("get: expected MAC and at least one parameter name")}

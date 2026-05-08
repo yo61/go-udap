@@ -18,8 +18,8 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
 	info := fs.Bool("info", false, "Also print metadata per device")
-	if err := fs.Parse(args); err != nil {
-		return &ExitError{Code: 1, Err: err}
+	if err := parseSubcommandFlags(fs, args); err != nil {
+		return err
 	}
 
 	client, err := newClient(*verbose, stderr)
