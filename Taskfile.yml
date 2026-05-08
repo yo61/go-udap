@@ -4,7 +4,6 @@ vars:
   BINARY_NAME: go-udap
   LDFLAGS: -s -w
   BUILD_FLAGS: -ldflags="{{.LDFLAGS}}" -trimpath
-  CLI_ARGS: ""
 
 tasks:
   default:
