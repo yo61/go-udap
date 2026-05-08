@@ -79,13 +79,18 @@ func (c *Client) DiscoverDevicesUDPCtx(ctx context.Context, advanced bool) error
 	// Start listening BEFORE sending discovery packet to avoid missing quick responses
 	c.logger.Info("Setting up response listener")
 
-	// Use a done channel to signal the listener to stop
+	// Use a done channel to signal the listener to stop. listenerExited
+	// is closed (not sent-to) so it can be read repeatedly from both
+	// selects below — closed-channel reads return immediately and
+	// idempotently.
 	doneChan := make(chan struct{})
-	responseDone := make(chan bool, 1)
+	listenerExited := make(chan struct{})
+	internalDone := make(chan bool, 1) // dummy; preserves listener's existing API
 
 	go func() {
+		defer close(listenerExited)
 		c.logger.Debug("Started response listener goroutine")
-		c.listenForResponsesWithCancel(responseDone, doneChan)
+		c.listenForResponsesWithCancel(internalDone, doneChan)
 	}()
 
 	// Give the listener a moment to start
@@ -102,35 +107,31 @@ func (c *Client) DiscoverDevicesUDPCtx(ctx context.Context, advanced bool) error
 	c.logger.Info("Sent UDP discovery packet", "target", "255.255.255.255", "port", Port)
 	c.logger.Info("Waiting for responses")
 
-	// Wait for responses or timeout
+	// Wait for either listener exit (it doesn't normally exit on its
+	// own — this branch fires only if it crashed) or ctx done.
 	select {
-	case <-responseDone:
+	case <-listenerExited:
 		c.logger.Info("Response listener completed")
 	case <-ctx.Done():
 		c.logger.Info("Discovery timeout reached")
 	}
 
-	// Signal goroutine to stop
+	// Signal listener to stop, then unblock any in-flight ReadFromUDP
+	// so it can see the cancel signal on the next loop iteration.
 	close(doneChan)
-
-	// Set a very short deadline to unblock any pending ReadFromUDP
 	c.conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
 
-	// Wait for goroutine to confirm exit - this is critical to prevent
-	// the listener from consuming packets meant for subsequent operations
-	select {
-	case <-responseDone:
-		c.logger.Debug("Listener goroutine exited cleanly")
-	case <-time.After(500 * time.Millisecond):
-		c.logger.Warn("Listener goroutine did not exit in time")
-	}
+	// Block until the listener has actually returned. This is critical:
+	// the previous 500ms-timeout shortcut here could let cleanup proceed
+	// while the listener was still alive on the shared socket, causing
+	// it to consume packets meant for the next operation (GetData/SetData
+	// responses). The wait is bounded by SetReadDeadline above (~50ms);
+	// if it hangs longer than that we have a deeper bug worth knowing
+	// about, not worth papering over with a timeout.
+	<-listenerExited
+	c.logger.Debug("Listener goroutine exited cleanly")
 
-	// Reset deadline for future operations
 	c.conn.SetReadDeadline(time.Time{})
-
-	// Small delay to ensure socket is fully ready for next operation
-	time.Sleep(50 * time.Millisecond)
-
 	return nil
 }
 
