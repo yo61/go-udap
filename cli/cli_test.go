@@ -44,6 +44,73 @@ func TestRunVersionFlag(t *testing.T) {
 	}
 }
 
+func TestMoveGlobalFlagsAfterSubcommand(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{
+			name: "no flags",
+			in:   []string{"read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "leading -v",
+			in:   []string{"-v", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "-v", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "leading --verbose",
+			in:   []string{"--verbose", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "--verbose", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "leading --timeout with separate value",
+			in:   []string{"--timeout", "30s", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "--timeout", "30s", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "leading --timeout=value",
+			in:   []string{"--timeout=30s", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "--timeout=30s", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "multiple leading flags",
+			in:   []string{"-v", "--timeout", "30s", "read", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "-v", "--timeout", "30s", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "flags after subcommand stay put",
+			in:   []string{"read", "-v", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"read", "-v", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "unknown leading flag halts hoisting",
+			in:   []string{"--frobnicate", "set", "aa:bb:cc:dd:ee:ff"},
+			want: []string{"--frobnicate", "set", "aa:bb:cc:dd:ee:ff"},
+		},
+		{
+			name: "no subcommand, only flag",
+			in:   []string{"-v"},
+			want: []string{"-v"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := moveGlobalFlagsAfterSubcommand(c.in)
+			if len(got) != len(c.want) {
+				t.Fatalf("len: got %d, want %d (%v vs %v)", len(got), len(c.want), got, c.want)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Errorf("[%d]: got %q, want %q (full got=%v)", i, got[i], c.want[i], got)
+				}
+			}
+		})
+	}
+}
+
 func TestExitCodeReturnsZeroForNonExitError(t *testing.T) {
 	if got := ExitCode(errors.New("plain")); got != 2 {
 		t.Errorf("plain error should map to exit 2, got %d", got)

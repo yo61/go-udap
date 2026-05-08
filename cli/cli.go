@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -50,7 +51,15 @@ type globalFlags struct {
 
 // Run parses the given arguments and dispatches to the appropriate subcommand.
 // stdout receives all command output; stderr receives logs and warnings.
+//
+// Global flags (--verbose / -v, --timeout) may appear EITHER before the
+// subcommand or after — `go-udap -v read <mac>` and `go-udap read -v
+// <mac>` are equivalent. moveGlobalFlagsAfterSubcommand shuffles them
+// past the subcommand name before dispatch so each subcommand's pflag
+// FlagSet sees them in its expected position.
 func Run(args []string, stdout, stderr io.Writer) error {
+	args = moveGlobalFlagsAfterSubcommand(args)
+
 	if len(args) == 0 {
 		printUsage(stdout)
 		return nil
@@ -94,6 +103,71 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	default:
 		return &ExitError{Code: 1, Err: fmt.Errorf("unknown command: %s", cmd)}
 	}
+}
+
+// globalFlagsBoolean and globalFlagsValue list the flag forms recognized
+// at the top level (i.e. before the subcommand). booleans take no value;
+// value flags take the next arg, or accept the --foo=bar form.
+var (
+	globalFlagsBoolean = map[string]bool{
+		"-v":        true,
+		"--verbose": true,
+	}
+	globalFlagsValue = map[string]bool{
+		"--timeout": true,
+	}
+)
+
+// moveGlobalFlagsAfterSubcommand reorders args so leading global flags
+// land after the subcommand. This lets `go-udap -v read <mac>` work in
+// addition to `go-udap read -v <mac>`. Args after `--` are not touched.
+// Unknown flags or anything that doesn't look like a flag stop the
+// scan — that token is treated as the subcommand.
+func moveGlobalFlagsAfterSubcommand(args []string) []string {
+	var leading []string
+	i := 0
+scan:
+	for ; i < len(args); i++ {
+		a := args[i]
+		if a == "--" {
+			break
+		}
+		// --foo=bar form
+		if strings.HasPrefix(a, "--") {
+			if eq := strings.IndexByte(a, '='); eq > 0 {
+				name := a[:eq]
+				if globalFlagsBoolean[name] || globalFlagsValue[name] {
+					leading = append(leading, a)
+					continue
+				}
+				break scan
+			}
+		}
+		if globalFlagsBoolean[a] {
+			leading = append(leading, a)
+			continue
+		}
+		if globalFlagsValue[a] {
+			if i+1 >= len(args) {
+				// Missing value — leave for subcommand parser to error on.
+				break scan
+			}
+			leading = append(leading, a, args[i+1])
+			i++
+			continue
+		}
+		// Either a non-flag (subcommand) or an unknown flag — stop.
+		break scan
+	}
+	if len(leading) == 0 || i >= len(args) {
+		return args
+	}
+	rest := args[i:]
+	out := make([]string, 0, len(args))
+	out = append(out, rest[0])     // subcommand
+	out = append(out, leading...)  // hoisted global flags
+	out = append(out, rest[1:]...) // subcommand args
+	return out
 }
 
 func printUsage(w io.Writer) {
