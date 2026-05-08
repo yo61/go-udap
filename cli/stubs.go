@@ -7,9 +7,6 @@ import (
 
 // These stubs are replaced one per task in the following tasks.
 
-func runSet(args []string, stdout, stderr io.Writer) error {
-	return notImplemented("set")
-}
 func runSave(args []string, stdout, stderr io.Writer) error {
 	return notImplemented("save")
 }
