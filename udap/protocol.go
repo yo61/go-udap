@@ -113,6 +113,7 @@ var KnownParameters = []string{
 	"secondary_dns",
 	"server_address",
 	"lms_address",
+	"squeezecenter_name",
 	"wireless_mode",
 	"wireless_SSID",
 	"wireless_channel",
