@@ -208,7 +208,7 @@ func (c *Client) listenForResponsesWithCancel(done chan<- bool, cancel <-chan st
 			// Check if it's a discovery response or contains device info
 			device := c.parseDiscoveryResponse(data, addr.IP.String(), packet)
 			if device != nil {
-				c.devices[device.MAC] = device
+				c.recordDevice(device)
 				c.logger.Info("Found device", "name", device.Name, "mac", device.MAC, "ip", device.IP)
 			} else {
 				c.logger.Warn("UCP packet received but no device info parsed", "source_ip", addr.IP.String())
@@ -270,7 +270,7 @@ func (c *Client) listenForResponses(done chan<- bool) {
 			// Check if it's a discovery response or contains device info
 			device := c.parseDiscoveryResponse(data, addr.IP.String(), packet)
 			if device != nil {
-				c.devices[device.MAC] = device
+				c.recordDevice(device)
 				c.logger.Info("Found device", "name", device.Name, "mac", device.MAC, "ip", device.IP)
 			} else {
 				c.logger.Warn("UCP packet received but no device info parsed", "source_ip", addr.IP.String())

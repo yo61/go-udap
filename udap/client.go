@@ -8,15 +8,23 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
-// Client handles UDAP protocol communication
+// Client handles UDAP protocol communication.
+//
+// devicesMu guards devices. The discovery listener goroutine writes to
+// the map on every received UDAP response, while callers (CLI's
+// discoverAndFind, GetDevice/ListDevices/GetDevices) read concurrently
+// — without the lock that's a Go runtime data race ("concurrent map
+// read and map write" panic).
 type Client struct {
-	conn     *net.UDPConn
-	devices  map[string]*Device
-	sequence uint32
-	logger   Logger
+	conn      *net.UDPConn
+	devicesMu sync.RWMutex
+	devices   map[string]*Device
+	sequence  uint32
+	logger    Logger
 }
 
 // NewClient creates a new UDAP client
@@ -349,8 +357,10 @@ func (c *Client) CreateResetPacket(device *Device) []byte {
 	return buf.Bytes()
 }
 
-// ListDevices returns a list of discovered devices
+// ListDevices returns a snapshot of currently-discovered devices.
 func (c *Client) ListDevices() []*Device {
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
 	devices := make([]*Device, 0, len(c.devices))
 	for _, device := range c.devices {
 		devices = append(devices, device)
@@ -358,14 +368,33 @@ func (c *Client) ListDevices() []*Device {
 	return devices
 }
 
-// GetDevice returns a device by MAC address
+// GetDevice returns a device by MAC address, or nil if not present.
 func (c *Client) GetDevice(mac string) *Device {
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
 	return c.devices[mac]
 }
 
-// GetDevices returns the devices map
+// GetDevices returns a snapshot copy of the devices map. Callers may
+// mutate the returned map without affecting the client's internal
+// state.
 func (c *Client) GetDevices() map[string]*Device {
-	return c.devices
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
+	out := make(map[string]*Device, len(c.devices))
+	for k, v := range c.devices {
+		out[k] = v
+	}
+	return out
+}
+
+// recordDevice stores a discovered device under its MAC. Used by the
+// discovery listener; takes the write lock so it's safe to call
+// concurrently with reads.
+func (c *Client) recordDevice(d *Device) {
+	c.devicesMu.Lock()
+	c.devices[d.MAC] = d
+	c.devicesMu.Unlock()
 }
 
 // PacketCaptureConfig configures packet capture behavior. The capture
