@@ -39,6 +39,8 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	stop := startProgress(stderr, "get", *timeout)
+	defer stop()
 	device, err := discoverAndFind(client, mac, *timeout)
 	if err != nil {
 		return err

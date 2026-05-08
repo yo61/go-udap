@@ -30,7 +30,9 @@ func runInfo(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	stop := startProgress(stderr, "info", *timeout)
 	device, err := discoverAndFind(client, mac, *timeout)
+	stop()
 	if err != nil {
 		return err
 	}

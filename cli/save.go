@@ -31,6 +31,8 @@ func runSave(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	stop := startProgress(stderr, "save", *timeout)
+	defer stop()
 	device, err := discoverAndFind(client, mac, *timeout)
 	if err != nil {
 		return err

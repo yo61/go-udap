@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	progressBarWidth = 20
-	progressTickRate = 100 * time.Millisecond
+	progressBarWidth   = 20
+	progressTickRate   = 100 * time.Millisecond
+	progressStartDelay = 500 * time.Millisecond
 )
 
 // startProgress draws a single-line progress bar to stderr that fills as
@@ -23,6 +24,11 @@ const (
 // call but does nothing, and no goroutine is spawned. This keeps log
 // files clean and prevents stray escape sequences when the operator
 // captures stderr.
+//
+// The bar does not appear for the first progressStartDelay (500ms) so
+// quick operations — single-device commands typically return in <100ms —
+// don't flash a bar on and off. If the operation finishes before the
+// delay elapses, no output is ever written.
 func startProgress(stderr io.Writer, label string, total time.Duration) func() {
 	f, ok := stderr.(*os.File)
 	if !ok {
@@ -38,6 +44,11 @@ func startProgress(stderr io.Writer, label string, total time.Duration) func() {
 	go func() {
 		defer close(done)
 		start := time.Now()
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(progressStartDelay):
+		}
 		ticker := time.NewTicker(progressTickRate)
 		defer ticker.Stop()
 		for {
