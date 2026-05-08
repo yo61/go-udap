@@ -39,7 +39,7 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "GetData responses",
 		Timeout:    5 * time.Second,
-		SourceIP:   LocalIP,
+		SourceIP:   "",
 		SourcePort: 17784,
 	}
 
@@ -194,7 +194,7 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "SetData responses",
 		Timeout:    5 * time.Second,
-		SourceIP:   "0.0.0.0",
+		SourceIP:   "",
 		SourcePort: 17784,
 	}
 
@@ -315,7 +315,7 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "Reset responses",
 		Timeout:    3 * time.Second,
-		SourceIP:   "0.0.0.0",
+		SourceIP:   "",
 		SourcePort: 17784,
 	}
 
@@ -455,7 +455,7 @@ func (c *Client) saveDeviceConfigWithAllParamsCtx(ctx context.Context, device *D
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "SaveData responses",
 		Timeout:    5 * time.Second,
-		SourceIP:   "0.0.0.0",
+		SourceIP:   "",
 		SourcePort: 17784,
 	}
 
