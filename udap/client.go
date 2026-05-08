@@ -25,10 +25,17 @@ func NewClient() (*Client, error) {
 	return NewClientWithLogger(NewStructuredLogger())
 }
 
-// NewClientWithLogger creates a new UDAP client with a custom logger
+// NewClientWithLogger creates a new UDAP client with a custom logger,
+// bound to the standard UDAP port (17784).
 func NewClientWithLogger(logger Logger) (*Client, error) {
-	// Listen on all interfaces for UDP port 17784 (explicitly IPv4)
-	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", Port))
+	return newClientWithPort(Port, logger)
+}
+
+// newClientWithPort creates a UDAP client bound to the given UDP port.
+// Port 0 lets the OS pick a free ephemeral port — useful for tests so they
+// don't collide with each other or with anything else holding port 17784.
+func newClientWithPort(port int, logger Logger) (*Client, error) {
+	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return nil, err
 	}
@@ -38,10 +45,9 @@ func NewClientWithLogger(logger Logger) (*Client, error) {
 		return nil, err
 	}
 
-	// Enable broadcast reception on the listening socket
 	enableBroadcast(conn, logger)
 
-	logger.Debug("Created UDP socket", "address", addr.String())
+	logger.Debug("Created UDP socket", "address", conn.LocalAddr().String())
 
 	return &Client{
 		conn:     conn,
