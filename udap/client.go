@@ -289,24 +289,25 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 	packetBytes := buf.Bytes()
 	c.logger.Debug("SetData packet details",
 		"total_bytes", len(packetBytes),
-		"header_hex", fmt.Sprintf("%x", packetBytes[:min(25, len(packetBytes))]),
+		"header_hex", fmt.Sprintf("%x", packetBytes[:min(UDAPHeaderSize, len(packetBytes))]),
 		"username_hex", func() string {
-			start, end := 25, min(41, len(packetBytes))
+			start, end := UDAPHeaderSize, min(UDAPHeaderSize+UsernameFieldSize, len(packetBytes))
 			if end > start {
 				return fmt.Sprintf("%x", packetBytes[start:end])
 			}
 			return ""
 		}(),
 		"password_hex", func() string {
-			start, end := 41, min(57, len(packetBytes))
+			start, end := UDAPHeaderSize+UsernameFieldSize, min(UDAPHeaderSize+UsernameFieldSize+PasswordFieldSize, len(packetBytes))
 			if end > start {
 				return fmt.Sprintf("%x", packetBytes[start:end])
 			}
 			return ""
 		}(),
 		"param_data_hex", func() string {
-			if len(packetBytes) > 57 {
-				return fmt.Sprintf("%x", packetBytes[57:])
+			payloadStart := UDAPHeaderSize + UsernameFieldSize + PasswordFieldSize
+			if len(packetBytes) > payloadStart {
+				return fmt.Sprintf("%x", packetBytes[payloadStart:])
 			}
 			return ""
 		}())

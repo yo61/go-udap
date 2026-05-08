@@ -198,7 +198,7 @@ func TestParsePacket(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			packet, data, err := ParsePacket(tt.data)
+			packet, _, err := ParsePacket(tt.data)
 
 			if tt.expectError {
 				if err == nil {
@@ -221,10 +221,11 @@ func TestParsePacket(t *testing.T) {
 				t.Errorf("Expected method 0x%04x, got 0x%04x", tt.expectedMethod, packet.UCPMethod)
 			}
 
-			// Data should not be nil (may be empty)
-			if data == nil {
-				t.Error("Data should not be nil")
-			}
+			// Header-only packets produce a nil data slice; packets
+			// carrying a TLV payload produce a non-empty one. The old
+			// assertion ("data should not be nil") only ever passed
+			// because of a header-size off-by-2 in ParsePacket that
+			// returned 2 leftover header bytes as data — fixed now.
 		})
 	}
 }

@@ -211,17 +211,16 @@ func ParsePacket(packetData []byte) (*Packet, []byte, error) {
 
 	// Check for different packet formats
 	// Format 1: Standard UDAP packet (starts with destination broadcast flag)
-	if len(packetData) >= 25 {
+	if len(packetData) >= UDAPHeaderSize {
 		var packet Packet
 		buf := bytes.NewReader(packetData)
 		err := binary.Read(buf, binary.BigEndian, &packet)
 		if err == nil {
 			// Check if this looks like a valid UDAP packet
 			if packet.UDAPType == TypeUCP || packet.DstType <= 2 || packet.SrcType <= 2 {
-				headerSize := 25
 				var data []byte
-				if len(packetData) > headerSize {
-					data = packetData[headerSize:]
+				if len(packetData) > UDAPHeaderSize {
+					data = packetData[UDAPHeaderSize:]
 				}
 				return &packet, data, nil
 			}
