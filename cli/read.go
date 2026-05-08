@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -36,7 +37,9 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := client.GetAllDeviceConfig(device); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+	if err := client.GetAllDeviceConfigWithContext(ctx, device); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("read failed: %w", err)}
 	}
 	stop()

@@ -35,10 +35,10 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
 
-	// Use packet capture helper for GetData responses
+	// Use packet capture helper for GetData responses. Timeout is
+	// driven by ctx — no inner cap that would mask --timeout.
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "GetData responses",
-		Timeout:    5 * time.Second,
 		SourceIP:   "",
 		SourcePort: 17784,
 	}
@@ -115,21 +115,28 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 	}
 }
 
-// GetAllDeviceConfig retrieves all known parameters from a device
+// GetAllDeviceConfig retrieves all known parameters using a hardcoded
+// 5-second timeout. Prefer GetAllDeviceConfigWithContext to honor a
+// caller-supplied deadline (e.g. the CLI's --timeout flag).
 func (c *Client) GetAllDeviceConfig(device *Device) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return c.GetAllDeviceConfigWithContext(ctx, device)
+}
+
+// GetAllDeviceConfigWithContext retrieves all known parameters using the
+// caller-supplied context for cancellation/timeout.
+func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Device) error {
 	c.logger.Info("Reading all device parameters", "device_mac", device.MAC)
 
-	// Read all known parameters
-	config, err := c.GetDeviceConfig(device, KnownParameters)
+	config, err := c.GetDeviceConfigWithContext(ctx, device, KnownParameters)
 	if err != nil {
 		return fmt.Errorf("failed to read device parameters: %w", err)
 	}
 
-	// Store parameters in device
 	if device.Parameters == nil {
 		device.Parameters = make(map[string]string)
 	}
-
 	maps.Copy(device.Parameters, config)
 
 	c.logger.Info("Read parameters from device", "param_count", len(config), "device_mac", device.MAC)
@@ -148,7 +155,7 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 	// First ensure we have all current device parameters
 	if len(device.Parameters) == 0 {
 		c.logger.Info("Device parameters not loaded, reading current configuration")
-		err := c.GetAllDeviceConfig(device)
+		err := c.GetAllDeviceConfigWithContext(ctx, device)
 		if err != nil {
 			c.logger.Warn("Could not read current parameters", "error", err)
 			c.logger.Info("Proceeding with just the new parameters")
@@ -190,10 +197,10 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 		return fmt.Errorf("failed to resolve address: %w", err)
 	}
 
-	// Use packet capture helper for SetData responses
+	// Use packet capture helper for SetData responses. Timeout is
+	// driven by ctx — no inner cap that would mask --timeout.
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "SetData responses",
-		Timeout:    5 * time.Second,
 		SourceIP:   "",
 		SourcePort: 17784,
 	}
@@ -311,10 +318,10 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 		return fmt.Errorf("failed to resolve address: %w", err)
 	}
 
-	// Use packet capture helper for Reset responses
+	// Use packet capture helper for Reset responses. Timeout is
+	// driven by ctx — no inner cap that would mask --timeout.
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "Reset responses",
-		Timeout:    3 * time.Second,
 		SourceIP:   "",
 		SourcePort: 17784,
 	}
@@ -415,7 +422,7 @@ func (c *Client) SaveDeviceConfigWithContext(ctx context.Context, device *Device
 	// First ensure we have all current device parameters
 	if len(device.Parameters) == 0 {
 		c.logger.Info("Device parameters not loaded, reading current configuration")
-		err := c.GetAllDeviceConfig(device)
+		err := c.GetAllDeviceConfigWithContext(ctx, device)
 		if err != nil {
 			return fmt.Errorf("failed to read device parameters for save: %w", err)
 		}
@@ -451,10 +458,10 @@ func (c *Client) saveDeviceConfigWithAllParamsCtx(ctx context.Context, device *D
 		return fmt.Errorf("failed to resolve broadcast address: %w", err)
 	}
 
-	// Use packet capture helper for SaveData responses
+	// Use packet capture helper for SaveData responses. Timeout is
+	// driven by ctx — no inner cap that would mask --timeout.
 	captureConfig := PacketCaptureConfig{
 		Purpose:    "SaveData responses",
-		Timeout:    5 * time.Second,
 		SourceIP:   "",
 		SourcePort: 17784,
 	}
