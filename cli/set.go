@@ -13,10 +13,10 @@ import (
 func runSet(args []string, stdout, stderr io.Writer) error {
 	fs := pflag.NewFlagSet("set", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
-	timeout := fs.Duration("timeout", 5*time.Second, "Operation timeout")
+	timeout := fs.Duration("timeout", 5*time.Second, "Operation timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
 	reboot := fs.BoolP("reboot", "r", false, "Reboot the device after applying changes")
-	configPath := fs.String("config", "", "Read parameters from FILE (use - for stdin)")
+	configPath := fs.String("config", "", "Read parameters from `FILE` (use - for stdin)")
 
 	// Register a string flag for every known UDAP parameter.
 	pf := paramFlags()

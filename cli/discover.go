@@ -15,7 +15,7 @@ import (
 func runDiscover(args []string, stdout, stderr io.Writer) error {
 	fs := pflag.NewFlagSet("discover", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
-	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout")
+	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
 	info := fs.Bool("info", false, "Also print metadata per device")
 	if err := parseSubcommandFlags(fs, args); err != nil {

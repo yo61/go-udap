@@ -11,7 +11,7 @@ import (
 func runInfo(args []string, stdout, stderr io.Writer) error {
 	fs := pflag.NewFlagSet("info", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
-	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout")
+	timeout := fs.Duration("timeout", 5*time.Second, "Discovery timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
 	if err := parseSubcommandFlags(fs, args); err != nil {
 		return err
