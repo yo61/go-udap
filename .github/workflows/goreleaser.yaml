@@ -21,6 +21,16 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
+      - id: tap_token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            go-udap
+            homebrew-tap
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -36,6 +46,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap_token.outputs.token }}
 
       # Publish the draft release only after all assets are uploaded
       # successfully. Repository immutability locks at publish time, so
