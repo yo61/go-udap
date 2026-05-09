@@ -75,4 +75,4 @@ brews:
       bin.install "go-udap"
 
 changelog:
-  disable: true
+  use: github
