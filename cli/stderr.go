@@ -32,6 +32,14 @@ func newStderrSync(w io.Writer) *stderrSync {
 
 // Write implements io.Writer. Erases an active bar line before writing
 // log content so the two don't smash together on the same row.
+//
+// Invariant: log writes are expected to end with '\n'. udap's
+// StructuredLogger uses log.Logger which always appends a newline, so
+// after a log write the cursor is at column 0 of a fresh line and the
+// bar's next tick can redraw cleanly there. If a future caller writes
+// non-newline-terminated content through this writer, the next bar
+// tick will overwrite that content (because drawProgressLine starts
+// with \r) — minor visual glitch, no logical breakage.
 func (s *stderrSync) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

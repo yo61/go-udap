@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"maps"
 )
 
 // sourceInputs collects the three possible parameter sources for `set`.
@@ -36,9 +37,7 @@ func mergeSources(in sourceInputs, warn io.Writer) (map[string]string, error) {
 			}
 			return nil, fmt.Errorf("%s: %w", label, err)
 		}
-		for k, v := range params {
-			merged[k] = v
-		}
+		maps.Copy(merged, params)
 		if in.stdinPiped && in.fileLabel != "-" {
 			fmt.Fprintln(warn, "warning: --config supplied; ignoring piped stdin")
 		}
@@ -47,14 +46,10 @@ func mergeSources(in sourceInputs, warn io.Writer) (map[string]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("stdin: %w", err)
 		}
-		for k, v := range params {
-			merged[k] = v
-		}
+		maps.Copy(merged, params)
 	}
 
-	for k, v := range in.flags {
-		merged[k] = v
-	}
+	maps.Copy(merged, in.flags)
 
 	if len(merged) == 0 {
 		return nil, fmt.Errorf("no parameters specified")

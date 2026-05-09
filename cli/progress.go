@@ -53,7 +53,7 @@ func startProgress(stderr io.Writer, label string, total time.Duration) func() {
 		sink = ww
 	case *os.File:
 		f = ww
-		sink = directSink{f}
+		sink = &directSink{w: f}
 	default:
 		return func() {}
 	}
@@ -101,11 +101,27 @@ type barSink interface {
 
 // directSink writes the bar straight to a writer with no synchronization.
 // Used as a fallback when startProgress is called outside cli.Run's
-// stderrSync wrapping.
-type directSink struct{ w io.Writer }
+// stderrSync wrapping. Tracks active state so barClear is a no-op when
+// no bar was ever drawn (matches stderrSync's behavior — operations
+// that finish before the 500ms startup-delay shouldn't emit any bar
+// bytes at all, including the erase escape).
+type directSink struct {
+	w      io.Writer
+	active bool
+}
 
-func (d directSink) barDraw(text string) { fmt.Fprint(d.w, text) }
-func (d directSink) barClear()           { fmt.Fprint(d.w, ansiEraseLine) }
+func (d *directSink) barDraw(text string) {
+	fmt.Fprint(d.w, text)
+	d.active = true
+}
+
+func (d *directSink) barClear() {
+	if !d.active {
+		return
+	}
+	fmt.Fprint(d.w, ansiEraseLine)
+	d.active = false
+}
 
 func renderProgressLine(label string, elapsed, total time.Duration) string {
 	pct := float64(elapsed) / float64(total)

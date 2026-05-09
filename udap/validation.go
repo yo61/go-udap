@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -42,15 +43,13 @@ func validateParameter(name, value string) error {
 
 	switch p.Length {
 	case 1:
-		// Single byte numeric value
-		var val uint8
-		if _, err := fmt.Sscanf(value, "%d", &val); err != nil {
+		// Single byte numeric value. ParseUint is stricter than fmt.Sscanf
+		// (which would silently accept "1abc" as 1).
+		if _, err := strconv.ParseUint(value, 10, 8); err != nil {
 			return fmt.Errorf("expected numeric value (0-255), got %q", value)
 		}
 	case 2:
-		// Two byte numeric value
-		var val uint16
-		if _, err := fmt.Sscanf(value, "%d", &val); err != nil {
+		if _, err := strconv.ParseUint(value, 10, 16); err != nil {
 			return fmt.Errorf("expected numeric value (0-65535), got %q", value)
 		}
 	case 4:
@@ -74,9 +73,8 @@ func validateParameter(name, value string) error {
 		}
 	case "wireless_channel":
 		// Typically 1-11 in US, 1-13 in EU
-		var ch int
-		fmt.Sscanf(value, "%d", &ch)
-		if ch < 1 || ch > 13 {
+		ch, err := strconv.Atoi(value)
+		if err != nil || ch < 1 || ch > 13 {
 			return fmt.Errorf("must be between 1 and 13")
 		}
 	case "wireless_keylen":
