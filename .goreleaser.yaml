@@ -58,6 +58,7 @@ release:
 
 brews:
   - name: go-udap
+    directory: Formula
     repository:
       owner: yo61
       name: homebrew-tap
@@ -74,4 +75,4 @@ brews:
       bin.install "go-udap"
 
 changelog:
-  disable: true
+  use: github
