@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -15,6 +16,8 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
 	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
+	includeUnknown := fs.Bool("include-unknown", false,
+		"Include offset_NNN entries for NVRAM offsets the device returned but our parameter table doesn't recognize (raw hex; not round-trippable through `set`)")
 	if err := parseSubcommandFlags(fs, args); err != nil {
 		return err
 	}
@@ -44,8 +47,30 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 		return &ExitError{Code: 2, Err: fmt.Errorf("read failed: %w", err)}
 	}
 	stop()
-	if err := formatParamMap(stdout, device.Parameters); err != nil {
+
+	out := device.Parameters
+	if !*includeUnknown {
+		out = filterUnknownOffsets(device.Parameters)
+	}
+	if err := formatParamMap(stdout, out); err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
 	return nil
+}
+
+// filterUnknownOffsets drops entries whose key looks like the synthetic
+// "offset_<decimal>" form that parseGetDataResponse uses for NVRAM
+// offsets it couldn't reverse-map to a known parameter name. Those
+// entries are raw hex and don't round-trip through `set` (which would
+// reject the unknown name), so by default we hide them — pass
+// --include-unknown to see them.
+func filterUnknownOffsets(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		if strings.HasPrefix(k, "offset_") {
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
