@@ -14,14 +14,23 @@ import (
 // default "string" placeholder so users can see at a glance what kind
 // of value each flag expects. Empty Placeholder falls back to "string".
 //
+// FactoryDefault is the value the device reports for this parameter
+// after a hardware reset. Used by `read` to filter out factory-default
+// values (which aren't interesting for backup, and some — like
+// wireless_keylen=0 or interface=128 — aren't even valid input to
+// `set`). Captured from a real Squeezebox Receiver immediately after
+// reset; may differ slightly across hardware variants and regional
+// SKUs, but it's the best baseline we have.
+//
 // To add a new parameter: append one entry to Parameters below. The CLI
 // flag, `read` coverage, and offset-reverse-lookup are all derived.
 type Parameter struct {
-	Name        string
-	Offset      uint16
-	Length      uint16
-	Placeholder string
-	Help        string
+	Name           string
+	Offset         uint16
+	Length         uint16
+	Placeholder    string
+	Help           string
+	FactoryDefault string
 }
 
 // FlagName returns the CLI flag form of the parameter name: lowercased
@@ -54,32 +63,32 @@ func (p Parameter) Validate() error {
 // Lua reference implementation; cross-referenced against the
 // Net::UDAP Perl shell session in perl_shell_session.txt.
 var Parameters = []Parameter{
-	{"lan_ip_mode", 4, 1, "0|1", "0=static, 1=DHCP"},
-	{"lan_network_address", 5, 4, "IP", "Static IPv4 address (e.g. 192.168.1.50)"},
-	{"lan_subnet_mask", 9, 4, "MASK", "Subnet mask (e.g. 255.255.255.0)"},
-	{"lan_gateway", 13, 4, "IP", "Default gateway IPv4 address"},
-	{"hostname", 17, 33, "NAME", "Device hostname (max 33 chars)"},
-	{"bridging", 50, 1, "0|1", "0=disabled, 1=enabled"},
-	{"interface", 52, 1, "0|1", "0=wireless, 1=wired (Ethernet)"},
-	{"primary_dns", 59, 4, "IP", "Primary DNS server IPv4 address"},
-	{"secondary_dns", 67, 4, "IP", "Secondary DNS server IPv4 address"},
-	{"server_address", 71, 4, "IP", "Logitech Media Server IPv4 address"},
-	{"lms_address", 79, 4, "IP", "Alternative LMS server IPv4 address"},
-	{"squeezecenter_name", 83, 33, "NAME", "Squeezecenter / LMS server name (max 33 chars)"},
-	{"wireless_mode", 173, 1, "0|1", "0=infrastructure, 1=ad-hoc"},
-	{"wireless_SSID", 183, 33, "SSID", "Wireless SSID (1-32 chars)"},
-	{"wireless_channel", 216, 1, "N", "Wireless channel (1-13)"},
-	{"wireless_region_id", 218, 1, "ID", "Wireless region identifier (4=US, 6=CA, 7=AU, 13=FR, 14=EU, 16=JP, 21=TW, 23=CH)"},
-	{"wireless_keylen", 220, 1, "5|13", "WEP key length"},
-	{"wireless_wep_key", 222, 13, "HEX", "Primary WEP key"},
-	{"wireless_wep_key_1", 235, 13, "HEX", "WEP key slot 1"},
-	{"wireless_wep_key_2", 248, 13, "HEX", "WEP key slot 2"},
-	{"wireless_wep_key_3", 261, 13, "HEX", "WEP key slot 3"},
-	{"wireless_wep_on", 274, 1, "0|1", "0=disabled, 1=enabled"},
-	{"wireless_wpa_cipher", 275, 1, "1|2|3", "1=TKIP, 2=AES (CCMP), 3=TKIP+AES"},
-	{"wireless_wpa_mode", 276, 1, "1|2", "1=WPA, 2=WPA2"},
-	{"wireless_wpa_on", 277, 1, "0|1", "0=disabled, 1=enabled"},
-	{"wireless_wpa_psk", 278, 64, "PSK", "WPA pre-shared key (8-63 chars)"},
+	{"lan_ip_mode", 4, 1, "0|1", "0=static, 1=DHCP", "1"},
+	{"lan_network_address", 5, 4, "IP", "Static IPv4 address (e.g. 192.168.1.50)", "0.0.0.0"},
+	{"lan_subnet_mask", 9, 4, "MASK", "Subnet mask (e.g. 255.255.255.0)", "255.255.255.0"},
+	{"lan_gateway", 13, 4, "IP", "Default gateway IPv4 address", "0.0.0.0"},
+	{"hostname", 17, 33, "NAME", "Device hostname (max 33 chars)", ""},
+	{"bridging", 50, 1, "0|1", "0=disabled, 1=enabled", "0"},
+	{"interface", 52, 1, "0|1", "0=wireless, 1=wired (Ethernet)", "128"},
+	{"primary_dns", 59, 4, "IP", "Primary DNS server IPv4 address", "0.0.0.0"},
+	{"secondary_dns", 67, 4, "IP", "Secondary DNS server IPv4 address", "0.0.0.0"},
+	{"server_address", 71, 4, "IP", "Logitech Media Server IPv4 address", "0.0.0.0"},
+	{"lms_address", 79, 4, "IP", "Alternative LMS server IPv4 address", "0.0.0.0"},
+	{"squeezecenter_name", 83, 33, "NAME", "Squeezecenter / LMS server name (max 33 chars)", ""},
+	{"wireless_mode", 173, 1, "0|1", "0=infrastructure, 1=ad-hoc", "0"},
+	{"wireless_SSID", 183, 33, "SSID", "Wireless SSID (1-32 chars)", ""},
+	{"wireless_channel", 216, 1, "N", "Wireless channel (1-13)", "6"},
+	{"wireless_region_id", 218, 1, "ID", "Wireless region identifier (4=US, 6=CA, 7=AU, 13=FR, 14=EU, 16=JP, 21=TW, 23=CH)", "4"},
+	{"wireless_keylen", 220, 1, "5|13", "WEP key length", "0"},
+	{"wireless_wep_key", 222, 13, "HEX", "Primary WEP key", ""},
+	{"wireless_wep_key_1", 235, 13, "HEX", "WEP key slot 1", ""},
+	{"wireless_wep_key_2", 248, 13, "HEX", "WEP key slot 2", ""},
+	{"wireless_wep_key_3", 261, 13, "HEX", "WEP key slot 3", ""},
+	{"wireless_wep_on", 274, 1, "0|1", "0=disabled, 1=enabled", "0"},
+	{"wireless_wpa_cipher", 275, 1, "1|2|3", "1=TKIP, 2=AES (CCMP), 3=TKIP+AES", "3"},
+	{"wireless_wpa_mode", 276, 1, "1|2", "1=WPA, 2=WPA2", "1"},
+	{"wireless_wpa_on", 277, 1, "0|1", "0=disabled, 1=enabled", "0"},
+	{"wireless_wpa_psk", 278, 64, "PSK", "WPA pre-shared key (8-63 chars)", ""},
 }
 
 // parameterAliases lets the CLI accept legacy or third-party-tool names

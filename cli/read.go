@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
+	"go-udap/udap"
 )
 
 func runRead(args []string, stdout, stderr io.Writer) error {
@@ -16,8 +18,8 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
 	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
 	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
-	includeUnknown := fs.Bool("include-unknown", false,
-		"Include offset_NNN entries for NVRAM offsets the device returned but our parameter table doesn't recognize (raw hex; not round-trippable through `set`)")
+	all := fs.BoolP("all", "a", false,
+		"Include factory-default values and offset_NNN entries for unrecognized NVRAM offsets. Default: only print values changed from the factory defaults, so output round-trips cleanly through the set subcommand.")
 	if err := parseSubcommandFlags(fs, args); err != nil {
 		return err
 	}
@@ -49,8 +51,8 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	stop()
 
 	out := device.Parameters
-	if !*includeUnknown {
-		out = filterUnknownOffsets(device.Parameters)
+	if !*all {
+		out = filterReadOutput(out)
 	}
 	if err := formatParamMap(stdout, out); err != nil {
 		return &ExitError{Code: 2, Err: err}
@@ -58,16 +60,27 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-// filterUnknownOffsets drops entries whose key looks like the synthetic
-// "offset_<decimal>" form that parseGetDataResponse uses for NVRAM
-// offsets it couldn't reverse-map to a known parameter name. Those
-// entries are raw hex and don't round-trip through `set` (which would
-// reject the unknown name), so by default we hide them — pass
-// --include-unknown to see them.
-func filterUnknownOffsets(in map[string]string) map[string]string {
+// filterReadOutput trims a device-parameter map down to the entries
+// that are interesting for backup/restore via `set`. Two classes of
+// entries are dropped:
+//
+//  1. offset_NNN entries — the synthetic key parseGetDataResponse uses
+//     for NVRAM offsets it couldn't reverse-map to a known parameter
+//     (raw hex value; `set` would reject the unknown name).
+//
+//  2. Values matching the parameter's FactoryDefault — boring for
+//     backup, and some (wireless_keylen=0, interface=128, empty
+//     wireless_SSID) wouldn't even be accepted by `set`'s validation.
+//
+// Pass `read --all` to disable both filters and dump everything the
+// device returned.
+func filterReadOutput(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for k, v := range in {
 		if strings.HasPrefix(k, "offset_") {
+			continue
+		}
+		if p, ok := udap.ParameterByName(k); ok && v == p.FactoryDefault {
 			continue
 		}
 		out[k] = v
