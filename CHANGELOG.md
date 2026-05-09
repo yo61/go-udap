@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0](https://github.com/yo61/go-udap/compare/v1.0.1...v1.1.0) (2026-05-09)
+
+### Features
+
+* **release:** publish Homebrew formula to yo61/homebrew-tap on release ([#14](https://github.com/yo61/go-udap/issues/14)) ([0efd3ba](https://github.com/yo61/go-udap/commit/0efd3ba6c9de2383da46fbef436464ee64cbf473))
+
 ## [1.0.0](https://github.com/yo61/go-udap/compare/v0.1.0...v1.0.0) (2026-05-09)
 
 ### ⚠ BREAKING CHANGES
