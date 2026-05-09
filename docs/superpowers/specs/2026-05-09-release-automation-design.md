@@ -27,7 +27,7 @@ Three workflows, each with a single responsibility:
 .github/workflows/
   ci.yaml          PRs + main pushes. Tests on linux/macos/windows.
   release.yaml     Main pushes. semantic-release: tag + release + CHANGELOG.
-  goreleaser.yaml  Tag pushes (v*). Cross-compile + asset upload.
+  goreleaser.yaml  Tag pushes matching vX.Y.Z. Cross-compile + asset upload.
 ```
 
 Trigger flow on a merged PR:
@@ -267,7 +267,8 @@ Path filters skip releases on doc-only or task-config-only changes. The `if: git
 name: GoReleaser
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 permissions:
   contents: write
 jobs:

@@ -586,7 +586,9 @@ name: GoReleaser
 
 on:
   push:
-    tags: ['v*']
+    tags:
+      # Strict semver match: v0.3.0, v1.10.0 — rejects "vfoo", "v0.3", "v1.0-rc1"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
   contents: write
