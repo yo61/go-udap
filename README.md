@@ -21,7 +21,7 @@ invocation. There is no interactive shell.
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/robinbowes/go-udap/releases) page.
+Download the archive for your platform from the [Releases](https://github.com/robinbowes/go-udap/releases) page (`go-udap_<version>_<os>_<arch>.tar.gz`, or `.zip` on Windows). Extract the `go-udap` binary from the archive and place it on your `PATH`. `SHA256SUMS` next to each release lets you verify the download.
 
 ### Build from Source
 
