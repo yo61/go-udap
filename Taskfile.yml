@@ -2,8 +2,12 @@ version: '3'
 
 vars:
   BINARY_NAME: go-udap
-  LDFLAGS: -s -w
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo dev
+  LDFLAGS: -s -w -X go-udap/cli.Version={{.VERSION}}
+  MOCKSBR_LDFLAGS: -s -w -X main.Version={{.VERSION}}
   BUILD_FLAGS: -ldflags="{{.LDFLAGS}}" -trimpath
+  MOCKSBR_BUILD_FLAGS: -ldflags="{{.MOCKSBR_LDFLAGS}}" -trimpath
 
 tasks:
   default:
@@ -46,6 +50,16 @@ tasks:
       - "**/*.go"
     generates:
       - "{{.BINARY_NAME}}-linux-arm64"
+
+  build:mocksbr:
+    desc: Build mocksbr binary for current platform with version stamped (output at ./bin/mocksbr)
+    cmds:
+      - mkdir -p bin
+      - go build {{.MOCKSBR_BUILD_FLAGS}} -o bin/mocksbr ./cmd/mocksbr
+    sources:
+      - "**/*.go"
+    generates:
+      - bin/mocksbr
 
   build:all:
     desc: Build for all platforms
@@ -103,6 +117,7 @@ tasks:
     cmds:
       - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}.exe
       - rm -f {{.BINARY_NAME}}-linux-amd64 {{.BINARY_NAME}}-linux-arm64
+      - rm -rf bin/
       - rm -f coverage.out coverage.html
 
   run:

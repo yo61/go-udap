@@ -33,3 +33,6 @@ go.work.sum
 capture-notes*.txt
 sbr-capture-pdf.pdf
 sbr-capture.pdf
+
+# Local Taskfile build output (e.g. bin/mocksbr)
+/bin/
