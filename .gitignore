@@ -39,3 +39,13 @@ sbr-capture.pdf
 
 # GoReleaser output
 dist/
+
+# Top-level build artifacts
+/go-udap
+/go-udap-linux-amd64
+/go-udap-linux-arm64
+/mocksbr/mocksbr
+
+# Task runner and verify caches
+.task/
+.verify/
