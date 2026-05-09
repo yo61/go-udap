@@ -12,20 +12,43 @@ The codebase has been modernized to use current Go best practices and idiomatic 
 
 The application is structured with a modular design:
 
-- **main.go**: Single-shot CLI interface with command handling
-- **udap/client.go**: Core client that handles UDP communication and device management
-- **udap/discovery.go**: Device discovery implementation with context support
-- **udap/config.go**: Device configuration management with context-aware operations
-- **udap/protocol.go**: Low-level packet creation/parsing with TLV (Type-Length-Value) encoding
-- **udap/socket_unix.go**: Unix-specific socket options (macOS, Linux)
-- **udap/socket_windows.go**: Windows-specific socket options
+- **main.go**: Thin entry point — parses os.Args and delegates to cli.Run.
+- **cli/**: Single-shot CLI surface. cli.go dispatches subcommands;
+  cli/{discover,info,read,get,set,reboot}.go implement them.
+  cli/find.go has the discover-and-find-by-MAC helper used by every
+  device-targeted command. cli/params.go is the CLI flag table derived
+  from udap.Parameters; cli/source.go layers --config FILE / piped
+  stdin / per-param flags for `set`. cli/progress.go and cli/stderr.go
+  provide the progress bar (TTY-detected) and the mutex that
+  serializes its output with the udap logger.
+- **udap/client.go**: Core client (UDP socket, packet builders, capture).
+- **udap/discovery.go**: Discovery broadcast + listener; populates
+  Client.devices under a RWMutex.
+- **udap/config.go**: GetData / SetData / Reset operations
+  (WithContext entry points only — no hardcoded-timeout legacy shims).
+- **udap/protocol.go**: Packet struct, ParsePacket, TLV codecs, constants.
+- **udap/parameters.go**: Single source of truth for the 26 known UDAP
+  NVRAM parameters — name, offset, length, CLI placeholder, help text.
+  Aliases (e.g. squeezecenter_address → server_address) live here too.
+- **udap/getdata_response.go**: Decoder for the offset/length/value
+  GetData response payload (verified against Net::UDAP wire captures).
+- **udap/loopback.go**: isUDAPRequestPacket — UCPFlags-bit check that
+  lets the capture path skip our own kernel-looped broadcast.
+- **udap/logger.go**: Structured logger; takes an io.Writer so the CLI
+  can route it through stderrSync.
+- **udap/socket_{unix,windows}.go**: Platform-specific SO_BROADCAST
+  setup. The Unix variant uses SyscallConn().Control() (NOT File())
+  to keep the socket in non-blocking-via-poller mode on macOS.
 
 ### Key Components
 
-- **UDAPClient**: Core client that handles UDP communication and device management
-- **UDAPDevice**: Represents discovered Squeezebox devices with their properties
-- **UDAP Protocol Implementation**: Low-level packet creation/parsing with TLV encoding
-- **CLI**: Single-shot command-line interface for device discovery and configuration
+- **udap.Client**: UDP communication + device map (RWMutex-protected).
+- **udap.Device**: Discovered device metadata (MAC, IP, Name, Model,
+  Firmware, State, Parameters).
+- **udap.Parameters**: Canonical table of NVRAM parameters; CLI flag
+  table is derived from it.
+- **CLI**: Single-shot subcommand interface; global flags work before
+  or after the subcommand.
 
 ### Key Protocol Details
 
