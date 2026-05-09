@@ -21,3 +21,28 @@ func TestValidateParameterAcceptsUnknownParameter(t *testing.T) {
 		t.Fatalf("expected nil error for unknown param, got %v", err)
 	}
 }
+
+func TestIsValidMAC(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{"00:04:20:16:05:8f", true},
+		{"AA:BB:CC:DD:EE:FF", true},
+		{"aa:bb:CC:dd:EE:ff", true}, // mixed case OK
+		{"", false},
+		{"00:04:20:16:05:8", false},   // too short
+		{"00:04:20:16:05:8ff", false}, // too long
+		{"00-04-20-16-05-8f", false},  // hyphen separator
+		{"00:04:20:16:058f", false},   // missing colon
+		{"00:04:20:16:05:gg", false},  // non-hex
+		{"00:04:20:16:05:8z", false},  // non-hex
+		{":0:04:20:16:05:8f", false},  // leading colon
+		{"00:04:20:16:05:8f:", false}, // trailing colon
+	}
+	for _, c := range cases {
+		if got := isValidMAC(c.in); got != c.want {
+			t.Errorf("isValidMAC(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

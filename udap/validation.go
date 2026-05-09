@@ -3,17 +3,35 @@ package udap
 import (
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
-// macRegex validates the canonical XX:XX:XX:XX:XX:XX MAC address form.
-var macRegex = regexp.MustCompile(`^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$`)
-
-// isValidMAC validates MAC address format (XX:XX:XX:XX:XX:XX)
+// isValidMAC reports whether mac is in canonical XX:XX:XX:XX:XX:XX form
+// (case-insensitive). Hand-rolled to avoid pulling regexp + regexp/syntax
+// (~80KB of binary size) for one trivial validation.
 func isValidMAC(mac string) bool {
-	return macRegex.MatchString(mac)
+	if len(mac) != 17 {
+		return false
+	}
+	for i := 0; i < 17; i++ {
+		c := mac[i]
+		// colons at positions 2, 5, 8, 11, 14
+		if i%3 == 2 {
+			if c != ':' {
+				return false
+			}
+			continue
+		}
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'a' && c <= 'f':
+		case c >= 'A' && c <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // isValidIP validates IPv4 address format
