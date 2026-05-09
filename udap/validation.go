@@ -151,7 +151,7 @@ func (p *Packet) Validate() error {
 	switch p.UCPMethod {
 	case MethodDiscover, MethodGetIP, MethodReset,
 		MethodGetData, MethodSetData, MethodError,
-		MethodSetDataAck, MethodAdvDisc:
+		MethodCredentialsError, MethodAdvDisc:
 		// Valid methods
 	default:
 		return fmt.Errorf("unknown UCP method: 0x%04x", p.UCPMethod)

@@ -368,25 +368,27 @@ func TestTLVDataStructure(t *testing.T) {
 }
 
 func TestMethodConstants(t *testing.T) {
-	// Test method constant values
+	// Per Net::UDAP Constant.pm UCP_METHOD_* constants.
 	expectedMethods := map[string]uint16{
-		"MethodDiscover": 0x0001,
-		"MethodGetIP":    0x0002,
-		"MethodReset":    0x0004,
-		"MethodGetData":  0x0005,
-		"MethodSetData":  0x0006,
-		"MethodError":    0x0007,
-		"MethodAdvDisc":  0x0009,
+		"MethodDiscover":         0x0001,
+		"MethodGetIP":            0x0002,
+		"MethodReset":            0x0004,
+		"MethodGetData":          0x0005,
+		"MethodSetData":          0x0006,
+		"MethodError":            0x0007,
+		"MethodCredentialsError": 0x0008,
+		"MethodAdvDisc":          0x0009,
 	}
 
 	actualMethods := map[string]uint16{
-		"MethodDiscover": MethodDiscover,
-		"MethodGetIP":    MethodGetIP,
-		"MethodReset":    MethodReset,
-		"MethodGetData":  MethodGetData,
-		"MethodSetData":  MethodSetData,
-		"MethodError":    MethodError,
-		"MethodAdvDisc":  MethodAdvDisc,
+		"MethodDiscover":         MethodDiscover,
+		"MethodGetIP":            MethodGetIP,
+		"MethodReset":            MethodReset,
+		"MethodGetData":          MethodGetData,
+		"MethodSetData":          MethodSetData,
+		"MethodError":            MethodError,
+		"MethodCredentialsError": MethodCredentialsError,
+		"MethodAdvDisc":          MethodAdvDisc,
 	}
 
 	for name, expected := range expectedMethods {
@@ -395,10 +397,5 @@ func TestMethodConstants(t *testing.T) {
 		} else if actual != expected {
 			t.Errorf("Method %s: expected 0x%04x, got 0x%04x", name, expected, actual)
 		}
-	}
-
-	// Test method alias
-	if MethodDataResp != MethodGetIP {
-		t.Errorf("MethodDataResp should equal MethodGetIP (0x%04x), got 0x%04x", MethodGetIP, MethodDataResp)
 	}
 }

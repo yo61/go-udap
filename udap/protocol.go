@@ -21,18 +21,29 @@ const (
 	// UDAP Types
 	TypeUCP = 0xC001 // UCP packets (0xC0, 0x01 in big endian/network order)
 
-	// UCP Methods - Based on Lua implementation
-	MethodDiscover   = 0x0001 // Discovery method
-	MethodGetIP      = 0x0002 // Get IP method (also used as data response)
-	MethodReset      = 0x0004 // Reset method
-	MethodGetData    = 0x0005 // Get data method
-	MethodSetData    = 0x0006 // Set data method
-	MethodError      = 0x0007 // Error method
-	MethodSetDataAck = 0x0008 // SetData acknowledgment response
-	MethodAdvDisc    = 0x0009 // Advanced discovery method
-
-	// Method aliases for backward compatibility
-	MethodDataResp = MethodGetIP // GetIP (0x0002) is used for data responses
+	// UCP Methods, per the authoritative Net::UDAP Constant.pm
+	// (UCP_METHOD_*). Earlier comments here had two protocol-level
+	// errors that are now fixed:
+	//
+	//   - 0x0002 was annotated "also used as data response". It isn't.
+	//     get_ip is its own method that returns network-config TLVs
+	//     (lan_ip_mode, lan_gateway, lan_subnet_mask, lan_network_address).
+	//     GetData (0x0005) responses come back with method 0x0005, not
+	//     0x0002. The misnomer alias MethodDataResp has been removed.
+	//
+	//   - 0x0008 was named MethodSetDataAck. It's actually
+	//     UCP_METHOD_CREDENTIALS_ERROR per Net::UDAP — the device's way
+	//     of rejecting a SetData when it didn't like the user/pass
+	//     fields. SetData acks reuse the request's method (0x0006) on
+	//     the response.
+	MethodDiscover         = 0x0001
+	MethodGetIP            = 0x0002
+	MethodReset            = 0x0004
+	MethodGetData          = 0x0005
+	MethodSetData          = 0x0006
+	MethodError            = 0x0007
+	MethodCredentialsError = 0x0008
+	MethodAdvDisc          = 0x0009
 
 	// UCP Flags
 	FlagsDiscover = 0x01

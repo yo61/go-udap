@@ -241,9 +241,15 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 		c.logger.Debug("Response packet details", "udap_type", fmt.Sprintf("0x%04x", respPacket.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 
-		// Process the response
+		// Process the response. Per the Perl Net::UDAP capture, real
+		// devices echo the request method (0x0006) on a successful
+		// SetData ack — but accept neighboring methods too in case
+		// other firmware variants behave differently. MethodGetIP
+		// (0x0002) is the device's "set_ip" companion response;
+		// MethodGetData (0x0005) appears as the GetData echo. Keeping
+		// the broader accept set is conservative.
 		switch respPacket.UCPMethod {
-		case MethodDataResp, MethodSetData, MethodGetData, MethodSetDataAck:
+		case MethodGetIP, MethodSetData, MethodGetData:
 			c.logger.Info("Device acknowledged configuration change", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 			if len(data) > 0 {
 				tlvs := DecodeTLV(data)
