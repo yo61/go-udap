@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1](https://github.com/yo61/go-udap/compare/v1.1.0...v1.1.1) (2026-05-09)
+
+### Bug Fixes
+
+* **release:** tap formula path + remove duplicate-release conflict ([#15](https://github.com/yo61/go-udap/issues/15)) ([9411f45](https://github.com/yo61/go-udap/commit/9411f455b9b718fcdade57ee15f9ffe082c31bde)), closes [#6](https://github.com/yo61/go-udap/issues/6)
+
 ## [1.1.0](https://github.com/yo61/go-udap/compare/v1.0.1...v1.1.0) (2026-05-09)
 
 ### Features
