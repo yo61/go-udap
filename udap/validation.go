@@ -199,21 +199,10 @@ func (t *TLVData) Validate() error {
 	return nil
 }
 
-// Validate checks if the PacketCaptureConfig struct contains valid data
-func (p *PacketCaptureConfig) Validate() error {
-	if p.SourceIP != "" && !isValidIP(p.SourceIP) {
-		return fmt.Errorf("invalid source IP: %s", p.SourceIP)
-	}
-	if p.SourcePort > 65535 {
-		return fmt.Errorf("invalid source port: %d", p.SourcePort)
-	}
-	return nil
-}
-
 // Validate checks if the Client struct is properly initialized
 func (c *Client) Validate() error {
-	if c.conn == nil {
-		return fmt.Errorf("UDP connection not initialized")
+	if c.transport == nil {
+		return fmt.Errorf("transport not initialized")
 	}
 
 	if c.logger == nil {

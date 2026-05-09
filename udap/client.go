@@ -2,71 +2,65 @@ package udap
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
 	"sort"
 	"strconv"
 	"sync"
-	"time"
 )
 
-// Client handles UDAP protocol communication.
+// Client handles UDAP protocol communication via an injected Transport.
 //
-// devicesMu guards devices. The discovery listener goroutine writes to
-// the map on every received UDAP response, while callers (CLI's
-// discoverAndFind, GetDevice/ListDevices/GetDevices) read concurrently
-// — without the lock that's a Go runtime data race ("concurrent map
-// read and map write" panic).
+// devicesMu guards devices: discovery may register devices concurrently
+// with reads from CLI helpers (GetDevice/ListDevices/GetDevices), so
+// without the lock that's a Go runtime data race.
 type Client struct {
-	conn      *net.UDPConn
+	transport Transport
 	devicesMu sync.RWMutex
 	devices   map[string]*Device
 	sequence  uint32
 	logger    Logger
 }
 
-// NewClient creates a new UDAP client
+// NewClient creates a new UDAP client bound to the standard UDAP port
+// (17784) using the default structured logger.
 func NewClient() (*Client, error) {
 	return NewClientWithLogger(NewStructuredLogger())
 }
 
-// NewClientWithLogger creates a new UDAP client with a custom logger,
-// bound to the standard UDAP port (17784).
+// NewClientWithLogger creates a new UDAP client bound to the standard
+// UDAP port (17784) with a custom logger.
 func NewClientWithLogger(logger Logger) (*Client, error) {
 	return newClientWithPort(Port, logger)
 }
 
 // newClientWithPort creates a UDAP client bound to the given UDP port.
-// Port 0 lets the OS pick a free ephemeral port — useful for tests so they
+// Port 0 lets the OS pick a free ephemeral port — used by tests so they
 // don't collide with each other or with anything else holding port 17784.
 func newClientWithPort(port int, logger Logger) (*Client, error) {
-	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", port))
+	tr, err := NewUDPTransport(port, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	conn, err := net.ListenUDP("udp4", addr)
-	if err != nil {
-		return nil, err
-	}
-
-	enableBroadcast(conn, logger)
-
-	logger.Debug("Created UDP socket", "address", conn.LocalAddr().String())
-
-	return &Client{
-		conn:     conn,
-		devices:  make(map[string]*Device),
-		sequence: 1,
-		logger:   logger,
-	}, nil
+	return NewClientWithTransport(tr, logger), nil
 }
 
-// Close closes the UDAP client connection
+// NewClientWithTransport constructs a Client using an arbitrary Transport.
+// Used by tests that want to inject a MockTransport (from the mocksbr
+// package) for hermetic in-process testing.
+func NewClientWithTransport(t Transport, logger Logger) *Client {
+	return &Client{
+		transport: t,
+		devices:   make(map[string]*Device),
+		sequence:  1,
+		logger:    logger,
+	}
+}
+
+// Close releases the underlying transport resources.
 func (c *Client) Close() error {
-	return c.conn.Close()
+	return c.transport.Close()
 }
 
 // createUdapPacket creates the common UDAP packet header structure
@@ -395,127 +389,4 @@ func (c *Client) recordDevice(d *Device) {
 	c.devicesMu.Lock()
 	c.devices[d.MAC] = d
 	c.devicesMu.Unlock()
-}
-
-// PacketCaptureConfig configures packet capture behavior. The capture
-// deadline comes from the caller's context; there's no inner timeout.
-type PacketCaptureConfig struct {
-	Purpose    string // Description of what this capture is for
-	SourceIP   string // Expected source IP (empty string accepts any IP including 0.0.0.0)
-	SourcePort uint16 // Expected source port (defaults to 17784)
-}
-
-// PacketCaptureResult contains the result of packet capture
-type PacketCaptureResult struct {
-	Payload []byte
-	SrcIP   string
-	SrcPort uint16
-}
-
-// capturePacketWithContext reads packets from the client's UDP socket
-// and returns the first one matching the supplied filter. Deadline
-// comes from ctx — no inner timeout. Stale packets in the socket
-// buffer (responses from previous operations, or our own kernel-looped
-// broadcasts that arrived after a previous capture returned) are
-// drained first so they don't get mistaken for the current operation's
-// response.
-//
-// Earlier versions tried to bind a fresh socket on UDP 17784 first and
-// fell back to c.conn only on EADDRINUSE. The fresh-bind path always
-// failed because c.conn already holds the port, so it was unreachable
-// and just emitted a noisy "Using existing connection" debug line.
-// The fresh-bind path has been removed.
-func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
-	if config.SourcePort == 0 {
-		config.SourcePort = Port
-	}
-	if config.Purpose == "" {
-		config.Purpose = "packet capture"
-	}
-
-	c.flushStalePackets()
-
-	if deadline, ok := ctx.Deadline(); ok {
-		c.conn.SetReadDeadline(deadline)
-	}
-	defer c.conn.SetReadDeadline(time.Time{})
-
-	c.logger.Info("Started UDP capture", "purpose", config.Purpose, "port", Port)
-	c.logger.Debug("Capture filter", "expected_source_ip", config.SourceIP, "expected_source_port", config.SourcePort)
-
-	buffer := make([]byte, 2048)
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("capture timeout for %s: %w", config.Purpose, ctx.Err())
-		default:
-			n, srcAddr, err := c.conn.ReadFromUDP(buffer)
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					return nil, fmt.Errorf("capture timeout for %s: no matching packet received", config.Purpose)
-				}
-				return nil, fmt.Errorf("read error during %s: %w", config.Purpose, err)
-			}
-
-			srcIP := srcAddr.IP.String()
-			srcPort := uint16(srcAddr.Port)
-			c.logger.Debug("Capture received packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
-
-			if isUDAPRequestPacket(buffer, n) {
-				c.logger.Debug("Skipped looped-back request packet", "purpose", config.Purpose, "src_ip", srcIP)
-				continue
-			}
-
-			// Accept if: no specific source IP required OR source IP matches
-			// OR source is 0.0.0.0 (bootstrap mode).
-			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
-			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
-
-			if !ipMatches {
-				c.logger.Debug("Packet filtered out", "reason", "IP mismatch", "expected", config.SourceIP, "got", srcIP)
-				continue
-			}
-			if !portMatches {
-				c.logger.Debug("Packet filtered out", "reason", "port mismatch", "expected", config.SourcePort, "got", srcPort)
-				continue
-			}
-			if n == 0 {
-				continue
-			}
-
-			c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
-			result := &PacketCaptureResult{
-				Payload: make([]byte, n),
-				SrcIP:   srcIP,
-				SrcPort: srcPort,
-			}
-			copy(result.Payload, buffer[:n])
-			return result, nil
-		}
-	}
-}
-
-// flushStalePackets reads and discards any pending packets from the socket
-// buffer with a very short read deadline. Prevents responses from previous
-// operations (or our own looped-back broadcasts) being mistaken for the
-// next operation's response.
-func (c *Client) flushStalePackets() {
-	buffer := make([]byte, 2048)
-	flushedCount := 0
-
-	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
-	defer c.conn.SetReadDeadline(time.Time{})
-
-	for {
-		n, addr, err := c.conn.ReadFromUDP(buffer)
-		if err != nil {
-			break
-		}
-		flushedCount++
-		c.logger.Debug("Flushed stale packet", "bytes", n, "src_ip", addr.IP.String())
-	}
-
-	if flushedCount > 0 {
-		c.logger.Debug("Flushed stale packets from buffer", "count", flushedCount)
-	}
 }

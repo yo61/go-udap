@@ -16,8 +16,8 @@ func TestNewClient(t *testing.T) {
 		t.Fatal("Client should not be nil")
 	}
 
-	if client.conn == nil {
-		t.Error("Client connection should not be nil")
+	if client.transport == nil {
+		t.Error("Client transport should not be nil")
 	}
 
 	if client.devices == nil {
@@ -119,46 +119,6 @@ func TestClientDeviceManagement(t *testing.T) {
 	notFoundDevice := client.GetDevice("aa:bb:cc:dd:ee:ff")
 	if notFoundDevice != nil {
 		t.Error("GetDevice should return nil for non-existent device")
-	}
-}
-
-func TestPacketCaptureConfig(t *testing.T) {
-	config := PacketCaptureConfig{
-		Purpose:    "test capture",
-		SourceIP:   "192.168.1.100",
-		SourcePort: 17784,
-	}
-
-	if config.Purpose != "test capture" {
-		t.Errorf("Expected purpose 'test capture', got %s", config.Purpose)
-	}
-
-	if config.SourceIP != "192.168.1.100" {
-		t.Errorf("Expected SourceIP 192.168.1.100, got %s", config.SourceIP)
-	}
-
-	if config.SourcePort != 17784 {
-		t.Errorf("Expected source port 17784, got %d", config.SourcePort)
-	}
-}
-
-func TestPacketCaptureResult(t *testing.T) {
-	result := PacketCaptureResult{
-		Payload: []byte{0x00, 0x01, 0x02, 0x03},
-		SrcIP:   "192.168.1.100",
-		SrcPort: 17784,
-	}
-
-	if len(result.Payload) != 4 {
-		t.Errorf("Expected payload length 4, got %d", len(result.Payload))
-	}
-
-	if result.SrcIP != "192.168.1.100" {
-		t.Errorf("Expected SrcIP 192.168.1.100, got %s", result.SrcIP)
-	}
-
-	if result.SrcPort != 17784 {
-		t.Errorf("Expected SrcPort 17784, got %d", result.SrcPort)
 	}
 }
 

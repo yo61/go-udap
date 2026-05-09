@@ -1,0 +1,334 @@
+# Squeezebox Receiver capture playbook
+
+Operational runbook for recording real-SBR UDAP traffic against `go-udap`.
+The output is a single `.pcap` file plus a few notes; both are handed back
+to the agent, which extracts individual response packets into binary
+fixtures and updates the spec appendix.
+
+This playbook is re-runnable: refresh fixtures by running it again
+whenever the mock's responses drift from real-device behaviour or new
+firmware introduces wire-format changes.
+
+## What this produces
+
+- `sbr-capture.pcap` — full bidirectional capture of the session.
+- A short notes file with: SBR firmware version, observed reboot
+  duration, anything unusual.
+- (Optional) a second `sbr-capture-2.pcap` from a second SBR for
+  cross-validation across firmware/hardware revisions.
+
+## Prerequisites
+
+- One real Squeezebox Receiver, powered on, connected to the same LAN
+  as your dev box. Either wired or wireless is fine.
+- `go-udap` binary built from a branch that includes the CLI redesign
+  (the post-redesign command surface is what the playbook uses).
+- `tcpdump` available on the dev box (preinstalled on macOS and most
+  Linuxes).
+- Sudo access on the dev box (tcpdump needs raw socket permissions).
+- Roughly 15-20 minutes of uninterrupted time. The reboot sequence
+  alone is ~30 seconds; the rest is short commands and copy-paste.
+
+## Setup
+
+### 1. Identify the active network interface
+
+Run on the dev box:
+
+```bash
+# macOS: list interfaces with IPs assigned
+ifconfig | grep -B1 "inet " | grep -v "127.0.0.1\|::1"
+
+# Linux: same idea
+ip -br addr show
+```
+
+Pick the interface that's on the same subnet as the SBR. Common names:
+- macOS: `en0` (built-in Wi-Fi/Ethernet), `en7` (USB-Ethernet)
+- Linux: `eth0`, `wlan0`, `enp0s31f6`
+
+Save the name as `IFACE`:
+
+```bash
+export IFACE=en0    # change to match your interface
+```
+
+### 2. Build go-udap from the cli-redesign branch
+
+```bash
+cd /path/to/go-udap
+git checkout robin/cli-redesign   # or main, if cli-redesign is merged
+go build -o /tmp/go-udap .
+```
+
+You will run `/tmp/go-udap` for every command below. (Building to `/tmp`
+keeps the binary out of the repo working tree.)
+
+### 3. Confirm you can reach the SBR
+
+```bash
+/tmp/go-udap discover
+```
+
+Expect: at least one MAC address printed. If empty, fix networking
+(SBR powered on? same LAN? UDP/17784 not firewalled?) before
+proceeding. Save the MAC for later use:
+
+```bash
+export SBR_MAC=00:04:20:XX:XX:XX    # use the MAC you just saw
+```
+
+### 4. Note the SBR's current firmware version
+
+```bash
+/tmp/go-udap info $SBR_MAC
+```
+
+Record the `Firmware:` line. Add it to a file you'll send back:
+
+```bash
+echo "firmware: $(/tmp/go-udap info $SBR_MAC | grep Firmware)" > capture-notes.txt
+```
+
+## Capture session
+
+All commands below assume `$IFACE`, `$SBR_MAC`, and `/tmp/go-udap` are
+set per "Setup" above. Run the capture in one terminal, the `go-udap`
+commands in another.
+
+### 1. Start the packet capture
+
+In **terminal A**:
+
+```bash
+sudo tcpdump -i $IFACE -w sbr-capture.pcap 'udp port 17784'
+```
+
+Leave it running. You will `Ctrl-C` it at the end of the session.
+
+If macOS asks for permission for `tcpdump` to access the interface,
+grant it.
+
+### 2. Record sequences in terminal B
+
+Each numbered step below corresponds to one fixture the agent will
+extract. Run the commands in order, with brief pauses between so the
+pcap timeline is easy to read.
+
+**Sequence 1 — Discovery, factory-reset device.**
+
+First, factory-reset the SBR. On the device itself: hold the front
+button for ~6 seconds until it blinks fast red, then release. Wait
+~5 seconds for the device to settle (it should now be in setup mode
+with no IP).
+
+Then in terminal B:
+
+```bash
+sleep 2; echo "--- seq 1: discovery (factory) ---"
+/tmp/go-udap discover --info
+```
+
+The MAC will be the same; the IP should now show as `0.0.0.0`. If the
+device doesn't appear, factory reset didn't take — try again.
+
+**Sequence 2 — Configure the device, then re-discover.**
+
+Configure the SBR for a known network state. Use values appropriate
+for your LAN:
+
+```bash
+sleep 2; echo "--- seq 2: configure + re-discover ---"
+/tmp/go-udap set $SBR_MAC --interface 1 --lan-ip-mode 1 --hostname capture-test
+/tmp/go-udap commit $SBR_MAC
+sleep 30   # wait for device reboot to complete
+/tmp/go-udap discover --info
+```
+
+The IP should now be a real LAN address (e.g. `192.168.1.50`).
+
+If `commit` fails or the device doesn't come back, take a note in
+`capture-notes.txt` and continue with the rest — the failure itself is
+useful capture data.
+
+**Sequence 3 — Read all parameters.**
+
+```bash
+sleep 2; echo "--- seq 3: read all params ---"
+/tmp/go-udap read $SBR_MAC
+```
+
+This produces both a request and a response — both are interesting,
+but the response is what we'll fixture.
+
+**Sequence 4 — Set a single parameter.**
+
+```bash
+sleep 2; echo "--- seq 4: set single param ---"
+/tmp/go-udap set $SBR_MAC --hostname capture-test-set
+```
+
+**Sequence 5 — Save (no reboot).**
+
+```bash
+sleep 2; echo "--- seq 5: save ---"
+/tmp/go-udap save $SBR_MAC
+```
+
+**Sequence 6 — Reset (reboot). Time the offline duration.**
+
+This sequence times how long the real SBR is unresponsive after
+`reset`. The mock uses a 100ms default; this calibration confirms
+whether that's reasonable for tests that need realistic timing.
+
+```bash
+sleep 2; echo "--- seq 6: reset + measure reboot ---"
+/tmp/go-udap reset $SBR_MAC
+START=$(date +%s)
+for i in $(seq 1 60); do
+  if /tmp/go-udap discover 2>/dev/null | grep -q "$SBR_MAC"; then
+    END=$(date +%s)
+    echo "back online after $((END - START))s"
+    echo "reboot_duration_seconds: $((END - START))" >> capture-notes.txt
+    break
+  fi
+  sleep 1
+done
+```
+
+If the loop exits without finding the device, increase the loop bound
+or note that the reboot took longer than 60s.
+
+**Sequence 7 — Force an invalid set.**
+
+This tests whether the device returns a UDAP error response or
+silently ignores invalid input. Knowing this determines whether the
+mock should produce error packets for failure injection (Phase 3) or
+just drop responses.
+
+```bash
+sleep 2; echo "--- seq 7: invalid set ---"
+/tmp/go-udap set $SBR_MAC --wireless-keylen 99 || true
+```
+
+The `|| true` prevents the script from exiting on the expected client-
+side validation error; we still want the packet on the wire.
+
+If `go-udap`'s client-side validation rejects the request before
+sending, note that in `capture-notes.txt` — we can revisit how to
+elicit a real error response.
+
+### 3. Stop the capture
+
+In terminal A: press `Ctrl-C`. tcpdump prints a packet count summary;
+note the total in case you want to sanity-check that all sequences
+were recorded.
+
+You should now have `sbr-capture.pcap` and `capture-notes.txt` in the
+working directory.
+
+## Sanity checks
+
+Before handing off, do two quick checks:
+
+**1. The pcap has packets in both directions.**
+
+```bash
+sudo tcpdump -r sbr-capture.pcap -n 'udp port 17784' | wc -l
+```
+
+Expect at least 30-40 packets (request + response × 7 sequences,
+plus discovery responses from any other UDAP clients on the LAN).
+If the count is suspiciously low, the capture filter or interface
+selection probably went wrong — re-run.
+
+**2. The pcap is not corrupt.**
+
+```bash
+sudo tcpdump -r sbr-capture.pcap -c 5
+```
+
+Expect: five lines printed without errors. If you get parsing errors,
+the pcap may have been truncated; re-run the session.
+
+## Optional: capture from a second SBR
+
+If you have a second SBR and they're a different firmware revision,
+repeat the full capture session against it and save as
+`sbr-capture-2.pcap` plus `capture-notes-2.txt`. This isn't strictly
+necessary for Phase 1 — one device is enough — but it lets the agent
+spot wire-format differences between firmware versions during
+analysis.
+
+If both SBRs are the same firmware, the second capture adds little
+value; skip it.
+
+## Hand-off
+
+Send back to the agent:
+
+1. `sbr-capture.pcap` (and `sbr-capture-2.pcap` if produced).
+2. `capture-notes.txt` (and `capture-notes-2.txt` if produced).
+
+Easiest delivery: copy the files into the repo working tree (NOT into
+git — they're large binaries) at a location of your choice and tell
+the agent the path. The agent then:
+
+- Extracts individual response packets into
+  `mocksbr/testdata/captures/*.bin` (small per-packet files,
+  committed to the repo).
+- Appends "Appendix A: UDAP packet reference" to
+  `docs/superpowers/specs/2026-05-08-mocksbr-design.md` documenting
+  the wire-format details.
+- Proposes any tweaks to `docs/superpowers/plans/2026-05-08-mocksbr-phase1.md`
+  the captures motivate.
+
+The `.pcap` files themselves do NOT get committed — they're large and
+the per-packet `.bin` extracts are what the implementation uses.
+
+## Troubleshooting
+
+**`tcpdump: en0: You don't have permission to capture on that device`**
+
+Run with `sudo`. On macOS, you may also need to grant Terminal full
+disk access in System Settings → Privacy & Security → Full Disk Access.
+
+**`tcpdump` runs but no packets appear**
+
+- Wrong interface: re-check `IFACE` against `ifconfig` / `ip addr`.
+- SBR on a different VLAN/subnet: tcpdump only sees what passes
+  through the chosen interface.
+- Firewall blocking UDP/17784 on the dev box: check `pfctl -s rules`
+  on macOS or `iptables -L` on Linux.
+
+**`go-udap discover` returns no devices**
+
+- SBR not powered on, or boot incomplete (give it 30s after plug-in).
+- SBR on a different network (Wi-Fi vs Ethernet).
+- macOS Application Firewall blocking inbound UDP — temporarily
+  disable to test, or add `go-udap` to the allowed list.
+- Multicast DNS / mDNSResponder eating responses on some networks —
+  rare; if you suspect this, capture with `tcpdump` first to see
+  whether the SBR is actually replying.
+
+**Factory reset doesn't seem to work**
+
+The SBR's button sequence is timing-sensitive. Per the wiki:
+- 3 seconds → setup mode (slow red blink)
+- 6 seconds → factory reset (fast red blink)
+- Release at the wrong moment → starts a different sequence
+
+Reference: https://wiki.lyrion.org/index.php/SBRFrontButtonAndLED
+
+**Device doesn't come back after reset**
+
+A few real-world causes:
+- Reboot took longer than the 60s loop bound — increase the bound and
+  retry the sequence (no need to redo earlier sequences).
+- Device is in bootstrap mode (IP `0.0.0.0`) waiting for setup —
+  visible in `discover --info`.
+- Hardware glitch — power-cycle and try again.
+
+If repeated attempts fail, capture whatever you have and note the
+issue in `capture-notes.txt`; the agent can work with a partial
+session.

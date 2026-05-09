@@ -2,109 +2,64 @@ package udap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
-	"net"
-	"time"
 )
 
-// GetDeviceConfigWithContext retrieves configuration from a device with context
-func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device, params []string) (map[string]string, error) {
-	// Create GetData packet
-	packet := c.CreateGetDataPacket(device, params)
-
-	// Send to device
-	var destAddr *net.UDPAddr
-	var err error
-
-	if device.IP == "0.0.0.0" {
-		// Device in bootstrap mode - use broadcast
-		destAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("255.255.255.255:%d", Port))
-	} else {
-		destAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", device.IP, Port))
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve address: %w", err)
-	}
-
-	// Use packet capture helper for GetData responses. Timeout is
-	// driven by ctx — no inner cap that would mask --timeout.
-	captureConfig := PacketCaptureConfig{
-		Purpose:    "GetData responses",
-		SourceIP:   "",
-		SourcePort: 17784,
-	}
-
-	// Start packet capture in background
-	captureCtx, captureCancel := context.WithCancel(ctx)
-	defer captureCancel()
-
-	type captureResponse struct {
-		result *PacketCaptureResult
-		err    error
-	}
-	captureChan := make(chan captureResponse, 1)
-	go func() {
-		result, err := c.capturePacketWithContext(captureCtx, captureConfig)
-		captureChan <- captureResponse{result: result, err: err}
-	}()
-
-	// Give capture a moment to start
-	time.Sleep(100 * time.Millisecond)
-
-	// NOW send the GetData packet
-	_, err = c.conn.WriteToUDP(packet, destAddr)
-	if err != nil {
-		captureCancel()
-		return nil, fmt.Errorf("failed to send GetData packet: %w", err)
-	}
-
-	c.logger.Info("Sent GetData request", "device_mac", device.MAC)
-
-	// Wait for response
-	select {
-	case <-ctx.Done():
-		captureCancel()
-		return nil, fmt.Errorf("context cancelled while waiting for GetData response: %w", ctx.Err())
-	case resp := <-captureChan:
-		if resp.err != nil {
-			return nil, fmt.Errorf("packet capture failed: %w", resp.err)
-		}
-		if resp.result == nil || len(resp.result.Payload) == 0 {
-			c.logger.Warn("No response received from device")
-			return nil, fmt.Errorf("no GetData response received from device %s", device.MAC)
-		}
-
-		result := resp.result
-		c.logger.Info("Captured GetData response", "bytes", len(result.Payload))
-
-		// Debug: log raw packet
-		limit := min(len(result.Payload), 50)
-		hexData := fmt.Sprintf("%x", result.Payload[:limit])
-		if len(result.Payload) > 50 {
-			hexData += "..."
-		}
-		c.logger.Debug("Raw response hex", "data", hexData)
-
-		// Parse as UDAP packet
-		respPacket, data, err := ParsePacket(result.Payload)
+// waitForDeviceReply blocks on transport.Recv until it receives a packet
+// whose source MAC matches device.MAC, or until ctx is cancelled. Returns
+// the parsed packet header and trailing payload bytes. Replies from
+// other devices and stray traffic are silently dropped.
+func (c *Client) waitForDeviceReply(ctx context.Context, device *Device) (*Packet, []byte, error) {
+	want := device.MAC
+	for {
+		reply, _, err := c.transport.Recv(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse captured response: %w", err)
+			return nil, nil, fmt.Errorf("recv reply for %s: %w", want, err)
 		}
+		packet, data, perr := ParsePacket(reply)
+		if perr != nil {
+			c.logger.Warn("ignoring unparseable reply", "error", perr)
+			continue
+		}
+		gotMAC := fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
+			packet.SrcAddress[0], packet.SrcAddress[1], packet.SrcAddress[2],
+			packet.SrcAddress[3], packet.SrcAddress[4], packet.SrcAddress[5])
+		if gotMAC != want {
+			c.logger.Debug("ignoring reply from different device", "from", gotMAC, "want", want)
+			continue
+		}
+		return packet, data, nil
+	}
+}
 
-		switch respPacket.UCPMethod {
-		case MethodGetData:
-			parsed, err := parseGetDataResponse(data)
-			if err != nil {
-				return nil, fmt.Errorf("decode GetData response from %s: %w", device.MAC, err)
-			}
-			return parsed, nil
-		case MethodError:
-			return nil, fmt.Errorf("device %s returned error response", device.MAC)
-		default:
-			return nil, fmt.Errorf("device %s returned unexpected method 0x%04x", device.MAC, respPacket.UCPMethod)
+// GetDeviceConfigWithContext reads the named parameters from a device.
+// Sends a UCP_METHOD_GET_DATA (0x0005) request and decodes the matching
+// offset/length/value response.
+func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device, params []string) (map[string]string, error) {
+	packet := c.CreateGetDataPacket(device, params)
+	if err := c.transport.Send(packet); err != nil {
+		return nil, fmt.Errorf("send GetData: %w", err)
+	}
+	c.logger.Info("Sent GetData request", "device_mac", device.MAC, "param_count", len(params))
+
+	respPacket, data, err := c.waitForDeviceReply(ctx, device)
+	if err != nil {
+		return nil, err
+	}
+
+	switch respPacket.UCPMethod {
+	case MethodGetData:
+		parsed, perr := parseGetDataResponse(data)
+		if perr != nil {
+			return nil, fmt.Errorf("decode GetData response from %s: %w", device.MAC, perr)
 		}
+		return parsed, nil
+	case MethodError:
+		return nil, fmt.Errorf("device %s returned error response", device.MAC)
+	default:
+		return nil, fmt.Errorf("device %s: unexpected response method 0x%04x", device.MAC, respPacket.UCPMethod)
 	}
 }
 
@@ -127,258 +82,78 @@ func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Devi
 	return nil
 }
 
-// SetDeviceConfigWithContext sets configuration parameters on a device with context
+// SetDeviceConfigWithContext writes the named parameters to a device.
+// Read-modify-write: omitted params would clobber neighbouring NVRAM
+// regions with zeros, so the client first reads the device's current
+// values and merges the caller's overrides on top.
 func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device, config map[string]string) error {
-	// First ensure we have all current device parameters
 	if len(device.Parameters) == 0 {
 		c.logger.Info("Device parameters not loaded, reading current configuration")
-		err := c.GetAllDeviceConfigWithContext(ctx, device)
-		if err != nil {
-			c.logger.Warn("Could not read current parameters", "error", err)
-			c.logger.Info("Proceeding with just the new parameters")
+		if err := c.GetAllDeviceConfigWithContext(ctx, device); err != nil {
+			c.logger.Warn("Could not read current parameters; proceeding with new only", "error", err)
 			if device.Parameters == nil {
 				device.Parameters = make(map[string]string)
 			}
 		}
 	}
 
-	// Merge new configuration with existing parameters
-	allParams := make(map[string]string)
+	allParams := make(map[string]string, len(device.Parameters)+len(config))
 	maps.Copy(allParams, device.Parameters)
-	for param, value := range config {
-		allParams[param] = value
-		// Also update the device's stored parameters
-		device.Parameters[param] = value
+	for k, v := range config {
+		allParams[k] = v
+		device.Parameters[k] = v
 	}
 
-	c.logger.Info("Sending complete configuration", "total_params", len(allParams))
-	for param, value := range config {
-		c.logger.Info("Parameter changed", "param", param, "value", value)
-	}
-
-	// Create SetData packet with ALL parameters
 	packet := c.CreateSetDataPacket(device, allParams)
-
-	// Send to device
-	var destAddr *net.UDPAddr
-	var err error
-
-	if device.IP == "0.0.0.0" {
-		// Device in bootstrap mode - use broadcast
-		destAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("255.255.255.255:%d", Port))
-	} else {
-		destAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", device.IP, Port))
+	if err := c.transport.Send(packet); err != nil {
+		return fmt.Errorf("send SetData: %w", err)
 	}
+	c.logger.Info("Sent SetData request", "device_mac", device.MAC, "total_params", len(allParams))
 
+	respPacket, data, err := c.waitForDeviceReply(ctx, device)
 	if err != nil {
-		return fmt.Errorf("failed to resolve address: %w", err)
+		return err
 	}
 
-	// Use packet capture helper for SetData responses. Timeout is
-	// driven by ctx — no inner cap that would mask --timeout.
-	captureConfig := PacketCaptureConfig{
-		Purpose:    "SetData responses",
-		SourceIP:   "",
-		SourcePort: 17784,
-	}
-
-	// Start packet capture in background
-	captureCtx, captureCancel := context.WithCancel(ctx)
-	defer captureCancel()
-
-	type captureResponse struct {
-		result *PacketCaptureResult
-		err    error
-	}
-	captureChan := make(chan captureResponse, 1)
-	go func() {
-		result, err := c.capturePacketWithContext(captureCtx, captureConfig)
-		captureChan <- captureResponse{result: result, err: err}
-	}()
-
-	// Give capture a moment to start
-	time.Sleep(100 * time.Millisecond)
-
-	// NOW send the SetData packet
-	_, err = c.conn.WriteToUDP(packet, destAddr)
-	if err != nil {
-		captureCancel()
-		return fmt.Errorf("failed to send SetData packet: %w", err)
-	}
-
-	c.logger.Info("Sent SetData request", "device_mac", device.MAC)
-
-	// Wait for response
-	select {
-	case <-ctx.Done():
-		captureCancel()
-		return fmt.Errorf("context cancelled while waiting for SetData response: %w", ctx.Err())
-	case resp := <-captureChan:
-		if resp.err != nil {
-			return fmt.Errorf("packet capture failed: %w", resp.err)
-		}
-		if resp.result == nil || len(resp.result.Payload) == 0 {
-			c.logger.Warn("No response received from device - assuming configuration was applied")
-			return nil
-		}
-
-		c.logger.Info("Captured broadcast response", "bytes", len(resp.result.Payload))
-
-		// Debug: log raw packet
-		limit := min(len(resp.result.Payload), 50)
-		hexData := fmt.Sprintf("%x", resp.result.Payload[:limit])
-		if len(resp.result.Payload) > 50 {
-			hexData += "..."
-		}
-		c.logger.Debug("Raw response hex", "data", hexData)
-
-		// Parse as UDAP packet
-		respPacket, data, err := ParsePacket(resp.result.Payload)
-		if err != nil {
-			c.logger.Error("Failed to parse captured response", "error", err)
-			return fmt.Errorf("failed to parse response: %w", err)
-		}
-
-		c.logger.Debug("Response packet details", "udap_type", fmt.Sprintf("0x%04x", respPacket.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
-
-		// Process the response. Per the Perl Net::UDAP capture, real
-		// devices echo the request method (0x0006) on a successful
-		// SetData ack — but accept neighboring methods too in case
-		// other firmware variants behave differently. MethodGetIP
-		// (0x0002) is the device's "set_ip" companion response;
-		// MethodGetData (0x0005) appears as the GetData echo. Keeping
-		// the broader accept set is conservative.
-		switch respPacket.UCPMethod {
-		case MethodGetIP, MethodSetData, MethodGetData:
-			c.logger.Info("Device acknowledged configuration change", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
-			if len(data) > 0 {
-				tlvs := DecodeTLV(data)
-				for _, tlv := range tlvs {
-					c.logger.Debug("Response TLV data", "type", tlv.Type, "length", tlv.Length)
+	switch respPacket.UCPMethod {
+	case MethodSetData, MethodGetData, MethodGetIP:
+		c.logger.Info("Device acknowledged configuration change", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
+		return nil
+	case MethodError:
+		if len(data) > 0 {
+			tlvs := DecodeTLV(data)
+			for _, tlv := range tlvs {
+				if tlv.Type == TLVTypeErrorMessage {
+					return fmt.Errorf("device %s error: %s", device.MAC, string(tlv.Value))
 				}
 			}
-			return nil
-		case MethodError:
-			if len(data) > 0 {
-				tlvs := DecodeTLV(data)
-				for _, tlv := range tlvs {
-					if tlv.Type == TLVTypeErrorMessage {
-						return fmt.Errorf("device error: %s", string(tlv.Value))
-					}
-				}
-			}
-			return fmt.Errorf("device %s returned error response", device.MAC)
-		default:
-			return fmt.Errorf("unexpected response method: 0x%04x", respPacket.UCPMethod)
 		}
+		return fmt.Errorf("device %s returned error response", device.MAC)
+	case MethodCredentialsError:
+		return fmt.Errorf("device %s rejected credentials", device.MAC)
+	default:
+		return fmt.Errorf("device %s: unexpected response method 0x%04x", device.MAC, respPacket.UCPMethod)
 	}
 }
 
-// ResetDeviceWithContext sends a reset command to restart the device with context
+// ResetDeviceWithContext sends a UCP_METHOD_RESET (0x0004) command. The
+// device may reboot before sending an ack, so a context-cancellation
+// error is treated as success.
 func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) error {
-	// Create Reset packet
 	packet := c.CreateResetPacket(device)
-
-	// Send to device
-	var destAddr *net.UDPAddr
-	var err error
-
-	if device.IP == "0.0.0.0" {
-		// Device in bootstrap mode - use broadcast
-		destAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("255.255.255.255:%d", Port))
-	} else {
-		destAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", device.IP, Port))
+	if err := c.transport.Send(packet); err != nil {
+		return fmt.Errorf("send Reset: %w", err)
 	}
+	c.logger.Info("Sent Reset", "device_mac", device.MAC)
 
+	respPacket, _, err := c.waitForDeviceReply(ctx, device)
 	if err != nil {
-		return fmt.Errorf("failed to resolve address: %w", err)
-	}
-
-	// Use packet capture helper for Reset responses. Timeout is
-	// driven by ctx — no inner cap that would mask --timeout.
-	captureConfig := PacketCaptureConfig{
-		Purpose:    "Reset responses",
-		SourceIP:   "",
-		SourcePort: 17784,
-	}
-
-	// Start packet capture in background
-	captureCtx, captureCancel := context.WithCancel(ctx)
-	defer captureCancel()
-
-	type captureResponse struct {
-		result *PacketCaptureResult
-		err    error
-	}
-	captureChan := make(chan captureResponse, 1)
-	go func() {
-		result, err := c.capturePacketWithContext(captureCtx, captureConfig)
-		captureChan <- captureResponse{result: result, err: err}
-	}()
-
-	// Give capture a moment to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Send reset packet
-	c.logger.Info("Sending reset packet", "bytes", len(packet), "dest_addr", destAddr.String())
-	limit := min(len(packet), 30)
-	hexData := fmt.Sprintf("%x", packet[:limit])
-	if len(packet) > 30 {
-		hexData += "..."
-	}
-	c.logger.Debug("Reset packet hex", "data", hexData)
-
-	_, err = c.conn.WriteToUDP(packet, destAddr)
-	if err != nil {
-		captureCancel()
-		return fmt.Errorf("failed to send Reset packet: %w", err)
-	}
-
-	c.logger.Info("Sent Reset command", "device_mac", device.MAC)
-
-	// Wait for response with shorter timeout (device may reset immediately)
-	select {
-	case <-ctx.Done():
-		captureCancel()
-		c.logger.Info("No response from device - it may have reset immediately")
-		return nil
-	case resp := <-captureChan:
-		if resp.err != nil {
-			c.logger.Warn("Packet capture failed", "error", resp.err)
-			// Don't fail the reset operation due to capture error
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			c.logger.Info("No reset acknowledgment; device may have reset immediately")
 			return nil
 		}
-		if resp.result == nil || len(resp.result.Payload) == 0 {
-			c.logger.Info("No response from device - it may have reset immediately")
-			return nil
-		}
-
-		c.logger.Info("Received reset acknowledgment", "bytes", len(resp.result.Payload))
-
-		// Debug: print raw packet
-		limit := min(len(resp.result.Payload), 30)
-		hexData := fmt.Sprintf("%x", resp.result.Payload[:limit])
-		if len(resp.result.Payload) > 30 {
-			hexData += "..."
-		}
-		c.logger.Debug("Raw response hex", "data", hexData)
-
-		// Parse response
-		respPacket, _, err := ParsePacket(resp.result.Payload)
-		if err != nil {
-			c.logger.Warn("Could not parse response", "error", err)
-		} else {
-			c.logger.Debug("Response packet details", "udap_type", fmt.Sprintf("0x%04x", respPacket.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
-			switch respPacket.UCPMethod {
-			case MethodGetData:
-				// Based on net-udap capture, device responds with GetData (0x0001) to reset
-				c.logger.Info("Device acknowledged reset command - restarting")
-			case MethodSetData:
-				c.logger.Info("Device acknowledged reset command")
-			}
-		}
+		return err
 	}
-
-	c.logger.Info("Device is resetting...")
+	c.logger.Info("Device acknowledged reset", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 	return nil
 }

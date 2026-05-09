@@ -11,12 +11,13 @@ func TestNewClientWithPortZero(t *testing.T) {
 		t.Fatalf("expected client on port 0, got error: %v", err)
 	}
 	defer c.Close()
-	if c.conn == nil {
-		t.Fatal("conn should not be nil")
-	}
-	addr, ok := c.conn.LocalAddr().(*net.UDPAddr)
+	tr, ok := c.transport.(*UDPTransport)
 	if !ok {
-		t.Fatalf("expected *net.UDPAddr, got %T", c.conn.LocalAddr())
+		t.Fatalf("expected *UDPTransport, got %T", c.transport)
+	}
+	addr, ok := tr.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		t.Fatalf("expected *net.UDPAddr, got %T", tr.LocalAddr())
 	}
 	if addr.Port == 0 {
 		t.Errorf("expected OS-assigned port (non-zero), got 0")
