@@ -151,7 +151,7 @@ that need realistic timing can set `RebootDelay = 10*time.Second`.
 - [ ] **Step 4: Commit fixtures and spec appendix**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/testdata/captures/ docs/superpowers/specs/2026-05-08-mocksbr-design.md
 git commit -m "docs(mocksbr): add real-SBR captures and UDAP packet reference"
 ```
@@ -168,7 +168,7 @@ NOTE: If the user cannot run the capture session, they may opt to skip this task
 
 - [ ] **Step 1: Write the failing test**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/udap/transport_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/udap/transport_test.go`:
 
 ```go
 package udap
@@ -221,12 +221,12 @@ func contextCancelled(err error) bool {
 
 - [ ] **Step 2: Run test, verify it fails**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run "TestTransport" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run "TestTransport" -v`
 Expected: FAIL — `undefined: Transport`, `undefined: UDPTransport`, `undefined: NewUDPTransport`.
 
 - [ ] **Step 3: Create the interface definition**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/udap/transport.go`:
+Create `/Users/robin/code/github/yo61/go-udap/udap/transport.go`:
 
 ```go
 package udap
@@ -263,27 +263,27 @@ UDPTransport itself is implemented in Task 3; this task only adds the interface 
 
 - [ ] **Step 4: Verify the test still doesn't pass (UDPTransport not yet defined)**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run "TestTransport" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run "TestTransport" -v`
 Expected: FAIL — `undefined: UDPTransport`, `undefined: NewUDPTransport`.
 
 This is expected; Task 3 implements UDPTransport.
 
 - [ ] **Step 5: Verify the interface itself compiles**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./udap/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./udap/...`
 Expected: build fails because the test file references undefined symbols. Skip the test temporarily by removing `udap/transport_test.go`:
 
 ```bash
-mv /Users/robin/code/github/robinbowes/go-udap/udap/transport_test.go /tmp/transport_test.go.task2
+mv /Users/robin/code/github/yo61/go-udap/udap/transport_test.go /tmp/transport_test.go.task2
 ```
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./udap/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./udap/...`
 Expected: exit code 0. (Production code compiles; tests are restored in Task 3.)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/transport.go
 git commit -m "feat(udap): add Transport interface"
 ```
@@ -302,12 +302,12 @@ The test file is restored as part of Task 3.
 - [ ] **Step 1: Restore the Task 2 test file**
 
 ```bash
-mv /tmp/transport_test.go.task2 /Users/robin/code/github/robinbowes/go-udap/udap/transport_test.go
+mv /tmp/transport_test.go.task2 /Users/robin/code/github/yo61/go-udap/udap/transport_test.go
 ```
 
 - [ ] **Step 2: Add a UDP loopback round-trip test**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/transport_test.go`. Append:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/transport_test.go`. Append:
 
 ```go
 func TestUDPTransportRoundTrip(t *testing.T) {
@@ -369,7 +369,7 @@ It also references a helper `SendTo(payload, addr)` on `UDPTransport`. That's a 
 
 - [ ] **Step 3: Implement UDPTransport**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/transport.go`. After the `Transport` interface definition, append:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/transport.go`. After the `Transport` interface definition, append:
 
 ```go
 import (
@@ -479,20 +479,20 @@ Note: this code relies on `enableBroadcast` (already in `udap/socket_unix.go`/`s
 
 - [ ] **Step 4: Find getLocalIPs to confirm location**
 
-Run: `grep -rn "func getLocalIPs" /Users/robin/code/github/robinbowes/go-udap/udap/`
+Run: `grep -rn "func getLocalIPs" /Users/robin/code/github/yo61/go-udap/udap/`
 Expected: a single match, likely in `udap/discovery.go`. Confirm it returns `map[string]bool`.
 
 If it's in `discovery.go`, it's already importable from `transport.go` (same package).
 
 - [ ] **Step 5: Run the tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run "TestTransport|TestUDPTransport" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run "TestTransport|TestUDPTransport" -v`
 Expected: PASS for `TestTransportInterfaceShape`, `TestTransportRecvCancelledContextReturnsContextErr`, `TestUDPTransportRoundTrip`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/transport.go udap/transport_test.go
 git commit -m "feat(udap): implement UDPTransport"
 ```
@@ -507,7 +507,7 @@ git commit -m "feat(udap): implement UDPTransport"
 
 - [ ] **Step 1: Add the new constructor and field**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/client.go`. Replace the `Client` struct definition:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/client.go`. Replace the `Client` struct definition:
 
 Find:
 ```go
@@ -533,7 +533,7 @@ type Client struct {
 
 - [ ] **Step 2: Add NewClientWithTransport and rewire existing constructors**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/client.go`. Replace the existing constructors block (lines around 23-52, where `NewClient`, `NewClientWithLogger`, and `newClientWithPort` live):
+Edit `/Users/robin/code/github/yo61/go-udap/udap/client.go`. Replace the existing constructors block (lines around 23-52, where `NewClient`, `NewClientWithLogger`, and `newClientWithPort` live):
 
 Find:
 ```go
@@ -615,7 +615,7 @@ func NewClientWithTransport(t Transport, logger Logger) *Client {
 
 - [ ] **Step 3: Update Close() to call transport.Close()**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/client.go`. Find:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/client.go`. Find:
 
 ```go
 // Close closes the UDAP client connection
@@ -634,7 +634,7 @@ func (c *Client) Close() error {
 
 - [ ] **Step 4: Build to find remaining c.conn references**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./udap/... 2>&1 | head -40`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./udap/... 2>&1 | head -40`
 Expected: many compile errors referencing `c.conn` in `client.go`, `discovery.go`, `config.go`. These are addressed in Tasks 5 and 6. Note them down so subsequent tasks know what to fix.
 
 If the only remaining `c.conn` references in `client.go` itself are inside the deprecated `capturePacketWithContext`, `capturePacketFromExistingConn`, and `flushStalePackets` helpers, leave them for now — Task 7 removes those entirely.
@@ -650,7 +650,7 @@ This task does NOT yet make the package compile (discovery.go and config.go stil
 We don't normally commit a broken build, but since this refactor is genuinely a multi-task unit and Task 5 is the next to land in the same plan, mark this commit as WIP:
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/client.go
 git commit -m "refactor(udap): switch Client to Transport (WIP, build broken)"
 ```
@@ -666,7 +666,7 @@ NOTE FOR EXECUTOR: This commit is intentionally a broken intermediate state. Tas
 
 - [ ] **Step 1: Read current discovery.go to find what to keep**
 
-Run: `cat /Users/robin/code/github/robinbowes/go-udap/udap/discovery.go | head -100`
+Run: `cat /Users/robin/code/github/yo61/go-udap/udap/discovery.go | head -100`
 Identify:
 - The public entry points: `DiscoverDevices`, `DiscoverDevicesWithContext`, `DiscoverDevicesAdvancedWithContext`.
 - The packet-handling helper `parseDiscoveryResponse` (referenced in the listener).
@@ -675,7 +675,7 @@ Keep `parseDiscoveryResponse` as-is.
 
 - [ ] **Step 2: Replace the discovery flow**
 
-Replace the entire contents of `/Users/robin/code/github/robinbowes/go-udap/udap/discovery.go` with:
+Replace the entire contents of `/Users/robin/code/github/yo61/go-udap/udap/discovery.go` with:
 
 ```go
 package udap
@@ -753,7 +753,7 @@ This deletes the old listener-goroutine machinery (`listenForResponsesWithCancel
 The previous discovery.go contained two parser helpers that are still needed: `parseDiscoveryResponse` and `parseConfigResponse`. They're called from the new `handleDiscoveryReply` (and from elsewhere). Append them to the end of `udap/discovery.go` exactly as they were in the prior version. To recover them from git:
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git show HEAD~1:udap/discovery.go | sed -n '/^\/\/ parseDiscoveryResponse/,/^}/p' >> udap/discovery.go
 git show HEAD~1:udap/discovery.go | sed -n '/^\/\/ parseConfigResponse/,/^}/p' >> udap/discovery.go
 ```
@@ -762,13 +762,13 @@ Then read the file and verify both functions are present at the bottom, with no 
 
 - [ ] **Step 4: Build the udap package**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./udap/... 2>&1 | head -30`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./udap/... 2>&1 | head -30`
 Expected: still some compile errors in `config.go` (which Task 6 fixes); discovery.go itself should compile clean.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/discovery.go
 git commit -m "refactor(udap): rewrite discovery to use transport.Recv loop"
 ```
@@ -784,7 +784,7 @@ The existing `config.go` has GetData, SetData, SaveData, Reset implementations, 
 
 - [ ] **Step 1: Add a private response-waiting helper**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/config.go`. At the top of the file (after the imports), add a helper that waits for a packet matching a target device's MAC:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/config.go`. At the top of the file (after the imports), add a helper that waits for a packet matching a target device's MAC:
 
 ```go
 // waitForDeviceReply blocks on transport.Recv until it receives a packet
@@ -999,23 +999,23 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 
 - [ ] **Step 6: Build the package**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./...`
 Expected: exit code 0. The full package compiles again.
 
 If there are remaining `c.conn` references, find and fix them:
 ```bash
-grep -n "c\.conn" /Users/robin/code/github/robinbowes/go-udap/udap/*.go
+grep -n "c\.conn" /Users/robin/code/github/yo61/go-udap/udap/*.go
 ```
 
 - [ ] **Step 7: Run existing tests to verify behavior preserved**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -count=1 -timeout 30s`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -count=1 -timeout 30s`
 Expected: PASS for all tests that don't depend on real-network behavior. Tests using `newClientWithPort(0, ...)` should pass because `UDPTransport` is internally still a real UDP socket.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/config.go
 git commit -m "refactor(udap): rewrite config operations to use transport.Recv"
 ```
@@ -1029,13 +1029,13 @@ git commit -m "refactor(udap): rewrite config operations to use transport.Recv"
 
 - [ ] **Step 1: Identify code to delete**
 
-Run: `grep -n "PacketCaptureConfig\|PacketCaptureResult\|capturePacketWithContext\|capturePacketFromExistingConn\|flushStalePackets\|getActiveNetworkInterface" /Users/robin/code/github/robinbowes/go-udap/udap/`
+Run: `grep -n "PacketCaptureConfig\|PacketCaptureResult\|capturePacketWithContext\|capturePacketFromExistingConn\|flushStalePackets\|getActiveNetworkInterface" /Users/robin/code/github/yo61/go-udap/udap/`
 
 Confirm these are only referenced in `udap/client.go` itself (nowhere else after the refactor). If anything outside `udap/` references them, escalate; otherwise proceed.
 
 - [ ] **Step 2: Delete the types and functions**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/client.go`. Delete:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/client.go`. Delete:
 
 - `type PacketCaptureConfig struct { ... }` and its `Validate` method (the latter lives in `validation.go` — also delete its method body there).
 - `type PacketCaptureResult struct { ... }`.
@@ -1048,7 +1048,7 @@ Also remove related imports that become unused (`context`, `time`, `sort`, `stri
 
 - [ ] **Step 3: Delete PacketCaptureConfig.Validate from validation.go**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/udap/validation.go`. Find and delete:
+Edit `/Users/robin/code/github/yo61/go-udap/udap/validation.go`. Find and delete:
 
 ```go
 // Validate checks if the PacketCaptureConfig struct contains valid data
@@ -1059,18 +1059,18 @@ func (p *PacketCaptureConfig) Validate() error {
 
 - [ ] **Step 4: Build**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./...`
 Expected: exit code 0.
 
 - [ ] **Step 5: Run all tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./... -count=1 -timeout 60s`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./... -count=1 -timeout 60s`
 Expected: PASS. If any test referenced `PacketCaptureConfig`/`PacketCaptureResult`/etc., delete those test cases — they're testing removed code.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/client.go udap/validation.go
 git commit -m "refactor(udap): remove obsolete PacketCapture helpers"
 ```
@@ -1085,7 +1085,7 @@ git commit -m "refactor(udap): remove obsolete PacketCapture helpers"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/device_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/device_test.go`:
 
 ```go
 package mocksbr
@@ -1139,12 +1139,12 @@ func TestDeviceResetReloadsNVRAMIntoWorkingMemory(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail (package doesn't exist)**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/...`
 Expected: FAIL — `no Go files in .../mocksbr` or `package mocksbr; expected package name`.
 
 - [ ] **Step 3: Implement device.go**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/device.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/device.go`:
 
 ```go
 // Package mocksbr provides a software mock of a Squeezebox Receiver (SBR)
@@ -1282,13 +1282,13 @@ func cloneMap(m map[string]string) map[string]string {
 
 - [ ] **Step 4: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/... -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/... -v`
 Expected: PASS for all four `TestDevice*` tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/device.go mocksbr/device_test.go
 git commit -m "feat(mocksbr): add Device state machine with NVRAM semantics"
 ```
@@ -1303,7 +1303,7 @@ git commit -m "feat(mocksbr): add Device state machine with NVRAM semantics"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/network_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/network_test.go`:
 
 ```go
 package mocksbr
@@ -1359,12 +1359,12 @@ func TestNetworkAddRejectsDuplicateMAC(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run "TestNetwork" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run "TestNetwork" -v`
 Expected: FAIL — `undefined: NewNetwork`.
 
 - [ ] **Step 3: Implement network.go**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/network.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/network.go`:
 
 ```go
 package mocksbr
@@ -1436,7 +1436,7 @@ func validMAC(s string) bool {
 
 - [ ] **Step 4: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run "TestNetwork" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run "TestNetwork" -v`
 Expected: PASS for all four tests. `TestNetworkAutoGeneratesNDevices` requires the `autoConfig` helper introduced in Task 10 — for now, add a stub:
 
 If `autoConfig` is undefined, append this stub at the bottom of `network.go`:
@@ -1454,7 +1454,7 @@ Re-run tests; they should all pass with the stub.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/network.go mocksbr/network_test.go
 git commit -m "feat(mocksbr): add Network with MAC-keyed device map"
 ```
@@ -1470,7 +1470,7 @@ git commit -m "feat(mocksbr): add Network with MAC-keyed device map"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/identity_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/identity_test.go`:
 
 ```go
 package mocksbr
@@ -1516,12 +1516,12 @@ func TestAutoConfigSupportsHighIndices(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail (or pass with the stub if not yet replaced)**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run "TestAutoConfig" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run "TestAutoConfig" -v`
 Expected: FAIL — assertions fail because the stub from Task 9 only sets MAC.
 
 - [ ] **Step 3: Implement identity.go**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/identity.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/identity.go`:
 
 ```go
 package mocksbr
@@ -1544,17 +1544,17 @@ func autoConfig(idx int) DeviceConfig {
 
 - [ ] **Step 4: Remove the stub from `network.go`**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/network.go`. Delete the stub `autoConfig` function added in Task 9 (the one with the comment "implemented in identity.go").
+Edit `/Users/robin/code/github/yo61/go-udap/mocksbr/network.go`. Delete the stub `autoConfig` function added in Task 9 (the one with the comment "implemented in identity.go").
 
 - [ ] **Step 5: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -v`
 Expected: PASS for all `TestDevice*`, `TestNetwork*`, and `TestAutoConfig*` tests.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/identity.go mocksbr/network.go
 git commit -m "feat(mocksbr): implement deterministic identity auto-generation"
 ```
@@ -1571,7 +1571,7 @@ git commit -m "feat(mocksbr): implement deterministic identity auto-generation"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/handlers_test.go`:
 
 ```go
 package mocksbr
@@ -1644,12 +1644,12 @@ Required imports for the test file: `"context"`, `"fmt"`, `"go-udap/udap"`, `"te
 
 - [ ] **Step 2: Run test, verify failure**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run TestNetworkReceiveDiscovery -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run TestNetworkReceiveDiscovery -v`
 Expected: FAIL — `Network has no Receive method`.
 
 - [ ] **Step 3: Implement response builders**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/responses.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/responses.go`:
 
 ```go
 package mocksbr
@@ -1737,7 +1737,7 @@ NOTE: The exact TLV type bytes (0x01..0x06 above) are placeholders pending the c
 
 - [ ] **Step 4: Implement handlers and Network.Receive**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/handlers.go`:
 
 ```go
 package mocksbr
@@ -1813,18 +1813,18 @@ func macFromBytes(b [6]byte) string {
 
 - [ ] **Step 5: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run TestNetworkReceiveDiscovery -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run TestNetworkReceiveDiscovery -v`
 Expected: PASS.
 
 - [ ] **Step 6: Run full mocksbr suite**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -v`
 Expected: PASS for all device, network, identity, and discovery handler tests.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/responses.go mocksbr/handlers.go mocksbr/handlers_test.go
 git commit -m "feat(mocksbr): add response builders, handlers, Network.Receive"
 ```
@@ -1840,7 +1840,7 @@ git commit -m "feat(mocksbr): add response builders, handlers, Network.Receive"
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers_test.go`:
+Append to `/Users/robin/code/github/yo61/go-udap/mocksbr/handlers_test.go`:
 
 ```go
 func TestNetworkReceiveGetDataReturnsParamValues(t *testing.T) {
@@ -1936,12 +1936,12 @@ Add `"encoding/binary"` and `"strings"` to the imports if not already present.
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run "TestNetworkReceiveGetData|TestNetworkReceiveSetData" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run "TestNetworkReceiveGetData|TestNetworkReceiveSetData" -v`
 Expected: FAIL — handlers return 0 replies for GetData/SetData.
 
 - [ ] **Step 3: Add response builders**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/responses.go`. Append:
+Edit `/Users/robin/code/github/yo61/go-udap/mocksbr/responses.go`. Append:
 
 ```go
 // buildDataResp constructs the response to a GetData request. Real
@@ -2051,7 +2051,7 @@ func buildAck(d *device, request *udap.Packet, ackMethod uint16) []byte {
 
 - [ ] **Step 4: Add SetData payload parser**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/responses.go`. Append a helper that parses the SetData payload (which uses an offset/length/value layout, NOT TLVs — see `udap/client.go:CreateSetDataPacket`):
+Edit `/Users/robin/code/github/yo61/go-udap/mocksbr/responses.go`. Append a helper that parses the SetData payload (which uses an offset/length/value layout, NOT TLVs — see `udap/client.go:CreateSetDataPacket`):
 
 ```go
 // parseSetDataPayload extracts (param_name, param_value) pairs from a
@@ -2165,7 +2165,7 @@ func parseGetDataRequest(data []byte) []paramRequest {
 
 - [ ] **Step 5: Wire handlers**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers.go`. Replace the `default` branch of the switch in `handle` with:
+Edit `/Users/robin/code/github/yo61/go-udap/mocksbr/handlers.go`. Replace the `default` branch of the switch in `handle` with:
 
 ```go
 	default:
@@ -2197,13 +2197,13 @@ Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers.go`. Replace 
 
 - [ ] **Step 6: Run tests, verify pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -v`
 Expected: PASS for all `TestDevice*`, `TestNetwork*`, `TestAutoConfig*`, `TestNetworkReceiveDiscovery`, `TestNetworkReceiveGetData`, `TestNetworkReceiveSetData`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/handlers.go mocksbr/responses.go mocksbr/handlers_test.go
 git commit -m "feat(mocksbr): implement GetData and SetData handlers"
 ```
@@ -2219,7 +2219,7 @@ git commit -m "feat(mocksbr): implement GetData and SetData handlers"
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers_test.go`:
+Append to `/Users/robin/code/github/yo61/go-udap/mocksbr/handlers_test.go`:
 
 ```go
 func TestNetworkReceiveSaveDataCopiesWorkingToNVRAM(t *testing.T) {
@@ -2306,12 +2306,12 @@ Add `"time"` to the test file imports.
 
 - [ ] **Step 2: Run tests, verify failure**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run "TestNetworkReceiveSaveData|TestNetworkReceiveReset|TestNetworkResetReloads" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run "TestNetworkReceiveSaveData|TestNetworkReceiveReset|TestNetworkResetReloads" -v`
 Expected: FAIL — SaveData and Reset cases not handled.
 
 - [ ] **Step 3: Add reboot-window methods to device**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/device.go`. Append:
+Edit `/Users/robin/code/github/yo61/go-udap/mocksbr/device.go`. Append:
 
 ```go
 // startReboot sets the reboot deadline to now + delay (or 100ms default
@@ -2338,7 +2338,7 @@ func (d *device) rebooting() bool {
 
 - [ ] **Step 4: Wire SaveData/Reset handlers and reboot-drop logic**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/mocksbr/handlers.go`. In the inner switch (the `case udap.MethodSetData:` block from Task 12), add SaveData and Reset cases. Also: BEFORE the inner switch, check whether the device is rebooting; if so, drop.
+Edit `/Users/robin/code/github/yo61/go-udap/mocksbr/handlers.go`. In the inner switch (the `case udap.MethodSetData:` block from Task 12), add SaveData and Reset cases. Also: BEFORE the inner switch, check whether the device is rebooting; if so, drop.
 
 Replace the `default:` arm of the outer switch from Task 12 with:
 
@@ -2414,13 +2414,13 @@ NOTE: The "len(params) > 5 → also save" heuristic in the SetData case is a Pha
 
 - [ ] **Step 5: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -v`
 Expected: PASS for all tests in the mocksbr package.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/handlers.go mocksbr/device.go mocksbr/handlers_test.go
 git commit -m "feat(mocksbr): implement SaveData and Reset handlers with reboot window"
 ```
@@ -2435,7 +2435,7 @@ git commit -m "feat(mocksbr): implement SaveData and Reset handlers with reboot 
 
 - [ ] **Step 1: Write the failing test**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/transport_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/transport_test.go`:
 
 ```go
 package mocksbr
@@ -2474,12 +2474,12 @@ func TestMockTransportImplementsTransport(t *testing.T) {
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -run "TestMockTransport" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -run "TestMockTransport" -v`
 Expected: FAIL — `undefined: MockTransport`.
 
 - [ ] **Step 3: Implement MockTransport**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/transport.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/transport.go`:
 
 ```go
 package mocksbr
@@ -2543,13 +2543,13 @@ func (m *MockTransport) Close() error {
 
 - [ ] **Step 4: Run tests, verify pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/ -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/ -v`
 Expected: PASS for all tests including `TestMockTransport*`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/transport.go mocksbr/transport_test.go
 git commit -m "feat(mocksbr): implement MockTransport satisfying udap.Transport"
 ```
@@ -2564,7 +2564,7 @@ git commit -m "feat(mocksbr): implement MockTransport satisfying udap.Transport"
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cmd/mocksbr/main.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cmd/mocksbr/main.go`:
 
 ```go
 package main
@@ -2812,7 +2812,7 @@ func exitCode(err error) int {
 
 - [ ] **Step 2: Add minimal flag-parsing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cmd/mocksbr/main_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cmd/mocksbr/main_test.go`:
 
 ```go
 package main
@@ -2864,12 +2864,12 @@ func TestParseDeviceFlagsRejectsDuplicateIdx(t *testing.T) {
 
 - [ ] **Step 3: Build the binary**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build -o /tmp/mocksbr ./cmd/mocksbr && /tmp/mocksbr --version`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build -o /tmp/mocksbr ./cmd/mocksbr && /tmp/mocksbr --version`
 Expected: build succeeds; `/tmp/mocksbr --version` prints `mocksbr 0.1.0`.
 
 - [ ] **Step 4: Run unit tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cmd/mocksbr/... -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cmd/mocksbr/... -v`
 Expected: all `TestParse*` tests pass.
 
 - [ ] **Step 5: Smoke-test end-to-end**
@@ -2889,7 +2889,7 @@ Cleanup: `rm /tmp/mocksbr`
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cmd/mocksbr/main.go cmd/mocksbr/main_test.go
 git commit -m "feat(mocksbr): add cmd/mocksbr binary with UDP loop and flag parsing"
 ```
@@ -2904,7 +2904,7 @@ git commit -m "feat(mocksbr): add cmd/mocksbr binary with UDP loop and flag pars
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/testhelper/spawn.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/testhelper/spawn.go`:
 
 ```go
 // Package testhelper provides test-only helpers for spinning up a
@@ -3076,7 +3076,7 @@ func repoRoot(t *testing.T) string {
 
 - [ ] **Step 2: Add a smoke test for SpawnMock itself**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/mocksbr/testhelper/spawn_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/mocksbr/testhelper/spawn_test.go`:
 
 ```go
 package testhelper
@@ -3099,13 +3099,13 @@ func TestSpawnMockReadyLine(t *testing.T) {
 
 - [ ] **Step 3: Run the smoke test**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./mocksbr/testhelper/... -v -count=1`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./mocksbr/testhelper/... -v -count=1`
 Expected: PASS — the test builds cmd/mocksbr, starts it, parses the ready line, kills it.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add mocksbr/testhelper/
 git commit -m "feat(mocksbr): add testhelper.SpawnMock for E2E tests"
 ```
@@ -3119,7 +3119,7 @@ git commit -m "feat(mocksbr): add testhelper.SpawnMock for E2E tests"
 
 - [ ] **Step 1: Write the integration tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/udap/client_mocktransport_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/udap/client_mocktransport_test.go`:
 
 ```go
 // This file holds Layer 2 integration tests: udap.Client driven by
@@ -3214,13 +3214,13 @@ func TestClientSetSaveResetCycle(t *testing.T) {
 
 - [ ] **Step 2: Run the tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run "TestClientDiscoversMockDevices|TestClientReadsMockDeviceParams|TestClientSetSaveResetCycle" -v -count=1`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run "TestClientDiscoversMockDevices|TestClientReadsMockDeviceParams|TestClientSetSaveResetCycle" -v -count=1`
 Expected: PASS for all three.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/client_mocktransport_test.go
 git commit -m "test(udap): add Layer 2 integration tests using MockTransport"
 ```
@@ -3234,7 +3234,7 @@ git commit -m "test(udap): add Layer 2 integration tests using MockTransport"
 
 - [ ] **Step 1: Write the E2E tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/e2e_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/e2e_test.go`:
 
 ```go
 package cli_test
@@ -3309,13 +3309,13 @@ pkill -f udap.test
 sleep 1
 ```
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run "TestE2E" -v -count=1`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run "TestE2E" -v -count=1`
 Expected: PASS for both `TestE2EDiscoverFindsMockDevices` and `TestE2ESetSaveResetCycle`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/e2e_test.go
 git commit -m "test(cli): add Layer 3 E2E tests using cmd/mocksbr binary"
 ```
@@ -3328,31 +3328,31 @@ git commit -m "test(cli): add Layer 3 E2E tests using cmd/mocksbr binary"
 
 - [ ] **Step 1: Format check**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task fmt`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task fmt`
 Expected: no output.
 
 - [ ] **Step 2: Lint**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task lint`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task lint`
 Expected: no output.
 
 - [ ] **Step 3: All tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && pkill -f udap.test 2>/dev/null; pkill -f mocksbr 2>/dev/null; sleep 1; go test ./... -count=1 -timeout 120s`
+Run: `cd /Users/robin/code/github/yo61/go-udap && pkill -f udap.test 2>/dev/null; pkill -f mocksbr 2>/dev/null; sleep 1; go test ./... -count=1 -timeout 120s`
 Expected: PASS for all packages: `udap`, `cli`, `mocksbr`, `mocksbr/testhelper`, `cmd/mocksbr`.
 
 - [ ] **Step 4: Build cmd/mocksbr and cmd/go-udap (if it exists)**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build -o /tmp/mocksbr ./cmd/mocksbr && /tmp/mocksbr --version && rm /tmp/mocksbr`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build -o /tmp/mocksbr ./cmd/mocksbr && /tmp/mocksbr --version && rm /tmp/mocksbr`
 Expected: builds; prints `mocksbr 0.1.0`.
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task build`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task build`
 Expected: produces ./go-udap binary.
 
 - [ ] **Step 5: Manual end-to-end smoke test**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 go build -o /tmp/mocksbr ./cmd/mocksbr
 /tmp/mocksbr --devices 3 &
 MOCK_PID=$!
@@ -3376,7 +3376,7 @@ Expected: every command succeeds; final `get` returns `smoke-test`.
 
 - [ ] **Step 6: Branch state check**
 
-Run: `git -C /Users/robin/code/github/robinbowes/go-udap log --oneline cli-redesign..HEAD | head -25`
+Run: `git -C /Users/robin/code/github/yo61/go-udap log --oneline cli-redesign..HEAD | head -25`
 Expected: ~19 commits making up Phase 1.
 
 - [ ] **Step 7: Hardware verification (manual, if real SBR available)**

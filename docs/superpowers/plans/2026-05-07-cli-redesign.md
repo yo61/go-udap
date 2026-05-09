@@ -22,28 +22,28 @@
 
 - [ ] **Step 1: Verify on the right branch**
 
-Run: `git -C /Users/robin/code/github/robinbowes/go-udap branch --show-current`
+Run: `git -C /Users/robin/code/github/yo61/go-udap branch --show-current`
 Expected: `robin/cli-redesign`
 
 - [ ] **Step 2: Add the dependency**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go get github.com/spf13/pflag@latest`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go get github.com/spf13/pflag@latest`
 Expected: stdout shows `go: added github.com/spf13/pflag vX.Y.Z`; `go.mod` and `go.sum` updated.
 
 - [ ] **Step 3: Verify go.mod**
 
-Run: `grep pflag /Users/robin/code/github/robinbowes/go-udap/go.mod`
+Run: `grep pflag /Users/robin/code/github/yo61/go-udap/go.mod`
 Expected: a line containing `github.com/spf13/pflag v` (any version).
 
 - [ ] **Step 4: Confirm build still succeeds**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./...`
 Expected: exit code 0, no output.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add go.mod go.sum
 git commit -m "chore: add spf13/pflag dependency"
 ```
@@ -60,7 +60,7 @@ The CLI must keep stdout machine-parseable. Logger currently writes to stdout (`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/udap/logger_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/udap/logger_test.go`:
 
 ```go
 package udap
@@ -99,7 +99,7 @@ func TestStructuredLoggerLogsMessageWithFields(t *testing.T) {
 
 - [ ] **Step 2: Run the test, verify the writer test fails**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run TestNewStructuredLoggerWritesToStderr -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run TestNewStructuredLoggerWritesToStderr -v`
 Expected: FAIL — `expected logger writer to be os.Stderr, got &{...os.Stdout...}`.
 
 - [ ] **Step 3: Change the logger destination**
@@ -118,18 +118,18 @@ With:
 
 - [ ] **Step 4: Run the tests, verify both pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run "TestNewStructuredLogger|TestStructuredLoggerLogs" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run "TestNewStructuredLogger|TestStructuredLoggerLogs" -v`
 Expected: PASS for both tests.
 
 - [ ] **Step 5: Run full udap test suite to verify no regression**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/...`
 Expected: PASS, no failures.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/logger.go udap/logger_test.go
 git commit -m "feat(udap): write log output to stderr"
 ```
@@ -146,7 +146,7 @@ The CLI needs to validate per-flag values without constructing a full `Device`. 
 
 - [ ] **Step 1: Write the failing test**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/udap/validation_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/udap/validation_test.go`:
 
 ```go
 package udap
@@ -176,7 +176,7 @@ func TestValidateParameterAcceptsUnknownParameter(t *testing.T) {
 
 - [ ] **Step 2: Run the test, verify it fails**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run TestValidateParameter -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run TestValidateParameter -v`
 Expected: FAIL — `undefined: ValidateParameter`.
 
 - [ ] **Step 3: Add the exported wrapper**
@@ -195,18 +195,18 @@ func ValidateParameter(name, value string) error {
 
 - [ ] **Step 4: Run the test, verify it passes**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/ -run TestValidateParameter -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/ -run TestValidateParameter -v`
 Expected: PASS for all three test cases.
 
 - [ ] **Step 5: Run full udap test suite**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./udap/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./udap/...`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add udap/validation.go udap/validation_test.go
 git commit -m "feat(udap): export ValidateParameter wrapper"
 ```
@@ -221,7 +221,7 @@ git commit -m "feat(udap): export ValidateParameter wrapper"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/config_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/config_test.go`:
 
 ```go
 package cli
@@ -298,12 +298,12 @@ func TestParseINIEmptyValueAllowed(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail with package-not-found**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/...`
 Expected: FAIL — `no Go files in .../cli` or `package cli; expected package name`.
 
 - [ ] **Step 3: Create the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/config.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/config.go`:
 
 ```go
 package cli
@@ -359,13 +359,13 @@ func ParseINI(r io.Reader) (map[string]string, error) {
 
 - [ ] **Step 4: Run tests, verify they all pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/... -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/... -v`
 Expected: PASS for all six tests in `TestParseINI*`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/config.go cli/config_test.go
 git commit -m "feat(cli): add INI parser for set source files"
 ```
@@ -380,7 +380,7 @@ git commit -m "feat(cli): add INI parser for set source files"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/params_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/params_test.go`:
 
 ```go
 package cli
@@ -434,12 +434,12 @@ func TestParamFlagsHaveHelpText(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail with undefined symbols**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run TestParamFlags -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run TestParamFlags -v`
 Expected: FAIL — `undefined: paramFlags` and `undefined: paramFlag`.
 
 - [ ] **Step 3: Create the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/params.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/params.go`:
 
 ```go
 package cli
@@ -489,13 +489,13 @@ func paramFlags() []paramFlag {
 
 - [ ] **Step 4: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run TestParamFlags -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run TestParamFlags -v`
 Expected: PASS for all four `TestParamFlags*` tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/params.go cli/params_test.go
 git commit -m "feat(cli): add flag table for known UDAP parameters"
 ```
@@ -512,7 +512,7 @@ The `set` subcommand merges values from up to three sources: `--config FILE` (or
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/source_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/source_test.go`:
 
 ```go
 package cli
@@ -641,12 +641,12 @@ func TestMergeSourcesEmptyIsError(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run TestMergeSources -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run TestMergeSources -v`
 Expected: FAIL — `undefined: sourceInputs`, `undefined: mergeSources`.
 
 - [ ] **Step 3: Create the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/source.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/source.go`:
 
 ```go
 package cli
@@ -716,13 +716,13 @@ func mergeSources(in sourceInputs, warn io.Writer) (map[string]string, error) {
 
 - [ ] **Step 4: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run TestMergeSources -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run TestMergeSources -v`
 Expected: PASS for all seven tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/source.go cli/source_test.go
 git commit -m "feat(cli): layer config file, stdin, and flags for set"
 ```
@@ -737,7 +737,7 @@ git commit -m "feat(cli): layer config file, stdin, and flags for set"
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/output_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/output_test.go`:
 
 ```go
 package cli
@@ -815,12 +815,12 @@ func TestFormatDeviceInfoLines(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run "TestFormat" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run "TestFormat" -v`
 Expected: FAIL — `undefined: formatParamMap`, `undefined: formatGetResult`, `undefined: formatDeviceInfo`.
 
 - [ ] **Step 3: Create the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/output.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/output.go`:
 
 ```go
 package cli
@@ -879,13 +879,13 @@ func formatDeviceInfo(w io.Writer, d *udap.Device) {
 
 - [ ] **Step 4: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run "TestFormat" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run "TestFormat" -v`
 Expected: PASS for all four `TestFormat*` tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/output.go cli/output_test.go
 git commit -m "feat(cli): add output formatting helpers"
 ```
@@ -902,7 +902,7 @@ This task wires up the entry point so `main.go` can call `cli.Run(args)`. Subcom
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/cli_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/cli_test.go`:
 
 ```go
 package cli
@@ -966,12 +966,12 @@ func TestExitCodeReturnsZeroForNonExitError(t *testing.T) {
 
 - [ ] **Step 2: Run tests, verify they fail**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run "TestRun|TestExitCode" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run "TestRun|TestExitCode" -v`
 Expected: FAIL — `undefined: Run`, `undefined: ExitError`, `undefined: ExitCode`.
 
 - [ ] **Step 3: Create the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/cli.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/cli.go`:
 
 ```go
 package cli
@@ -1093,7 +1093,7 @@ Global flags:
 }
 ```
 
-Now also create stub subcommand files so the package builds. Create `/Users/robin/code/github/robinbowes/go-udap/cli/stubs.go`:
+Now also create stub subcommand files so the package builds. Create `/Users/robin/code/github/yo61/go-udap/cli/stubs.go`:
 
 ```go
 package cli
@@ -1137,18 +1137,18 @@ func notImplemented(name string) error {
 
 - [ ] **Step 4: Run tests, verify they pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run "TestRun|TestExitCode" -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run "TestRun|TestExitCode" -v`
 Expected: PASS for all four tests.
 
 - [ ] **Step 5: Run the entire cli test suite to confirm nothing regressed**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/...`
 Expected: PASS, no failures.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/cli.go cli/cli_test.go cli/stubs.go
 git commit -m "feat(cli): add dispatcher, global flags, exit codes"
 ```
@@ -1166,7 +1166,7 @@ Networking is exercised against a real device; the helper itself is small enough
 
 - [ ] **Step 1: Write the failing test**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/find_test.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/find_test.go`:
 
 ```go
 package cli
@@ -1201,12 +1201,12 @@ func TestNormalizeMAC(t *testing.T) {
 
 - [ ] **Step 2: Run the test, verify it fails**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run TestNormalizeMAC -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run TestNormalizeMAC -v`
 Expected: FAIL — `undefined: normalizeMAC`.
 
 - [ ] **Step 3: Create the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/find.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/find.go`:
 
 ```go
 package cli
@@ -1268,18 +1268,18 @@ func discoverAndFind(client *udap.Client, mac string, timeout time.Duration) (*u
 
 - [ ] **Step 4: Run the test, verify it passes**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/ -run TestNormalizeMAC -v`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/ -run TestNormalizeMAC -v`
 Expected: PASS.
 
 - [ ] **Step 5: Verify the package still builds**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/...`
 Expected: exit code 0, no output.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/find.go cli/find_test.go
 git commit -m "feat(cli): add MAC normalization and device-find helper"
 ```
@@ -1294,7 +1294,7 @@ git commit -m "feat(cli): add MAC normalization and device-find helper"
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/discover.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/discover.go`:
 
 ```go
 package cli
@@ -1367,18 +1367,18 @@ Edit `cli/stubs.go`. Delete the `runDiscover` function (the four lines beginning
 
 - [ ] **Step 3: Verify the package builds**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/...`
 Expected: exit code 0, no output.
 
 - [ ] **Step 4: Verify all existing tests still pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/...`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/discover.go cli/stubs.go
 git commit -m "feat(cli): implement discover subcommand"
 ```
@@ -1393,7 +1393,7 @@ git commit -m "feat(cli): implement discover subcommand"
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/info.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/info.go`:
 
 ```go
 package cli
@@ -1443,18 +1443,18 @@ Edit `cli/stubs.go` and delete the `runInfo` function.
 
 - [ ] **Step 3: Verify build**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/...`
 Expected: exit code 0.
 
 - [ ] **Step 4: Verify all tests still pass**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./cli/...`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/info.go cli/stubs.go
 git commit -m "feat(cli): implement info subcommand"
 ```
@@ -1469,7 +1469,7 @@ git commit -m "feat(cli): implement info subcommand"
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/read.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/read.go`:
 
 ```go
 package cli
@@ -1524,13 +1524,13 @@ Edit `cli/stubs.go` and delete the `runRead` function.
 
 - [ ] **Step 3: Verify build and tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/... && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/... && go test ./cli/...`
 Expected: build succeeds, tests pass.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/read.go cli/stubs.go
 git commit -m "feat(cli): implement read subcommand"
 ```
@@ -1545,7 +1545,7 @@ git commit -m "feat(cli): implement read subcommand"
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/get.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/get.go`:
 
 ```go
 package cli
@@ -1612,13 +1612,13 @@ Edit `cli/stubs.go` and delete the `runGet` function.
 
 - [ ] **Step 3: Verify build and tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/... && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/... && go test ./cli/...`
 Expected: success.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/get.go cli/stubs.go
 git commit -m "feat(cli): implement get subcommand"
 ```
@@ -1635,7 +1635,7 @@ This is the most involved subcommand: it builds the per-param flag table at pars
 
 - [ ] **Step 1: Write the implementation**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/set.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/set.go`:
 
 ```go
 package cli
@@ -1766,18 +1766,18 @@ Edit `cli/stubs.go` and delete the `runSet` function.
 
 - [ ] **Step 3: Verify build and tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/... && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/... && go test ./cli/...`
 Expected: success.
 
 - [ ] **Step 4: Manual sanity-check the help**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go run . set --help 2>&1 | head -30`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go run . set --help 2>&1 | head -30`
 Expected: stderr lists `--config`, `--lan-ip-mode`, `--wireless-ssid`, `--timeout`, etc.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/set.go cli/stubs.go
 git commit -m "feat(cli): implement set subcommand with layered sources"
 ```
@@ -1796,7 +1796,7 @@ These three are structurally identical (parse args, find device, call one udap m
 
 - [ ] **Step 1: Write `cli/save.go`**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/save.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/save.go`:
 
 ```go
 package cli
@@ -1847,7 +1847,7 @@ func runSave(args []string, stdout, stderr io.Writer) error {
 
 - [ ] **Step 2: Write `cli/reset.go`**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/reset.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/reset.go`:
 
 ```go
 package cli
@@ -1898,7 +1898,7 @@ func runReset(args []string, stdout, stderr io.Writer) error {
 
 - [ ] **Step 3: Write `cli/commit.go`**
 
-Create `/Users/robin/code/github/robinbowes/go-udap/cli/commit.go`:
+Create `/Users/robin/code/github/yo61/go-udap/cli/commit.go`:
 
 ```go
 package cli
@@ -1954,17 +1954,17 @@ func runCommit(args []string, stdout, stderr io.Writer) error {
 
 After this task, every subcommand has a real implementation, so the entire stubs file (including `notImplemented`) is unused. Delete it:
 
-Run: `rm /Users/robin/code/github/robinbowes/go-udap/cli/stubs.go`
+Run: `rm /Users/robin/code/github/yo61/go-udap/cli/stubs.go`
 
 - [ ] **Step 5: Verify build and tests**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build ./cli/... && go test ./cli/...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build ./cli/... && go test ./cli/...`
 Expected: success.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add cli/
 git commit -m "feat(cli): implement save, reset, and commit subcommands"
 ```
@@ -1979,7 +1979,7 @@ git commit -m "feat(cli): implement save, reset, and commit subcommands"
 
 - [ ] **Step 1: Rewrite main.go**
 
-Replace the entire contents of `/Users/robin/code/github/robinbowes/go-udap/main.go` with:
+Replace the entire contents of `/Users/robin/code/github/yo61/go-udap/main.go` with:
 
 ```go
 package main
@@ -2002,39 +2002,39 @@ func main() {
 
 - [ ] **Step 2: Run go mod tidy to drop readline**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go mod tidy`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go mod tidy`
 Expected: stdout silent or shows removal of `chzyer/readline`.
 
 - [ ] **Step 3: Verify chzyer/readline is gone from go.mod**
 
-Run: `grep -c chzyer /Users/robin/code/github/robinbowes/go-udap/go.mod || true`
+Run: `grep -c chzyer /Users/robin/code/github/yo61/go-udap/go.mod || true`
 Expected: `0` (no matches).
 
 - [ ] **Step 4: Build the binary**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go build -o go-udap .`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go build -o go-udap .`
 Expected: exit code 0; produces `./go-udap`.
 
 - [ ] **Step 5: Smoke-test help and version**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && ./go-udap`
+Run: `cd /Users/robin/code/github/yo61/go-udap && ./go-udap`
 Expected: stdout shows the usage block; exit code 0.
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && ./go-udap --version`
+Run: `cd /Users/robin/code/github/yo61/go-udap && ./go-udap --version`
 Expected: stdout shows `go-udap 0.2.0`; exit code 0.
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && ./go-udap flooble; echo "exit=$?"`
+Run: `cd /Users/robin/code/github/yo61/go-udap && ./go-udap flooble; echo "exit=$?"`
 Expected: stderr shows "error: unknown command: flooble"; `exit=1`.
 
 - [ ] **Step 6: Run all tests one more time**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && go test ./...`
+Run: `cd /Users/robin/code/github/yo61/go-udap && go test ./...`
 Expected: PASS for all tests.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add main.go go.mod go.sum
 git commit -m "refactor: replace interactive shell with CLI dispatcher"
 ```
@@ -2090,16 +2090,16 @@ With:
 
 - [ ] **Step 3: Verify the tasks work**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task run`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task run`
 Expected: builds binary, prints usage to stdout.
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task dev -- --version`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task dev -- --version`
 Expected: prints `go-udap 0.2.0`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add Taskfile.yml
 git commit -m "chore: update run/dev tasks for CLI-first model"
 ```
@@ -2113,10 +2113,10 @@ git commit -m "chore: update run/dev tasks for CLI-first model"
 
 - [ ] **Step 1: Rewrite the README**
 
-Replace the entire contents of `/Users/robin/code/github/robinbowes/go-udap/README.md` with:
+Replace the entire contents of `/Users/robin/code/github/yo61/go-udap/README.md` with:
 
 ````markdown
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robinbowes/go-udap)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yo61/go-udap)
 
 # Squeezebox UDAP Configuration Tool
 
@@ -2139,12 +2139,12 @@ invocation. There is no interactive shell.
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/robinbowes/go-udap/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/yo61/go-udap/releases) page.
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/robinbowes/go-udap.git
+git clone https://github.com/yo61/go-udap.git
 cd go-udap
 go build -o go-udap .
 ```
@@ -2356,7 +2356,7 @@ portions of the software.
 - [ ] **Step 2: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add README.md
 git commit -m "docs: rewrite README for CLI-first usage"
 ```
@@ -2371,7 +2371,7 @@ git commit -m "docs: rewrite README for CLI-first usage"
 
 - [ ] **Step 1: Update CLAUDE.md "CLI Commands" section**
 
-Edit `/Users/robin/code/github/robinbowes/go-udap/CLAUDE.md`. Find the section starting `## CLI Commands (when running the tool)` and replace it (and its bulleted list) with:
+Edit `/Users/robin/code/github/yo61/go-udap/CLAUDE.md`. Find the section starting `## CLI Commands (when running the tool)` and replace it (and its bulleted list) with:
 
 ```markdown
 ## CLI Commands (when running the tool)
@@ -2396,13 +2396,13 @@ Output is on stdout; logs and warnings on stderr. Exit codes: 0 success,
 
 - [ ] **Step 2: Scan DEVELOPMENT.md**
 
-Run: `grep -n -i "shell\|readline\|interactive\|REPL" /Users/robin/code/github/robinbowes/go-udap/DEVELOPMENT.md || true`
+Run: `grep -n -i "shell\|readline\|interactive\|REPL" /Users/robin/code/github/yo61/go-udap/DEVELOPMENT.md || true`
 If the grep returns matches, edit each line to remove or rephrase the shell-specific content. If it returns nothing, no changes needed.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/robin/code/github/robinbowes/go-udap
+cd /Users/robin/code/github/yo61/go-udap
 git add CLAUDE.md DEVELOPMENT.md
 git commit -m "docs: update CLAUDE.md and DEVELOPMENT.md for CLI-first model"
 ```
@@ -2417,43 +2417,43 @@ git commit -m "docs: update CLAUDE.md and DEVELOPMENT.md for CLI-first model"
 
 - [ ] **Step 1: Format check**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task fmt`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task fmt`
 Expected: no output, exit code 0.
 
 - [ ] **Step 2: Lint (go vet)**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task lint`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task lint`
 Expected: no output, exit code 0.
 
 - [ ] **Step 3: Test suite**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task test`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task test`
 Expected: all `cli/` and `udap/` tests pass.
 
 - [ ] **Step 4: Build for current platform**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task build`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task build`
 Expected: produces `./go-udap`, no errors.
 
 - [ ] **Step 5: Build for all platforms**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && task build:all`
+Run: `cd /Users/robin/code/github/yo61/go-udap && task build:all`
 Expected: produces all four platform binaries with no errors.
 
 - [ ] **Step 6: Smoke-test the binary**
 
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && ./go-udap --help` — usage on stdout
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && ./go-udap --version` — `go-udap 0.2.0`
-Run: `cd /Users/robin/code/github/robinbowes/go-udap && ./go-udap set --help 2>&1 | grep -c -- '--'` — should report >= 27 flags (25 params + --config + --timeout + --verbose; pflag may add more)
+Run: `cd /Users/robin/code/github/yo61/go-udap && ./go-udap --help` — usage on stdout
+Run: `cd /Users/robin/code/github/yo61/go-udap && ./go-udap --version` — `go-udap 0.2.0`
+Run: `cd /Users/robin/code/github/yo61/go-udap && ./go-udap set --help 2>&1 | grep -c -- '--'` — should report >= 27 flags (25 params + --config + --timeout + --verbose; pflag may add more)
 
 - [ ] **Step 7: Confirm chzyer/readline is fully gone**
 
-Run: `grep -r chzyer /Users/robin/code/github/robinbowes/go-udap/go.mod /Users/robin/code/github/robinbowes/go-udap/go.sum || echo "clean"`
+Run: `grep -r chzyer /Users/robin/code/github/yo61/go-udap/go.mod /Users/robin/code/github/yo61/go-udap/go.sum || echo "clean"`
 Expected: `clean`.
 
 - [ ] **Step 8: Check git status is clean**
 
-Run: `git -C /Users/robin/code/github/robinbowes/go-udap status --short`
+Run: `git -C /Users/robin/code/github/yo61/go-udap status --short`
 Expected: empty output (or only untracked build artifacts like `go-udap`, `go-udap.exe`, `go-udap-linux-*`).
 
 - [ ] **Step 9: Hardware validation (manual, if a real SBR is available)**
@@ -2478,7 +2478,7 @@ Verify each command produces the expected output and the device responds.
 (Only when everything above passes. Confirm with the user before opening the PR.)
 
 ```bash
-git -C /Users/robin/code/github/robinbowes/go-udap push -u origin robin/cli-redesign
+git -C /Users/robin/code/github/yo61/go-udap push -u origin robin/cli-redesign
 gh pr create --title "Replace interactive shell with single-shot CLI" --body "$(cat <<'EOF'
 ## Summary
 
