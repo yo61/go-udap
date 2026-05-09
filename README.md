@@ -45,7 +45,7 @@ go-udap [global flags] <command> [args] [flags]
 |---------|-------------|
 | `discover [--info]` | Discover devices; print MAC addresses (or full metadata with `--info`) |
 | `info <mac>` | Show metadata for one device |
-| `read <mac>` | Read all parameters from a device |
+| `read <mac> [--all/-a]` | Read parameters from a device. By default skips factory-default values so the output round-trips cleanly through `set`; pass `--all`/`-a` to dump everything. |
 | `get <mac> <param> [<param>...]` | Read specific parameters |
 | `set <mac> [--reboot/-r] [--config FILE] [--<param> VALUE ...]` | Set parameters from any combination of `--config FILE` (or `--config -` for stdin), piped stdin, and per-param flags. The wire op writes NVRAM directly; pass `--reboot/-r` to also reboot afterward. |
 | `reboot <mac>` | Reboot the device |
@@ -54,10 +54,13 @@ go-udap [global flags] <command> [args] [flags]
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--timeout DURATION` | `5s` | Operation timeout |
+| `--timeout DURATION` | `5s` | Operation timeout (e.g. `5s`, `30s`, `2m`) |
 | `--verbose, -v` | off | Debug logging to stderr |
 | `--version` | — | Print version and exit |
 | `--help, -h` | — | Print help |
+
+Global flags are accepted before OR after the subcommand —
+`go-udap -v read <mac>` and `go-udap read -v <mac>` are equivalent.
 
 ### Output
 
@@ -85,10 +88,21 @@ Show full metadata:
 go-udap discover --info
 ```
 
-Read all parameters and save them as a backup:
+Back up the device's non-default settings (output round-trips through
+`set --config -`):
 
 ```bash
 go-udap read 00:04:20:16:06:02 > backup.conf
+
+# Restore later:
+go-udap set 00:04:20:16:06:02 --config backup.conf --reboot
+```
+
+To inspect every parameter the device returns (including factory
+defaults and any unrecognized NVRAM offsets):
+
+```bash
+go-udap read --all 00:04:20:16:06:02
 ```
 
 Configure a device for DHCP on wireless with WPA2:

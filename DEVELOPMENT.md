@@ -4,7 +4,7 @@ This document covers building, testing, and contributing to the Squeezebox UDAP 
 
 ## Prerequisites
 
-- Go 1.21 or later
+- Go 1.26 or later (see `go.mod`)
 - [Task](https://taskfile.dev/) (optional, for build automation)
 
 ## Building from Source
@@ -35,13 +35,13 @@ task clean
 
 ```bash
 # Development build
-go build -o go-udap main.go
+go build -o go-udap .
 
 # Optimized build (smaller binary)
-go build -ldflags="-s -w" -trimpath -o go-udap main.go
+go build -ldflags="-s -w" -trimpath -o go-udap .
 
-# Run tests
-go test ./...
+# Run tests (with race detector)
+go test -race ./...
 ```
 
 ## Cross-Compilation
@@ -68,13 +68,13 @@ task build:all
 
 ```bash
 # Windows
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap.exe main.go
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap.exe .
 
 # Linux (amd64)
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-amd64 main.go
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-amd64 .
 
 # Linux (arm64)
-GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-arm64 main.go
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-arm64 .
 ```
 
 ### Platform Support
@@ -89,19 +89,35 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-arm
 
 ```
 go-udap/
-├── main.go                 # CLI interface and command handling
-├── udap/
-│   ├── client.go          # UDP client and packet capture
-│   ├── config.go          # Device configuration operations
-│   ├── discovery.go       # Device discovery implementation
-│   ├── protocol.go        # UDAP protocol constants and parsing
-│   ├── validation.go      # Input validation functions
-│   ├── logger.go          # Structured logging
-│   ├── socket_unix.go     # Unix socket options (macOS/Linux)
-│   └── socket_windows.go  # Windows socket options
-├── Taskfile.yml           # Task automation configuration
-├── go.mod                 # Go module definition
-└── go.sum                 # Go module checksums
+├── main.go                       # 16-line entry point; calls cli.Run
+├── cli/                          # CLI surface (one file per subcommand)
+│   ├── cli.go                    # dispatcher, global flag hoisting
+│   ├── discover.go info.go read.go get.go set.go reboot.go
+│   ├── find.go                   # discover-and-find-by-MAC helper
+│   ├── params.go                 # CLI flag table derived from udap.Parameters
+│   ├── source.go                 # layered set sources (file/stdin/flags)
+│   ├── config.go                 # INI parser
+│   ├── output.go                 # formatParamMap, formatDeviceInfo
+│   ├── progress.go stderr.go     # TTY progress bar + log/bar mutex
+│   └── *_test.go                 # unit tests
+├── udap/                         # protocol + transport
+│   ├── client.go                 # UDP socket, packet builders, capture
+│   ├── discovery.go              # broadcast + listener, RWMutex-protected device map
+│   ├── config.go                 # GetData / SetData / Reset (WithContext)
+│   ├── protocol.go               # Packet struct, ParsePacket, constants
+│   ├── parameters.go             # ★ single source of truth for 26 NVRAM params
+│   ├── getdata_response.go       # offset/length/value response decoder
+│   ├── loopback.go               # isUDAPRequestPacket — kernel-loopback filter
+│   ├── validation.go             # parameter / packet validation
+│   ├── logger.go                 # structured logger (takes io.Writer)
+│   ├── socket_unix.go            # SO_BROADCAST via SyscallConn().Control
+│   ├── socket_windows.go
+│   ├── testdata/captures/*.bin   # captured Net::UDAP wire payloads
+│   └── *_test.go
+├── docs/superpowers/             # planning specs/plans (history)
+├── Taskfile.yml                  # Task automation
+├── go.mod / go.sum               # module definition (Go 1.26.3, only pflag dep)
+└── README.md / CLAUDE.md / DEVELOPMENT.md
 ```
 
 ## Protocol Details
@@ -114,20 +130,27 @@ go-udap/
 
 ### UCP Methods
 
+Per the [Net::UDAP](https://github.com/robinbowes/net-udap) Constant.pm
+reference (`UCP_METHOD_*`):
+
 | Method | Code | Description |
 |--------|------|-------------|
-| Discover | 0x0001 | Standard discovery |
-| GetIP | 0x0002 | Get IP / Data response |
-| Reset | 0x0004 | Device reset |
-| GetData | 0x0005 | Get configuration data |
-| SetData | 0x0006 | Set configuration data |
-| Error | 0x0007 | Error response |
-| SetDataAck | 0x0008 | SetData acknowledgment |
-| AdvDisc | 0x0009 | Advanced discovery |
+| Discover | 0x0001 | Basic discovery (broadcast) |
+| GetIP | 0x0002 | Returns network-config TLVs (lan_ip_mode, lan_*_address). Not a generic "data response". |
+| Reset | 0x0004 | Reboot the device (header-only request; device echoes 0x0004) |
+| GetData | 0x0005 | Read NVRAM. Request: `[16 zero user][16 zero pass][uint16 count][N×(offset, length)]`. Response: same method, with `[uint16 count][N×(offset, length, value)]` |
+| SetData | 0x0006 | Write NVRAM. Same wire shape as GetData but with values appended; device echoes 0x0006 with a uint16 count of accepted params. There is no separate save_data wire method — every 0x0006 writes NVRAM. |
+| Error | 0x0007 | Generic error response |
+| CredentialsError | 0x0008 | Device rejected the request's user/pass fields |
+| AdvDisc | 0x0009 | Advanced discovery (broadcast) — what the CLI uses |
 
 ### Configuration Storage
 
-Device configuration is stored in NVRAM at specific offsets. See `udap/protocol.go` for the complete mapping of parameter names to NVRAM offsets.
+Device configuration is stored in NVRAM at specific byte offsets. The
+authoritative mapping lives in `udap/parameters.go` (the `Parameters`
+slice). Each entry carries the wire offset, length, the CLI flag's
+placeholder hint (`IP`, `0|1`, `NAME`, ...), the help text, and the
+factory-default value (used by `read` to filter uninteresting output).
 
 ## Testing
 
@@ -148,9 +171,15 @@ task test:coverage
 
 With a physical Squeezebox device:
 
-1. Put device in setup mode (factory reset or hold button during boot)
-2. Run the tool and execute `discover`
-3. Configure and test various parameters
+1. Put the device in setup mode by holding the front button for ~3
+   seconds until the LED blinks slow red (or factory-reset by holding
+   ~6 seconds until it blinks fast red — see
+   <https://wiki.lyrion.org/index.php/SBRFrontButtonAndLED>).
+2. Run `go-udap discover --info` to confirm the device appears.
+3. Configure with `set` (use `--reboot/-r` to apply changes that take
+   effect on reboot).
+4. Read back with `read` to verify (output is filtered to non-default
+   values — pass `--all` to see everything).
 
 ## Code Style
 
@@ -171,4 +200,7 @@ With a physical Squeezebox device:
 ## Acknowledgments
 
 - UDAP protocol based on [LMS-Community/squeezeplay](https://github.com/LMS-Community/squeezeplay)
-- Inspired by the Perl [Net::UDAP](https://metacpan.org/pod/Net::UDAP) module
+- Wire format and constant tables verified against the Perl
+  [Net::UDAP](https://github.com/robinbowes/net-udap) reference
+  implementation (the `Constant.pm`, `Client.pm`, and `Shell.pm`
+  sources in particular).
