@@ -11,8 +11,9 @@ import (
 )
 
 // Version is the binary version string, surfaced by --version.
-// Updated manually for now; release tooling can wire this to the git tag later.
-const Version = "0.2.0"
+// Set at build time via -ldflags "-X go-udap/cli.Version=...".
+// Defaults to "dev" for un-stamped local builds (e.g. `go install`).
+var Version = "dev"
 
 // ExitError carries a process exit code alongside a message.
 // Use it from subcommand handlers to control go-udap's exit status.

@@ -1,0 +1,38 @@
+name: GoReleaser
+
+on:
+  push:
+    tags:
+      # Full SemVer match across the four valid forms:
+      #   vX.Y.Z              (e.g. v0.3.0)
+      #   vX.Y.Z-prerelease   (e.g. v0.3.0-rc.1)
+      #   vX.Y.Z+build        (e.g. v0.3.0+build.123)
+      #   vX.Y.Z-prerelease+build
+      # Rejects junk like "vfoo", "v0.3", "v1.0-rc1" (missing patch).
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+\+*'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*\+*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

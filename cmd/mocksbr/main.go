@@ -41,6 +41,11 @@ func main() {
 
 var errUsage = errors.New("usage error")
 
+// Version is the binary version string, surfaced by --version.
+// Set at build time via -ldflags "-X main.Version=...".
+// Defaults to "dev" for un-stamped local builds.
+var Version = "dev"
+
 func run(args []string, stderr, stdout *os.File) error {
 	fs := pflag.NewFlagSet("mocksbr", pflag.ContinueOnError)
 	fs.SortFlags = false
@@ -71,7 +76,7 @@ func run(args []string, stderr, stdout *os.File) error {
 		return nil
 	}
 	if *showVer {
-		fmt.Fprintln(stdout, "mocksbr (dev)")
+		fmt.Fprintf(stdout, "mocksbr %s\n", Version)
 		return nil
 	}
 	if *nDevices < 0 {

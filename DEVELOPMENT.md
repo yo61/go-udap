@@ -115,6 +115,75 @@ UPX-packed binaries as suspicious — if that's a concern for your
 distribution channel, ship the unpacked `task build:all` artifacts
 instead.
 
+## Releasing
+
+Releases are fully automated — every push to `main` that touches Go
+source, `go.mod`/`go.sum`, or release configuration triggers
+`.github/workflows/release.yaml`. The workflow uses semantic-release to
+compute the next version from conventional-commits since the last tag,
+then `.github/workflows/goreleaser.yaml` (triggered by the resulting tag
+push) cross-compiles and uploads release artifacts.
+
+Binary `--version` output is stamped from the release tag, so a binary
+downloaded from a GitHub release always self-identifies as the version
+of that release.
+
+### One-time setup
+
+Two secrets and one app must be configured on the repository before the
+first release can run:
+
+1. **GitHub App** — create a GitHub App scoped to this repo with
+   permissions:
+   - `Contents: Read & write`
+   - `Pull requests: Read & write`
+   - `Metadata: Read`
+
+   Install the App on the `go-udap` repository and generate a private
+   key.
+
+2. **Repository secrets** — add under Settings → Secrets and variables
+   → Actions:
+   - `SEMANTIC_RELEASE_APP_ID` — the App's numeric ID
+   - `SEMANTIC_RELEASE_APP_PRIVATE_KEY` — the full PEM contents of the
+     private key
+
+3. **Branch protection on `main`** — require CI to pass before merge,
+   and add the GitHub App to the bypass list so
+   `@semantic-release/git` can land CHANGELOG.md commits.
+
+### Local version checks
+
+`task build` stamps the binary using `git describe --tags --always
+--dirty`. Output examples:
+
+| Build state                      | `go-udap --version`              |
+| -------------------------------- | -------------------------------- |
+| On a tagged commit `v0.3.0`      | `go-udap 0.3.0`                  |
+| 2 commits past v0.3.0            | `go-udap 0.3.0-2-gabc1234`       |
+| Same with uncommitted changes    | `go-udap 0.3.0-2-gabc1234-dirty` |
+| `go install` / no Taskfile build | `go-udap dev`                    |
+
+### Smoke-testing the release pipeline locally
+
+```bash
+# Validates .goreleaser.yaml without uploading
+goreleaser check
+
+# Builds all 5 targets locally and writes them to dist/
+goreleaser release --snapshot --clean
+```
+
+### Conventional commits drive versioning
+
+- `fix:` → patch bump (0.3.0 → 0.3.1)
+- `feat:` → minor bump (0.3.0 → 0.4.0)
+- `feat!:` or `BREAKING CHANGE:` footer → major bump (0.3.0 → 1.0.0)
+
+`chore:`, `docs:`, `refactor:`, `test:`, `build:`, and `ci:` do not
+trigger releases on their own (semantic-release exits without tagging
+when no version-bumping commits are found since the last tag).
+
 ## Project Structure
 
 ```
