@@ -12,6 +12,9 @@ on:
       - '.goreleaser.yaml'
       - '.releaserc.json'
 
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Release
