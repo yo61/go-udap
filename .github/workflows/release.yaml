@@ -21,7 +21,7 @@ jobs:
       - id: create_token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.SEMANTIC_RELEASE_APP_ID }}
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
