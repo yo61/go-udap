@@ -48,5 +48,13 @@ checksum:
   name_template: 'SHA256SUMS'
   algorithm: sha256
 
+# Create the GitHub release as a draft so we can upload assets to it.
+# Repository immutability locks releases at publish time, which would block
+# asset uploads if the release were created already-published. The
+# goreleaser.yaml workflow runs `gh release edit --draft=false` after this
+# step to publish (and lock immutability) only once all assets are in place.
+release:
+  draft: true
+
 changelog:
   disable: true

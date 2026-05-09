@@ -13,6 +13,6 @@
       "assets": ["CHANGELOG.md"],
       "message": "chore(release): version ${nextRelease.version}\n\n${nextRelease.notes}"
     }],
-    ["@semantic-release/github", { "labels": false, "releasedLabels": false }]
+    ["@semantic-release/github", { "labels": false, "releasedLabels": false, "draftRelease": true }]
   ]
 }
