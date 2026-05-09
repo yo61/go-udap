@@ -58,6 +58,7 @@ release:
 
 brews:
   - name: go-udap
+    directory: Formula
     repository:
       owner: yo61
       name: homebrew-tap
