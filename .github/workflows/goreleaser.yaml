@@ -36,3 +36,12 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Publish the draft release only after all assets are uploaded
+      # successfully. Repository immutability locks at publish time, so
+      # publishing happens last to capture the release with its full
+      # asset set intact.
+      - name: Publish release (un-draft)
+        run: gh release edit "${GITHUB_REF#refs/tags/}" --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
