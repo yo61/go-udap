@@ -56,5 +56,22 @@ checksum:
 release:
   draft: true
 
+brews:
+  - name: go-udap
+    repository:
+      owner: yo61
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/yo61/go-udap"
+    description: "Squeezebox UDAP configuration tool"
+    license: MIT
+    test: |
+      assert_match "go-udap", shell_output("#{bin}/go-udap --version")
+      assert_match "Usage:", shell_output("#{bin}/go-udap --help")
+      assert_match "unknown command", shell_output("#{bin}/go-udap floop 2>&1", 1)
+    install: |
+      bin.install "go-udap"
+
 changelog:
   disable: true
