@@ -1,4 +1,4 @@
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robinbowes/go-udap)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yo61/go-udap)
 
 # Squeezebox UDAP Configuration Tool
 
@@ -21,12 +21,12 @@ invocation. There is no interactive shell.
 
 ### Pre-built Binaries
 
-Download the archive for your platform from the [Releases](https://github.com/robinbowes/go-udap/releases) page (`go-udap_<version>_<os>_<arch>.tar.gz`, or `.zip` on Windows). Extract the `go-udap` binary from the archive and place it on your `PATH`. `SHA256SUMS` next to each release lets you verify the download.
+Download the archive for your platform from the [Releases](https://github.com/yo61/go-udap/releases) page (`go-udap_<version>_<os>_<arch>.tar.gz`, or `.zip` on Windows). Extract the `go-udap` binary from the archive and place it on your `PATH`. `SHA256SUMS` next to each release lets you verify the download.
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/robinbowes/go-udap.git
+git clone https://github.com/yo61/go-udap.git
 cd go-udap
 go build -o go-udap .
 ```

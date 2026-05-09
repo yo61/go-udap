@@ -525,7 +525,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'robinbowes'
+    if: github.repository_owner == 'yo61'
     steps:
       - id: create_token
         uses: actions/create-github-app-token@v2

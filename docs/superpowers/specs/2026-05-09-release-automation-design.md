@@ -236,7 +236,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'robinbowes'
+    if: github.repository_owner == 'yo61'
     steps:
       - id: create_token
         uses: actions/create-github-app-token@v2
@@ -259,7 +259,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.create_token.outputs.token }}
 ```
 
-Path filters skip releases on doc-only or task-config-only changes. The `if: github.repository_owner == 'robinbowes'` guard prevents forks from running release machinery.
+Path filters skip releases on doc-only or task-config-only changes. The `if: github.repository_owner == 'yo61'` guard prevents forks from running release machinery.
 
 ### `.github/workflows/goreleaser.yaml`
 
@@ -302,7 +302,7 @@ Uses the default `GITHUB_TOKEN` — only needs `contents: write` on the release 
 
 Before the first release, the user must:
 
-1. **Create a GitHub App** scoped to `robinbowes/go-udap`:
+1. **Create a GitHub App** scoped to `yo61/go-udap`:
    - Permissions: `Contents: read & write`, `Pull requests: read & write`, `Metadata: read`
    - Install on the `go-udap` repository
    - Generate a private key

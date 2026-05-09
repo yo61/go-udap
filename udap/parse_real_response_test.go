@@ -10,7 +10,7 @@ import (
 // extracts the device fields correctly.
 //
 // The capture came from the cli-redesign branch test session; see
-// https://github.com/robinbowes/go-udap (issue: "info doesn't return
+// https://github.com/yo61/go-udap (issue: "info doesn't return
 // all info"). 2 SBRs on the LAN; both responded identically apart from
 // MAC. The 34-byte TLV payload contains 6 TLVs:
 //
