@@ -2,8 +2,8 @@ package udap
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net"
 	"time"
 )
 
@@ -11,167 +11,45 @@ import (
 // (method 0x0009) request and collects responses until ctx is done.
 // Discovered devices are stored on the Client and accessible via
 // GetDevice / ListDevices / GetDevices.
-//
-// The previous code path layered seven function shims
-// (DiscoverDevices → ...WithContext → ...Advanced → ...AdvancedWithContext
-// → discoverWithMethodCtx → ...WithRawCapture → ...WithRawCaptureCtx →
-// ...UDPCtx). All but this one were unused — basic (non-advanced)
-// discovery was dead code, and the timeout-based shims were never
-// called by the CLI. Collapsed to one function.
 func (c *Client) DiscoverDevicesWithContext(ctx context.Context) error {
 	c.logger.Info("Starting UDAP discovery", "method", "0x0009")
-	discoveryPacket := c.CreateAdvancedDiscoveryPacket()
-	c.logger.Debug("Created UDP discovery packet", "size_bytes", len(discoveryPacket), "hex", fmt.Sprintf("%x", discoveryPacket))
-
-	// Prepare broadcast address - send from c.conn so responses come back to the same socket
-	broadcastAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", Port))
-	if err != nil {
-		return fmt.Errorf("failed to resolve UDP broadcast address: %w", err)
+	packet := c.CreateAdvancedDiscoveryPacket()
+	if err := c.transport.Send(packet); err != nil {
+		return fmt.Errorf("send discovery: %w", err)
 	}
+	c.logger.Debug("Sent discovery packet", "size", len(packet))
 
-	// Start listening BEFORE sending discovery packet to avoid missing quick responses
-	c.logger.Info("Setting up response listener")
-
-	// Use a done channel to signal the listener to stop. listenerExited
-	// is closed (not sent-to) so it can be read repeatedly from both
-	// selects below — closed-channel reads return immediately and
-	// idempotently.
-	doneChan := make(chan struct{})
-	listenerExited := make(chan struct{})
-	internalDone := make(chan bool, 1) // dummy; preserves listener's existing API
-
-	go func() {
-		defer close(listenerExited)
-		c.logger.Debug("Started response listener goroutine")
-		c.listenForResponsesWithCancel(internalDone, doneChan)
-	}()
-
-	// Give the listener a moment to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Send the discovery packet from c.conn so responses come back to this socket
-	c.logger.Info("Broadcasting discovery packet", "target", "255.255.255.255", "port", Port)
-	_, err = c.conn.WriteToUDP(discoveryPacket, broadcastAddr)
-	if err != nil {
-		close(doneChan)
-		return fmt.Errorf("failed to send UDP broadcast: %w", err)
+	for {
+		reply, srcIP, err := c.transport.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				return nil
+			}
+			return fmt.Errorf("recv during discovery: %w", err)
+		}
+		c.handleDiscoveryReply(reply, srcIP)
 	}
-
-	c.logger.Info("Sent UDP discovery packet", "target", "255.255.255.255", "port", Port)
-	c.logger.Info("Waiting for responses")
-
-	// Wait for either listener exit (it doesn't normally exit on its
-	// own — this branch fires only if it crashed) or ctx done.
-	select {
-	case <-listenerExited:
-		c.logger.Info("Response listener completed")
-	case <-ctx.Done():
-		c.logger.Info("Discovery timeout reached")
-	}
-
-	// Signal listener to stop, then unblock any in-flight ReadFromUDP
-	// so it can see the cancel signal on the next loop iteration.
-	close(doneChan)
-	c.conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
-
-	// Block until the listener has actually returned. This is critical:
-	// the previous 500ms-timeout shortcut here could let cleanup proceed
-	// while the listener was still alive on the shared socket, causing
-	// it to consume packets meant for the next operation (GetData/SetData
-	// responses). The wait is bounded by SetReadDeadline above (~50ms);
-	// if it hangs longer than that we have a deeper bug worth knowing
-	// about, not worth papering over with a timeout.
-	<-listenerExited
-	c.logger.Debug("Listener goroutine exited cleanly")
-
-	c.conn.SetReadDeadline(time.Time{})
-	return nil
 }
 
-// listenForResponsesWithCancel handles response listening with cancellation support
-func (c *Client) listenForResponsesWithCancel(done chan<- bool, cancel <-chan struct{}) {
-	defer func() {
-		select {
-		case done <- true:
-		default:
-		}
-	}()
-
-	buffer := make([]byte, 1024)
-	responseCount := 0
-
-	// Get our own IP addresses to filter out self-received packets
-	localIPs := getLocalIPs()
-	c.logger.Debug("Local IPs for filtering", "count", len(localIPs))
-
-	c.logger.Info("Listening for UDP responses on socket")
-
-	// Set a short read deadline so we can check the cancel channel periodically
-	for {
-		// Check if we should stop
-		select {
-		case <-cancel:
-			c.logger.Debug("Listener cancelled", "responses_received", responseCount)
-			return
-		default:
-		}
-
-		// Set a short deadline for each read so we can check cancel channel
-		c.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-
-		n, addr, err := c.conn.ReadFromUDP(buffer)
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// Check if we should stop on timeout
-				select {
-				case <-cancel:
-					c.logger.Debug("Listener cancelled after timeout", "responses_received", responseCount)
-					return
-				default:
-					// Continue waiting for more packets
-					continue
-				}
-			}
-			c.logger.Error("Read error", "error", err)
-			return
-		}
-
-		c.logger.Info("Received UDP packet", "bytes", n, "source_ip", addr.IP.String(), "source_port", addr.Port)
-
-		// Skip our own packets, but allow 0.0.0.0 (devices in bootstrap mode)
-		if addr.IP.String() != "0.0.0.0" && localIPs[addr.IP.String()] {
-			c.logger.Debug("Ignoring self-received packet", "source_ip", addr.IP.String())
-			continue
-		}
-
-		responseCount++
-		c.logger.Debug("Processing response", "bytes", n, "source_ip", addr.IP.String(), "source_port", addr.Port, "hex", fmt.Sprintf("%x", buffer[:n]))
-
-		packet, data, err := ParsePacket(buffer[:n])
-		if err != nil {
-			c.logger.Warn("Failed to parse packet", "source_ip", addr.IP.String(), "error", err, "raw_data", string(buffer[:n]))
-			continue
-		}
-
-		c.logger.Debug("Parsed packet", "udap_type", fmt.Sprintf("0x%04x", packet.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", packet.UCPMethod), "dst_type", packet.DstType, "src_type", packet.SrcType)
-
-		// Check packet type and method
-		switch {
-		case packet.UDAPType == TypeUCP:
-			// Check if it's a discovery response or contains device info
-			device := c.parseDiscoveryResponse(data, addr.IP.String(), packet)
-			if device != nil {
-				c.recordDevice(device)
-				c.logger.Info("Found device", "name", device.Name, "mac", device.MAC, "ip", device.IP)
-			} else {
-				c.logger.Warn("UCP packet received but no device info parsed", "source_ip", addr.IP.String())
-			}
-		case packet.UCPMethod == MethodDiscover:
-			c.logger.Debug("Received discovery packet from another UDAP client", "source_ip", addr.IP.String())
-		default:
-			c.logger.Debug("Received unexpected packet", "udap_type", fmt.Sprintf("0x%04x", packet.UDAPType), "ucp_method", fmt.Sprintf("0x%04x", packet.UCPMethod), "source_ip", addr.IP.String())
-		}
+// handleDiscoveryReply parses one discovery reply and registers the
+// device. Non-UCP packets and unparseable bytes are logged and skipped.
+func (c *Client) handleDiscoveryReply(packetBytes []byte, srcIP string) {
+	packet, data, err := ParsePacket(packetBytes)
+	if err != nil {
+		c.logger.Warn("Failed to parse discovery reply", "src_ip", srcIP, "error", err)
+		return
 	}
+	if packet.UDAPType != TypeUCP {
+		c.logger.Debug("Ignoring non-UCP packet during discovery", "src_ip", srcIP)
+		return
+	}
+	device := c.parseDiscoveryResponse(data, srcIP, packet)
+	if device == nil {
+		c.logger.Warn("Discovery reply parsed but no device extracted", "src_ip", srcIP)
+		return
+	}
+	c.recordDevice(device)
+	c.logger.Info("Found device", "mac", device.MAC, "name", device.Name, "ip", device.IP)
 }
 
 // Discovery-response TLV codes, per Net::UDAP Constant.pm
