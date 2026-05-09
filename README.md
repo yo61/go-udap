@@ -19,6 +19,14 @@ invocation. There is no interactive shell.
 
 ## Installation
 
+### Homebrew (macOS and Linux)
+
+```bash
+brew install yo61/tap/go-udap
+```
+
+The formula lives at [yo61/homebrew-tap](https://github.com/yo61/homebrew-tap) and is auto-published on every release.
+
 ### Pre-built Binaries
 
 Download the archive for your platform from the [Releases](https://github.com/yo61/go-udap/releases) page (`go-udap_<version>_<os>_<arch>.tar.gz`, or `.zip` on Windows). Extract the `go-udap` binary from the archive and place it on your `PATH`. `SHA256SUMS` next to each release lets you verify the download.
