@@ -587,8 +587,16 @@ name: GoReleaser
 on:
   push:
     tags:
-      # Strict semver match: v0.3.0, v1.10.0 — rejects "vfoo", "v0.3", "v1.0-rc1"
+      # Full SemVer match across the four valid forms:
+      #   vX.Y.Z              (e.g. v0.3.0)
+      #   vX.Y.Z-prerelease   (e.g. v0.3.0-rc.1)
+      #   vX.Y.Z+build        (e.g. v0.3.0+build.123)
+      #   vX.Y.Z-prerelease+build
+      # Rejects junk like "vfoo", "v0.3", "v1.0-rc1" (missing patch).
       - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+\+*'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*\+*'
 
 permissions:
   contents: write

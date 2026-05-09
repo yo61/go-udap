@@ -268,7 +268,11 @@ name: GoReleaser
 on:
   push:
     tags:
+      # Full SemVer: vX.Y.Z, vX.Y.Z-prerelease, vX.Y.Z+build, vX.Y.Z-prerelease+build
       - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+\+*'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*\+*'
 permissions:
   contents: write
 jobs:
