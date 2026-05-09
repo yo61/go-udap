@@ -9,7 +9,7 @@ tasks:
   default:
     desc: Build optimized binary for current platform
     cmds:
-      - go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} main.go
+      - go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} .
     sources:
       - "**/*.go"
     generates:
@@ -23,7 +23,7 @@ tasks:
   build:windows:
     desc: Cross-compile for Windows (amd64)
     cmds:
-      - GOOS=windows GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}.exe main.go
+      - GOOS=windows GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}.exe .
     sources:
       - "**/*.go"
     generates:
@@ -32,7 +32,7 @@ tasks:
   build:linux:
     desc: Cross-compile for Linux (amd64)
     cmds:
-      - GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-amd64 main.go
+      - GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-amd64 .
     sources:
       - "**/*.go"
     generates:
@@ -41,7 +41,7 @@ tasks:
   build:linux-arm64:
     desc: Cross-compile for Linux (arm64)
     cmds:
-      - GOOS=linux GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-arm64 main.go
+      - GOOS=linux GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-arm64 .
     sources:
       - "**/*.go"
     generates:
@@ -54,6 +54,17 @@ tasks:
       - task: build:windows
       - task: build:linux
       - task: build:linux-arm64
+
+  release:
+    desc: Build all platforms and UPX-compress the Linux/Windows binaries
+      (~67% smaller). Requires upx in PATH (`brew install upx`). Skips
+      macOS — modern macOS rejects UPX-packed binaries by default.
+    deps: [build:all]
+    cmds:
+      - command -v upx >/dev/null || { echo "upx not found; install with 'brew install upx'"; exit 1; }
+      - upx --best --lzma {{.BINARY_NAME}}-linux-amd64
+      - upx --best --lzma {{.BINARY_NAME}}-linux-arm64
+      - upx --best --lzma {{.BINARY_NAME}}.exe
 
   test:
     desc: Run all tests

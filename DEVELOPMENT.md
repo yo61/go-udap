@@ -85,6 +85,36 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -trimpath -o go-udap-linux-arm
 | Linux | amd64, arm64 | Supported |
 | Windows | amd64 | Supported |
 
+### Release builds (UPX-packed)
+
+`task release` runs `task build:all` and then UPX-compresses the
+Linux and Windows binaries. macOS is skipped — modern macOS rejects
+UPX-packed binaries by default (you can force it with
+`upx --force-macos`, but the resulting binary won't run on a stock
+system without manually re-signing).
+
+Requires UPX in `PATH`:
+
+```bash
+brew install upx
+task release
+```
+
+Approximate sizes after UPX (`-s -w -trimpath` plus `--best --lzma`):
+
+| Binary                    | Stripped | UPX-packed | Saving |
+|---------------------------|---------:|-----------:|-------:|
+| go-udap (macOS arm64)     | ~2.7 MB  | n/a        | —      |
+| go-udap-linux-amd64       | ~2.7 MB  | ~900 KB    | ~67%   |
+| go-udap-linux-arm64       | ~2.6 MB  | ~780 KB    | ~70%   |
+| go-udap.exe (windows amd64) | ~2.9 MB | ~930 KB   | ~67%   |
+
+Cost of UPX: one-time ~50–100ms decompression on first execution
+(negligible for a one-shot CLI). Some antivirus engines flag
+UPX-packed binaries as suspicious — if that's a concern for your
+distribution channel, ship the unpacked `task build:all` artifacts
+instead.
+
 ## Project Structure
 
 ```
