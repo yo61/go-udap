@@ -21,18 +21,29 @@ const (
 	// UDAP Types
 	TypeUCP = 0xC001 // UCP packets (0xC0, 0x01 in big endian/network order)
 
-	// UCP Methods - Based on Lua implementation
-	MethodDiscover   = 0x0001 // Discovery method
-	MethodGetIP      = 0x0002 // Get IP method (also used as data response)
-	MethodReset      = 0x0004 // Reset method
-	MethodGetData    = 0x0005 // Get data method
-	MethodSetData    = 0x0006 // Set data method
-	MethodError      = 0x0007 // Error method
-	MethodSetDataAck = 0x0008 // SetData acknowledgment response
-	MethodAdvDisc    = 0x0009 // Advanced discovery method
-
-	// Method aliases for backward compatibility
-	MethodDataResp = MethodGetIP // GetIP (0x0002) is used for data responses
+	// UCP Methods, per the authoritative Net::UDAP Constant.pm
+	// (UCP_METHOD_*). Earlier comments here had two protocol-level
+	// errors that are now fixed:
+	//
+	//   - 0x0002 was annotated "also used as data response". It isn't.
+	//     get_ip is its own method that returns network-config TLVs
+	//     (lan_ip_mode, lan_gateway, lan_subnet_mask, lan_network_address).
+	//     GetData (0x0005) responses come back with method 0x0005, not
+	//     0x0002. The misnomer alias MethodDataResp has been removed.
+	//
+	//   - 0x0008 was named MethodSetDataAck. It's actually
+	//     UCP_METHOD_CREDENTIALS_ERROR per Net::UDAP — the device's way
+	//     of rejecting a SetData when it didn't like the user/pass
+	//     fields. SetData acks reuse the request's method (0x0006) on
+	//     the response.
+	MethodDiscover         = 0x0001
+	MethodGetIP            = 0x0002
+	MethodReset            = 0x0004
+	MethodGetData          = 0x0005
+	MethodSetData          = 0x0006
+	MethodError            = 0x0007
+	MethodCredentialsError = 0x0008
+	MethodAdvDisc          = 0x0009
 
 	// UCP Flags
 	FlagsDiscover = 0x01
@@ -46,87 +57,18 @@ const (
 	MACAddressSize    = 6  // MAC address length in bytes
 	UsernameFieldSize = 16 // Username field size in SetData packets
 	PasswordFieldSize = 16 // Password field size in SetData packets
-	UDAPHeaderSize    = 25 // Standard UDAP header size
+	UDAPHeaderSize    = 27 // Serialized size of the Packet struct (sum of fields, no padding)
 
 	// Validation Limits
 	MaxDeviceNameLength = 64    // Maximum device name length
 	MaxTLVValueLength   = 255   // Maximum TLV value length (uint8 max)
 	MaxConfigLength     = 256   // Maximum configuration parameter length
 	MaxNVRAMOffset      = 65535 // Maximum NVRAM offset (uint16 max)
-	MaxTimeoutMinutes   = 10    // Maximum timeout in minutes
 
 	// Common Network Values
 	BroadcastIP = "255.255.255.255"
 	LocalIP     = "0.0.0.0"
 )
-
-// ConfigSetting represents a configuration parameter with its NVRAM offset and length
-type ConfigSetting struct {
-	Offset uint16
-	Length uint16
-}
-
-// ConfigSettings maps parameter names to their NVRAM offsets and lengths
-// Based on the authoritative Lua implementation from LMS-Community/squeezeplay
-var ConfigSettings = map[string]ConfigSetting{
-	"lan_ip_mode":         {4, 1},
-	"lan_network_address": {5, 4},
-	"lan_subnet_mask":     {9, 4},
-	"lan_gateway":         {13, 4},
-	"hostname":            {17, 33},
-	"bridging":            {50, 1},
-	"interface":           {52, 1},
-	"primary_dns":         {59, 4},
-	"secondary_dns":       {67, 4},
-	"server_address":      {71, 4},
-	"lms_address":         {79, 4},
-	"wireless_mode":       {173, 1},
-	"wireless_SSID":       {183, 33},
-	"wireless_channel":    {216, 1},
-	"wireless_region_id":  {218, 1},
-	"wireless_keylen":     {220, 1},
-	"wireless_wep_key":    {222, 13},
-	"wireless_wep_key_1":  {235, 13},
-	"wireless_wep_key_2":  {248, 13},
-	"wireless_wep_key_3":  {261, 13},
-	"wireless_wep_on":     {274, 1},
-	"wireless_wpa_cipher": {275, 1},
-	"wireless_wpa_mode":   {276, 1},
-	"wireless_wpa_on":     {277, 1},
-	"wireless_wpa_psk":    {278, 64},
-	// Alternative parameter names for compatibility with other tools
-	"slimserver_address":    {71, 4}, // Alias for server_address
-	"squeezecenter_address": {71, 4}, // Alias for server_address
-}
-
-// KnownParameters is a list of all known UDAP parameters
-var KnownParameters = []string{
-	"lan_ip_mode",
-	"lan_network_address",
-	"lan_subnet_mask",
-	"lan_gateway",
-	"hostname",
-	"bridging",
-	"interface",
-	"primary_dns",
-	"secondary_dns",
-	"server_address",
-	"lms_address",
-	"wireless_mode",
-	"wireless_SSID",
-	"wireless_channel",
-	"wireless_region_id",
-	"wireless_keylen",
-	"wireless_wep_key",
-	"wireless_wep_key_1",
-	"wireless_wep_key_2",
-	"wireless_wep_key_3",
-	"wireless_wep_on",
-	"wireless_wpa_cipher",
-	"wireless_wpa_mode",
-	"wireless_wpa_on",
-	"wireless_wpa_psk",
-}
 
 // Packet represents a UDAP packet with proper protocol structure
 // Based on the Lua createUdap function from LMS-Community/squeezeplay
@@ -144,14 +86,23 @@ type Packet struct {
 	UCPMethod    uint16  // UCP method
 }
 
-// Device represents a discovered Squeezebox device
+// Device represents a discovered Squeezebox device. Fields are populated
+// from the discovery-response TLVs (per Net::UDAP Constant.pm code map):
+//
+//	Name      ← TLV 0x02 device_name (the configured hostname)
+//	Model     ← TLV 0x03 device_type + TLV 0x0b device_id, joined into a
+//	            human label (e.g. "Squeezebox Receiver")
+//	Firmware  ← TLV 0x09 firmware_rev (e.g. "77")
+//	State     ← TLV 0x0c device_status (init / wait_slimserver / connected)
+//
+// MAC and IP come from the UDAP packet header / UDP source address.
 type Device struct {
 	MAC        string            `json:"mac"`
 	IP         string            `json:"ip"`
 	Name       string            `json:"name"`
 	Model      string            `json:"model"`
 	Firmware   string            `json:"firmware"`
-	UUID       string            `json:"uuid"`
+	State      string            `json:"state,omitempty"`
 	LastSeen   time.Time         `json:"last_seen"`
 	Parameters map[string]string `json:"parameters"` // Stores all device parameters
 }
@@ -203,55 +154,37 @@ func DecodeTLV(data []byte) []TLVData {
 	return tlvs
 }
 
-// ParsePacket parses a UDAP packet and returns packet structure
+// ParsePacket parses a UDAP packet header and returns the parsed
+// header, the remaining payload bytes (or nil if the packet was
+// header-only), and any decode error.
+//
+// Real UDAP packets are at least UDAPHeaderSize (27) bytes — the
+// header is fixed-width — and the UDAPType field at bytes 18-19 must
+// equal TypeUCP (0xC001). Anything shorter or with a non-UCP UDAPType
+// is junk on our socket (mDNS leakage, stray broadcasts) and is
+// rejected so callers don't try to interpret garbage.
+//
+// An earlier permissive Format-2 fallback parsed any 4+-byte payload
+// by taking bytes 0-1 as a UCPMethod; that was a workaround for a
+// since-fixed off-by-2 in UDAPHeaderSize and is no longer needed.
 func ParsePacket(packetData []byte) (*Packet, []byte, error) {
-	if len(packetData) < 4 {
-		return nil, nil, fmt.Errorf("packet too short: %d bytes", len(packetData))
+	if len(packetData) < UDAPHeaderSize {
+		return nil, nil, fmt.Errorf("packet too short: %d bytes (minimum %d)", len(packetData), UDAPHeaderSize)
 	}
 
-	// Check for different packet formats
-	// Format 1: Standard UDAP packet (starts with destination broadcast flag)
-	if len(packetData) >= 25 {
-		var packet Packet
-		buf := bytes.NewReader(packetData)
-		err := binary.Read(buf, binary.BigEndian, &packet)
-		if err == nil {
-			// Check if this looks like a valid UDAP packet
-			if packet.UDAPType == TypeUCP || packet.DstType <= 2 || packet.SrcType <= 2 {
-				headerSize := 25
-				var data []byte
-				if len(packetData) > headerSize {
-					data = packetData[headerSize:]
-				}
-				return &packet, data, nil
-			}
-		}
+	var packet Packet
+	if err := binary.Read(bytes.NewReader(packetData), binary.BigEndian, &packet); err != nil {
+		return nil, nil, fmt.Errorf("decode UDAP header: %w", err)
+	}
+	if packet.UDAPType != TypeUCP {
+		return nil, nil, fmt.Errorf("not a UDAP/UCP packet: UDAPType=0x%04x", packet.UDAPType)
 	}
 
-	// Format 2: Raw response packet (like we're seeing in the capture)
-	// Starts with method indicator (00 01 = discovery response, 00 02 = set response, etc)
-	if len(packetData) >= 4 {
-		method := binary.BigEndian.Uint16(packetData[0:2])
-		// Create a minimal packet structure for raw responses
-		packet := &Packet{
-			UCPMethod: method,
-			UDAPType:  TypeUCP,
-			DstType:   AddrTypeUDP,
-			SrcType:   AddrTypeUDP,
-		}
-
-		// Skip the method bytes and return the rest as data
-		var data []byte
-		if len(packetData) > 4 {
-			data = packetData[4:]
-		}
-
-		// Note: This is in a package-level function, would need logger parameter to use structured logging
-		// For now, keeping the printf statement as it's used in packet parsing
-		return packet, data, nil
+	var data []byte
+	if len(packetData) > UDAPHeaderSize {
+		data = packetData[UDAPHeaderSize:]
 	}
-
-	return nil, nil, fmt.Errorf("unrecognized packet format: length=%d bytes", len(packetData))
+	return &packet, data, nil
 }
 
 // getLocalIPs returns a map of all local IP addresses for filtering

@@ -29,16 +29,3 @@ func enableBroadcast(conn *net.UDPConn, logger Logger) {
 		}
 	})
 }
-
-// enableBroadcastSimple enables SO_BROADCAST on a UDP connection (minimal logging)
-func enableBroadcastSimple(conn *net.UDPConn, logger Logger) {
-	rawConn, err := conn.SyscallConn()
-	if err != nil {
-		return
-	}
-
-	rawConn.Control(func(fd uintptr) {
-		syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
-		syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-	})
-}

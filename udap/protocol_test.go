@@ -23,8 +23,7 @@ func TestConstants(t *testing.T) {
 	}
 }
 
-func TestConfigSettings(t *testing.T) {
-	// Test that essential parameters exist
+func TestParametersIncludeEssentials(t *testing.T) {
 	essentialParams := []string{
 		"lan_ip_mode",
 		"lan_network_address",
@@ -33,35 +32,33 @@ func TestConfigSettings(t *testing.T) {
 		"wireless_wpa_psk",
 	}
 
-	for _, param := range essentialParams {
-		setting, exists := ConfigSettings[param]
+	for _, name := range essentialParams {
+		p, exists := ParameterByName(name)
 		if !exists {
-			t.Errorf("Essential parameter %s not found in ConfigSettings", param)
+			t.Errorf("Essential parameter %s not found in Parameters", name)
 			continue
 		}
-
-		// Test that settings have valid values
-		if setting.Length == 0 {
-			t.Errorf("Parameter %s has zero length", param)
-		}
-
-		if setting.Offset > MaxNVRAMOffset {
-			t.Errorf("Parameter %s has offset %d exceeding maximum %d", param, setting.Offset, MaxNVRAMOffset)
+		if err := p.Validate(); err != nil {
+			t.Errorf("Parameter %s failed validation: %v", name, err)
 		}
 	}
 }
 
-func TestKnownParameters(t *testing.T) {
-	// Test that all known parameters have corresponding config settings
-	for _, param := range KnownParameters {
-		if _, exists := ConfigSettings[param]; !exists {
-			t.Errorf("Known parameter %s not found in ConfigSettings", param)
-		}
+func TestParametersAreNonEmpty(t *testing.T) {
+	if len(Parameters) == 0 {
+		t.Error("Parameters should not be empty")
 	}
+	if len(ParameterNames()) != len(Parameters) {
+		t.Errorf("ParameterNames length %d != Parameters length %d",
+			len(ParameterNames()), len(Parameters))
+	}
+}
 
-	// Test that we have the expected number of parameters
-	if len(KnownParameters) == 0 {
-		t.Error("KnownParameters should not be empty")
+func TestParameterAliasesResolve(t *testing.T) {
+	for alias := range parameterAliases {
+		if _, ok := ParameterByName(alias); !ok {
+			t.Errorf("alias %q does not resolve via ParameterByName", alias)
+		}
 	}
 }
 
@@ -179,10 +176,14 @@ func TestParsePacket(t *testing.T) {
 			expectedMethod: MethodDiscover,
 		},
 		{
-			name:           "raw response packet",
-			data:           []byte{0x00, 0x01, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78}, // Method 0x0001 with some data
-			expectError:    false,
-			expectedMethod: MethodDiscover,
+			// This was previously accepted via a permissive Format-2
+			// fallback that interpreted bytes 0-1 as UCPMethod for any
+			// 4+-byte payload. That fallback was a workaround for a
+			// since-fixed off-by-2 in UDAPHeaderSize. Real UDAP packets
+			// are always >= 27 bytes; rejecting short ones is correct.
+			name:        "short packet (no longer accepted as raw response)",
+			data:        []byte{0x00, 0x01, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78},
+			expectError: true,
 		},
 		{
 			name:        "too short packet",
@@ -194,11 +195,19 @@ func TestParsePacket(t *testing.T) {
 			data:        []byte{},
 			expectError: true,
 		},
+		{
+			// 27-byte buffer with the right size but UDAPType=0x0000,
+			// which would be a non-UCP packet — should be rejected
+			// rather than parsed as garbage.
+			name:        "header-sized buffer but non-UCP UDAPType",
+			data:        make([]byte, UDAPHeaderSize), // all zeros, UDAPType=0
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			packet, data, err := ParsePacket(tt.data)
+			packet, _, err := ParsePacket(tt.data)
 
 			if tt.expectError {
 				if err == nil {
@@ -221,10 +230,11 @@ func TestParsePacket(t *testing.T) {
 				t.Errorf("Expected method 0x%04x, got 0x%04x", tt.expectedMethod, packet.UCPMethod)
 			}
 
-			// Data should not be nil (may be empty)
-			if data == nil {
-				t.Error("Data should not be nil")
-			}
+			// Header-only packets produce a nil data slice; packets
+			// carrying a TLV payload produce a non-empty one. The old
+			// assertion ("data should not be nil") only ever passed
+			// because of a header-size off-by-2 in ParsePacket that
+			// returned 2 leftover header bytes as data — fixed now.
 		})
 	}
 }
@@ -234,9 +244,9 @@ func TestDevice(t *testing.T) {
 		MAC:      "00:04:20:12:34:56",
 		IP:       "192.168.1.100",
 		Name:     "Test Device",
-		Model:    "Squeezebox",
-		Firmware: "7.8.0",
-		UUID:     "12345678-1234-1234-1234-123456789abc",
+		Model:    "Squeezebox Receiver",
+		Firmware: "77",
+		State:    "init",
 		LastSeen: time.Now(),
 		Parameters: map[string]string{
 			"hostname":    "testbox",
@@ -258,18 +268,21 @@ func TestDevice(t *testing.T) {
 	}
 }
 
-func TestConfigSettingStructure(t *testing.T) {
-	setting := ConfigSetting{
+func TestParameterStructure(t *testing.T) {
+	p := Parameter{
+		Name:   "test_param",
 		Offset: 100,
 		Length: 32,
+		Help:   "Test parameter",
 	}
-
-	if setting.Offset != 100 {
-		t.Errorf("Expected offset 100, got %d", setting.Offset)
+	if p.Offset != 100 || p.Length != 32 {
+		t.Errorf("field round-trip failed: %+v", p)
 	}
-
-	if setting.Length != 32 {
-		t.Errorf("Expected length 32, got %d", setting.Length)
+	if got := p.FlagName(); got != "test-param" {
+		t.Errorf("FlagName: got %q, want %q", got, "test-param")
+	}
+	if err := p.Validate(); err != nil {
+		t.Errorf("Validate: %v", err)
 	}
 }
 
@@ -295,8 +308,10 @@ func TestPacketStructure(t *testing.T) {
 		t.Fatalf("Failed to serialize packet: %v", err)
 	}
 
-	// Test that we get expected size
-	expectedSize := 25 // UDAP header size
+	// Test that we get expected size. The Packet struct serializes via
+	// encoding/binary to the sum of its field sizes (no padding):
+	// 1+1+6+1+1+6+2+2+1+4+2 = 27 bytes.
+	expectedSize := UDAPHeaderSize
 	if buf.Len() != expectedSize {
 		t.Errorf("Expected packet size %d, got %d", expectedSize, buf.Len())
 	}
@@ -353,25 +368,27 @@ func TestTLVDataStructure(t *testing.T) {
 }
 
 func TestMethodConstants(t *testing.T) {
-	// Test method constant values
+	// Per Net::UDAP Constant.pm UCP_METHOD_* constants.
 	expectedMethods := map[string]uint16{
-		"MethodDiscover": 0x0001,
-		"MethodGetIP":    0x0002,
-		"MethodReset":    0x0004,
-		"MethodGetData":  0x0005,
-		"MethodSetData":  0x0006,
-		"MethodError":    0x0007,
-		"MethodAdvDisc":  0x0009,
+		"MethodDiscover":         0x0001,
+		"MethodGetIP":            0x0002,
+		"MethodReset":            0x0004,
+		"MethodGetData":          0x0005,
+		"MethodSetData":          0x0006,
+		"MethodError":            0x0007,
+		"MethodCredentialsError": 0x0008,
+		"MethodAdvDisc":          0x0009,
 	}
 
 	actualMethods := map[string]uint16{
-		"MethodDiscover": MethodDiscover,
-		"MethodGetIP":    MethodGetIP,
-		"MethodReset":    MethodReset,
-		"MethodGetData":  MethodGetData,
-		"MethodSetData":  MethodSetData,
-		"MethodError":    MethodError,
-		"MethodAdvDisc":  MethodAdvDisc,
+		"MethodDiscover":         MethodDiscover,
+		"MethodGetIP":            MethodGetIP,
+		"MethodReset":            MethodReset,
+		"MethodGetData":          MethodGetData,
+		"MethodSetData":          MethodSetData,
+		"MethodError":            MethodError,
+		"MethodCredentialsError": MethodCredentialsError,
+		"MethodAdvDisc":          MethodAdvDisc,
 	}
 
 	for name, expected := range expectedMethods {
@@ -380,10 +397,5 @@ func TestMethodConstants(t *testing.T) {
 		} else if actual != expected {
 			t.Errorf("Method %s: expected 0x%04x, got 0x%04x", name, expected, actual)
 		}
-	}
-
-	// Test method alias
-	if MethodDataResp != MethodGetIP {
-		t.Errorf("MethodDataResp should equal MethodGetIP (0x%04x), got 0x%04x", MethodGetIP, MethodDataResp)
 	}
 }

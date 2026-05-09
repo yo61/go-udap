@@ -1,7 +1,5 @@
 module go-udap
 
-go 1.25.5
+go 1.26.3
 
-require github.com/chzyer/readline v1.5.1
-
-require golang.org/x/sys v0.40.0 // indirect
+require github.com/spf13/pflag v1.0.10

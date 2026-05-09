@@ -1,13 +1,12 @@
 package udap
 
 import (
-	"context"
 	"testing"
 	"time"
 )
 
 func TestNewClient(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
@@ -32,7 +31,7 @@ func TestNewClient(t *testing.T) {
 
 func TestNewClientWithLogger(t *testing.T) {
 	logger := &TestLogger{logs: make([]LogEntry, 0)}
-	client, err := NewClientWithLogger(logger)
+	client, err := newClientWithPort(0, logger)
 	if err != nil {
 		t.Fatalf("Failed to create new client with logger: %v", err)
 	}
@@ -49,7 +48,7 @@ func TestNewClientWithLogger(t *testing.T) {
 }
 
 func TestClientClose(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
@@ -62,7 +61,7 @@ func TestClientClose(t *testing.T) {
 }
 
 func TestClientDeviceManagement(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
@@ -73,9 +72,9 @@ func TestClientDeviceManagement(t *testing.T) {
 		MAC:      "00:04:20:12:34:56",
 		IP:       "192.168.1.100",
 		Name:     "Test Device",
-		Model:    "Squeezebox",
-		Firmware: "7.8.0",
-		UUID:     "12345678-1234-1234-1234-123456789abc",
+		Model:    "Squeezebox Receiver",
+		Firmware: "77",
+		State:    "init",
 		LastSeen: time.Now(),
 		Parameters: map[string]string{
 			"hostname": "testbox",
@@ -126,13 +125,8 @@ func TestClientDeviceManagement(t *testing.T) {
 func TestPacketCaptureConfig(t *testing.T) {
 	config := PacketCaptureConfig{
 		Purpose:    "test capture",
-		Timeout:    5 * time.Second,
 		SourceIP:   "192.168.1.100",
 		SourcePort: 17784,
-	}
-
-	if config.Timeout != 5*time.Second {
-		t.Errorf("Expected timeout 5s, got %v", config.Timeout)
 	}
 
 	if config.Purpose != "test capture" {
@@ -168,34 +162,16 @@ func TestPacketCaptureResult(t *testing.T) {
 	}
 }
 
-func TestGetActiveNetworkInterface(t *testing.T) {
-	// Test getting active network interface
-	iface, err := getActiveNetworkInterface()
-
-	// Should return some interface name or an error
-	// We can't test for specific values since it depends on the system
-	if err != nil {
-		t.Logf("No active network interface found: %v", err)
-	} else {
-		t.Logf("Active network interface: %s", iface)
-	}
-}
-
 func TestClientValidation(t *testing.T) {
-	client, err := NewClient()
+	client, err := newClientWithPort(0, NewNoOpLogger())
 	if err != nil {
 		t.Fatalf("Failed to create new client: %v", err)
 	}
 	defer client.Close()
 
-	// Test context validation
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	// These should not panic or error due to invalid contexts
-	err = client.DiscoverDevicesWithContext(ctx)
-	// Error is expected since we're not actually sending packets
-	t.Logf("DiscoverDevicesWithContext error (expected): %v", err)
+	if err := client.Validate(); err != nil {
+		t.Errorf("Validate on a fresh client should pass, got: %v", err)
+	}
 }
 
 func TestGetLocalIPsFromClient(t *testing.T) {
@@ -307,11 +283,15 @@ func (l *TestLogger) ClearLogs() {
 
 func TestClientWithTestLogger(t *testing.T) {
 	logger := &TestLogger{logs: make([]LogEntry, 0)}
-	client, err := NewClientWithLogger(logger)
+	client, err := newClientWithPort(0, logger)
 	if err != nil {
 		t.Fatalf("Failed to create client with test logger: %v", err)
 	}
 	defer client.Close()
+
+	// Discard log entries emitted during socket setup so we only assert on
+	// the entries this test triggers below.
+	logger.ClearLogs()
 
 	// Trigger some logging
 	client.logger.Info("Test message", "key", "value")

@@ -1,0 +1,131 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"time"
+
+	"github.com/spf13/pflag"
+)
+
+func runSet(args []string, stdout, stderr io.Writer) error {
+	fs := pflag.NewFlagSet("set", pflag.ContinueOnError)
+	fs.SetOutput(stderr)
+	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
+	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
+	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
+	reboot := fs.BoolP("reboot", "r", false, "Reboot the device after applying changes")
+	configPath := fs.String("config", "", "Read parameters from `FILE` (use - for stdin)")
+
+	// Register a string flag for every known UDAP parameter, using
+	// stringWithPlaceholder so each flag's --help line shows a semantic
+	// placeholder (IP, NAME, 0|1, ...) instead of pflag's default "string".
+	pf := paramFlags()
+	paramValues := make(map[string]*stringWithPlaceholder, len(pf))
+	for _, p := range pf {
+		v := newStringWithPlaceholder(p.placeholder)
+		fs.Var(v, p.flagName, p.help)
+		paramValues[p.udapName] = v
+	}
+
+	if err := parseSubcommandFlags(fs, args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return &ExitError{Code: 1, Err: fmt.Errorf("set: expected exactly one MAC argument")}
+	}
+	mac, err := normalizeMAC(fs.Arg(0))
+	if err != nil {
+		return &ExitError{Code: 1, Err: err}
+	}
+
+	// Collect per-param flag values that were actually set.
+	flagValues := make(map[string]string)
+	for _, p := range pf {
+		if !fs.Changed(p.flagName) {
+			continue
+		}
+		flagValues[p.udapName] = paramValues[p.udapName].String()
+	}
+
+	// Resolve --config (file path, "-" for stdin, or unset).
+	var fileContent io.Reader
+	var fileLabel string
+	switch {
+	case *configPath == "-":
+		fileContent = os.Stdin
+		fileLabel = "-"
+	case *configPath != "":
+		f, err := os.Open(*configPath)
+		if err != nil {
+			return &ExitError{Code: 1, Err: fmt.Errorf("open config: %w", err)}
+		}
+		defer f.Close()
+		fileContent = f
+		fileLabel = *configPath
+	}
+
+	// Detect piped stdin (only consulted when no --config was given).
+	stdinPiped := isStdinPiped()
+	var stdinContent io.Reader
+	if stdinPiped {
+		stdinContent = os.Stdin
+	}
+
+	merged, err := mergeSources(sourceInputs{
+		fileContent:  fileContent,
+		fileLabel:    fileLabel,
+		stdinContent: stdinContent,
+		stdinPiped:   stdinPiped,
+		flags:        flagValues,
+	}, stderr)
+	if err != nil {
+		return &ExitError{Code: 1, Err: err}
+	}
+
+	client, err := newClient(*verbose, stderr)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	defer client.Close()
+
+	stop := startProgress(stderr, "set", timeout.Value())
+	defer stop()
+	device, err := discoverAndFind(client, mac, timeout.Value())
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
+	defer cancel()
+	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
+		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
+	}
+	if *reboot {
+		if err := client.ResetDeviceWithContext(ctx, device); err != nil {
+			return &ExitError{Code: 2, Err: fmt.Errorf("set --reboot failed during reset: %w", err)}
+		}
+	}
+	stop()
+
+	// Echo what we sent for confirmation, sorted.
+	if err := formatParamMap(stdout, merged); err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	return nil
+}
+
+// isStdinPiped returns true when stdin is not a terminal (i.e. data is piped
+// or redirected from a file). False if stdin is interactive or unavailable.
+func isStdinPiped() bool {
+	st, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	if (st.Mode() & os.ModeCharDevice) != 0 {
+		return false
+	}
+	return true
+}

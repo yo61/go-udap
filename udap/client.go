@@ -8,16 +8,23 @@ import (
 	"net"
 	"sort"
 	"strconv"
-	"strings"
+	"sync"
 	"time"
 )
 
-// Client handles UDAP protocol communication
+// Client handles UDAP protocol communication.
+//
+// devicesMu guards devices. The discovery listener goroutine writes to
+// the map on every received UDAP response, while callers (CLI's
+// discoverAndFind, GetDevice/ListDevices/GetDevices) read concurrently
+// — without the lock that's a Go runtime data race ("concurrent map
+// read and map write" panic).
 type Client struct {
-	conn     *net.UDPConn
-	devices  map[string]*Device
-	sequence uint32
-	logger   Logger
+	conn      *net.UDPConn
+	devicesMu sync.RWMutex
+	devices   map[string]*Device
+	sequence  uint32
+	logger    Logger
 }
 
 // NewClient creates a new UDAP client
@@ -25,10 +32,17 @@ func NewClient() (*Client, error) {
 	return NewClientWithLogger(NewStructuredLogger())
 }
 
-// NewClientWithLogger creates a new UDAP client with a custom logger
+// NewClientWithLogger creates a new UDAP client with a custom logger,
+// bound to the standard UDAP port (17784).
 func NewClientWithLogger(logger Logger) (*Client, error) {
-	// Listen on all interfaces for UDP port 17784 (explicitly IPv4)
-	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", Port))
+	return newClientWithPort(Port, logger)
+}
+
+// newClientWithPort creates a UDAP client bound to the given UDP port.
+// Port 0 lets the OS pick a free ephemeral port — useful for tests so they
+// don't collide with each other or with anything else holding port 17784.
+func newClientWithPort(port int, logger Logger) (*Client, error) {
+	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return nil, err
 	}
@@ -38,10 +52,9 @@ func NewClientWithLogger(logger Logger) (*Client, error) {
 		return nil, err
 	}
 
-	// Enable broadcast reception on the listening socket
 	enableBroadcast(conn, logger)
 
-	logger.Debug("Created UDP socket", "address", addr.String())
+	logger.Debug("Created UDP socket", "address", conn.LocalAddr().String())
 
 	return &Client{
 		conn:     conn,
@@ -112,9 +125,21 @@ func (c *Client) CreateAdvancedDiscoveryPacket() []byte {
 	return buf.Bytes()
 }
 
-// CreateGetDataPacket creates a UDAP GetData packet for retrieving parameters
+// CreateGetDataPacket creates a UDAP GetData (0x0005) request packet.
+//
+// Wire format, validated against the Perl Net::UDAP reference
+// implementation (perl_code.pcap frame 6):
+//
+//	[27-byte UDAP header, UCPMethod=0x0005]
+//	[16 zero bytes — username]
+//	[16 zero bytes — password]
+//	[uint16 BE count of items]
+//	[N × (uint16 BE NVRAM offset, uint16 BE length-to-read)]
+//
+// Parameter names not present in ConfigSettings are skipped with a warning.
+// Items are sorted by offset for deterministic output, matching
+// CreateSetDataPacket.
 func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
-	// Convert MAC address to bytes
 	macBytes := c.parseMACAddress(device.MAC)
 
 	packet := c.createUdapPacket(
@@ -124,23 +149,28 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) []byte {
 		false,         // Not broadcast
 	)
 
-	// Create TLV data for parameters
-	var tlvs []TLVData
-	for _, param := range params {
-		tlv := TLVData{
-			Type:   TLVTypeParameterName, // Parameter name type
-			Length: uint8(len(param)),
-			Value:  []byte(param),
+	items := make([]Parameter, 0, len(params))
+	for _, name := range params {
+		p, ok := ParameterByName(name)
+		if !ok {
+			c.logger.Warn("Unknown parameter skipped", "param", name, "device_mac", device.MAC)
+			continue
 		}
-		tlvs = append(tlvs, tlv)
+		items = append(items, p)
 	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Offset < items[j].Offset
+	})
 
-	// Encode packet header
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, packet)
-
-	// Append TLV data
-	buf.Write(EncodeTLV(tlvs))
+	buf.Write(make([]byte, UsernameFieldSize))
+	buf.Write(make([]byte, PasswordFieldSize))
+	binary.Write(buf, binary.BigEndian, uint16(len(items)))
+	for _, it := range items {
+		binary.Write(buf, binary.BigEndian, it.Offset)
+		binary.Write(buf, binary.BigEndian, it.Length)
+	}
 
 	return buf.Bytes()
 }
@@ -186,27 +216,22 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 
 	// Build a list of parameters to write (with their settings)
 	type paramEntry struct {
-		name    string
-		value   string
-		setting ConfigSetting
+		value string
+		Parameter
 	}
 	var paramList []paramEntry
 
-	for param, value := range params {
-		if setting, exists := ConfigSettings[param]; exists {
-			paramList = append(paramList, paramEntry{
-				name:    param,
-				value:   value,
-				setting: setting,
-			})
+	for name, value := range params {
+		if p, ok := ParameterByName(name); ok {
+			paramList = append(paramList, paramEntry{value: value, Parameter: p})
 		} else {
-			c.logger.Warn("Unknown parameter skipped", "param", param, "device_mac", device.MAC)
+			c.logger.Warn("Unknown parameter skipped", "param", name, "device_mac", device.MAC)
 		}
 	}
 
 	// Sort parameters by offset for consistent ordering
 	sort.Slice(paramList, func(i, j int) bool {
-		return paramList[i].setting.Offset < paramList[j].setting.Offset
+		return paramList[i].Offset < paramList[j].Offset
 	})
 
 	// Write number of parameters (2 bytes big-endian)
@@ -216,15 +241,15 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 	// Write each parameter using offset/length format
 	for _, entry := range paramList {
 		// Write offset (2 bytes big-endian)
-		binary.Write(buf, binary.BigEndian, entry.setting.Offset)
+		binary.Write(buf, binary.BigEndian, entry.Offset)
 
 		// Write length (2 bytes big-endian)
-		binary.Write(buf, binary.BigEndian, entry.setting.Length)
+		binary.Write(buf, binary.BigEndian, entry.Length)
 
 		// Convert value based on parameter type
 		var data []byte
 
-		switch entry.setting.Length {
+		switch entry.Length {
 		case 4:
 			// Check if this is an IP address parameter (all 4-byte parameters are IP addresses)
 			// Parse IP address and convert to 4 bytes
@@ -234,11 +259,11 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 				if ip != nil {
 					data = []byte(ip)
 				} else {
-					c.logger.Warn("Invalid IPv4 address", "param", entry.name, "value", entry.value, "device_mac", device.MAC)
+					c.logger.Warn("Invalid IPv4 address", "param", entry.Name, "value", entry.value, "device_mac", device.MAC)
 					data = make([]byte, 4) // Use zeros
 				}
 			} else {
-				c.logger.Warn("Could not parse IP address", "param", entry.name, "value", entry.value, "device_mac", device.MAC)
+				c.logger.Warn("Could not parse IP address", "param", entry.Name, "value", entry.value, "device_mac", device.MAC)
 				data = make([]byte, 4) // Use zeros
 			}
 		case 1:
@@ -246,7 +271,7 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 			if val, err := strconv.ParseUint(entry.value, 10, 8); err == nil {
 				data = []byte{byte(val)}
 			} else {
-				c.logger.Warn("Invalid numeric value", "param", entry.name, "value", entry.value, "type", "uint8", "device_mac", device.MAC)
+				c.logger.Warn("Invalid numeric value", "param", entry.Name, "value", entry.value, "type", "uint8", "device_mac", device.MAC)
 				data = []byte{0} // Use zero as fallback
 			}
 		case 2:
@@ -255,27 +280,27 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 				data = make([]byte, 2)
 				binary.BigEndian.PutUint16(data, uint16(val))
 			} else {
-				c.logger.Warn("Invalid numeric value", "param", entry.name, "value", entry.value, "type", "uint16", "device_mac", device.MAC)
+				c.logger.Warn("Invalid numeric value", "param", entry.Name, "value", entry.value, "type", "uint16", "device_mac", device.MAC)
 				data = make([]byte, 2) // Use zeros as fallback
 			}
 		default:
 			// String data
 			data = []byte(entry.value)
-			if len(data) > int(entry.setting.Length) {
-				data = data[:entry.setting.Length] // Truncate if too long
+			if len(data) > int(entry.Length) {
+				data = data[:entry.Length] // Truncate if too long
 			}
 		}
 
 		// Pad with zeros to reach the required length
-		padded := make([]byte, entry.setting.Length)
+		padded := make([]byte, entry.Length)
 		copy(padded, data)
 		buf.Write(padded)
 
 		c.logger.Debug("Parameter details",
-			"param", entry.name,
-			"offset_hex", fmt.Sprintf("0x%04x", entry.setting.Offset),
-			"offset_dec", entry.setting.Offset,
-			"length", entry.setting.Length,
+			"param", entry.Name,
+			"offset_hex", fmt.Sprintf("0x%04x", entry.Offset),
+			"offset_dec", entry.Offset,
+			"length", entry.Length,
 			"value", entry.value)
 	}
 
@@ -283,24 +308,25 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) [
 	packetBytes := buf.Bytes()
 	c.logger.Debug("SetData packet details",
 		"total_bytes", len(packetBytes),
-		"header_hex", fmt.Sprintf("%x", packetBytes[:min(25, len(packetBytes))]),
+		"header_hex", fmt.Sprintf("%x", packetBytes[:min(UDAPHeaderSize, len(packetBytes))]),
 		"username_hex", func() string {
-			start, end := 25, min(41, len(packetBytes))
+			start, end := UDAPHeaderSize, min(UDAPHeaderSize+UsernameFieldSize, len(packetBytes))
 			if end > start {
 				return fmt.Sprintf("%x", packetBytes[start:end])
 			}
 			return ""
 		}(),
 		"password_hex", func() string {
-			start, end := 41, min(57, len(packetBytes))
+			start, end := UDAPHeaderSize+UsernameFieldSize, min(UDAPHeaderSize+UsernameFieldSize+PasswordFieldSize, len(packetBytes))
 			if end > start {
 				return fmt.Sprintf("%x", packetBytes[start:end])
 			}
 			return ""
 		}(),
 		"param_data_hex", func() string {
-			if len(packetBytes) > 57 {
-				return fmt.Sprintf("%x", packetBytes[57:])
+			payloadStart := UDAPHeaderSize + UsernameFieldSize + PasswordFieldSize
+			if len(packetBytes) > payloadStart {
+				return fmt.Sprintf("%x", packetBytes[payloadStart:])
 			}
 			return ""
 		}())
@@ -331,15 +357,10 @@ func (c *Client) CreateResetPacket(device *Device) []byte {
 	return buf.Bytes()
 }
 
-// CreateSaveDataPacket creates a UDAP SaveData packet using the correct Lua format
-// This is an alias for CreateSetDataPacket since save_data uses the SetData method
-func (c *Client) CreateSaveDataPacket(device *Device, allParams map[string]string) []byte {
-	// Save data uses the same format as SetData with method 0x0006
-	return c.CreateSetDataPacket(device, allParams)
-}
-
-// ListDevices returns a list of discovered devices
+// ListDevices returns a snapshot of currently-discovered devices.
 func (c *Client) ListDevices() []*Device {
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
 	devices := make([]*Device, 0, len(c.devices))
 	for _, device := range c.devices {
 		devices = append(devices, device)
@@ -347,22 +368,41 @@ func (c *Client) ListDevices() []*Device {
 	return devices
 }
 
-// GetDevice returns a device by MAC address
+// GetDevice returns a device by MAC address, or nil if not present.
 func (c *Client) GetDevice(mac string) *Device {
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
 	return c.devices[mac]
 }
 
-// GetDevices returns the devices map
+// GetDevices returns a snapshot copy of the devices map. Callers may
+// mutate the returned map without affecting the client's internal
+// state.
 func (c *Client) GetDevices() map[string]*Device {
-	return c.devices
+	c.devicesMu.RLock()
+	defer c.devicesMu.RUnlock()
+	out := make(map[string]*Device, len(c.devices))
+	for k, v := range c.devices {
+		out[k] = v
+	}
+	return out
 }
 
-// PacketCaptureConfig configures packet capture behavior
+// recordDevice stores a discovered device under its MAC. Used by the
+// discovery listener; takes the write lock so it's safe to call
+// concurrently with reads.
+func (c *Client) recordDevice(d *Device) {
+	c.devicesMu.Lock()
+	c.devices[d.MAC] = d
+	c.devicesMu.Unlock()
+}
+
+// PacketCaptureConfig configures packet capture behavior. The capture
+// deadline comes from the caller's context; there's no inner timeout.
 type PacketCaptureConfig struct {
-	Purpose    string        // Description of what this capture is for
-	Timeout    time.Duration // Timeout for the entire operation
-	SourceIP   string        // Expected source IP (empty string accepts any IP including 0.0.0.0)
-	SourcePort uint16        // Expected source port (defaults to 17784)
+	Purpose    string // Description of what this capture is for
+	SourceIP   string // Expected source IP (empty string accepts any IP including 0.0.0.0)
+	SourcePort uint16 // Expected source port (defaults to 17784)
 }
 
 // PacketCaptureResult contains the result of packet capture
@@ -372,48 +412,20 @@ type PacketCaptureResult struct {
 	SrcPort uint16
 }
 
-// getActiveNetworkInterface returns a suitable network interface name for packet operations.
-// This replaces pcap.FindAllDevs() with pure Go networking.
-func getActiveNetworkInterface() (string, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return "", fmt.Errorf("failed to get network interfaces: %w", err)
-	}
-
-	// First pass: prefer "en" (macOS) or "eth" (Linux) interfaces
-	for _, iface := range interfaces {
-		// Skip down or loopback interfaces
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-
-		// Prefer standard interface prefixes
-		if strings.HasPrefix(iface.Name, "en") || strings.HasPrefix(iface.Name, "eth") {
-			addrs, err := iface.Addrs()
-			if err == nil && len(addrs) > 0 {
-				return iface.Name, nil
-			}
-		}
-	}
-
-	// Fallback: return first active interface with addresses
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, err := iface.Addrs()
-		if err == nil && len(addrs) > 0 {
-			return iface.Name, nil
-		}
-	}
-
-	return "", fmt.Errorf("no suitable network interface found")
-}
-
-// capturePacketWithContext performs UDP packet capture using standard Go networking.
-// This replaces the previous pcap-based implementation for cross-platform compatibility.
+// capturePacketWithContext reads packets from the client's UDP socket
+// and returns the first one matching the supplied filter. Deadline
+// comes from ctx — no inner timeout. Stale packets in the socket
+// buffer (responses from previous operations, or our own kernel-looped
+// broadcasts that arrived after a previous capture returned) are
+// drained first so they don't get mistaken for the current operation's
+// response.
+//
+// Earlier versions tried to bind a fresh socket on UDP 17784 first and
+// fell back to c.conn only on EADDRINUSE. The fresh-bind path always
+// failed because c.conn already holds the port, so it was unreachable
+// and just emitted a noisy "Using existing connection" debug line.
+// The fresh-bind path has been removed.
 func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
-	// Set defaults
 	if config.SourcePort == 0 {
 		config.SourcePort = Port
 	}
@@ -421,114 +433,14 @@ func (c *Client) capturePacketWithContext(ctx context.Context, config PacketCapt
 		config.Purpose = "packet capture"
 	}
 
-	// Create context with timeout if specified
-	captureCtx := ctx
-	if config.Timeout > 0 {
-		var cancel context.CancelFunc
-		captureCtx, cancel = context.WithTimeout(ctx, config.Timeout)
-		defer cancel()
-	}
-
-	// Create a dedicated listening socket on the UDAP port
-	// Use udp4 explicitly for consistency with the main client socket
-	listenAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", Port))
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve listen address for %s: %w", config.Purpose, err)
-	}
-
-	conn, err := net.ListenUDP("udp4", listenAddr)
-	if err != nil {
-		// If we can't create a new listener (port in use), use the existing client connection
-		c.logger.Debug("Using existing connection for capture", "reason", err.Error(), "purpose", config.Purpose)
-		return c.capturePacketFromExistingConn(captureCtx, config)
-	}
-	defer conn.Close()
-
-	// Enable socket options for proper broadcast reception
-	enableBroadcastSimple(conn, c.logger)
-
-	// Set read deadline from context
-	if deadline, ok := captureCtx.Deadline(); ok {
-		conn.SetReadDeadline(deadline)
-	}
-
-	c.logger.Info("Started UDP capture", "purpose", config.Purpose, "port", Port)
-
-	buffer := make([]byte, 2048)
-	for {
-		select {
-		case <-captureCtx.Done():
-			return nil, fmt.Errorf("capture timeout for %s: %w", config.Purpose, captureCtx.Err())
-		default:
-			n, srcAddr, err := conn.ReadFromUDP(buffer)
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					return nil, fmt.Errorf("capture timeout for %s: no matching packet received", config.Purpose)
-				}
-				return nil, fmt.Errorf("read error during %s: %w", config.Purpose, err)
-			}
-
-			srcIP := srcAddr.IP.String()
-			srcPort := uint16(srcAddr.Port)
-
-			// Filter by source criteria
-			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
-			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
-			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
-
-			if ipMatches && portMatches && n > 0 {
-				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
-
-				result := &PacketCaptureResult{
-					Payload: make([]byte, n),
-					SrcIP:   srcIP,
-					SrcPort: srcPort,
-				}
-				copy(result.Payload, buffer[:n])
-				return result, nil
-			}
-		}
-	}
-}
-
-// flushStalePackets reads and discards any pending packets from the socket buffer.
-// This prevents stale responses from previous operations being mistaken for new responses.
-func (c *Client) flushStalePackets() {
-	buffer := make([]byte, 2048)
-	flushedCount := 0
-
-	// Set a very short deadline to quickly drain any pending packets
-	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
-	defer c.conn.SetReadDeadline(time.Time{})
-
-	for {
-		n, addr, err := c.conn.ReadFromUDP(buffer)
-		if err != nil {
-			// Timeout or other error means no more pending packets
-			break
-		}
-		flushedCount++
-		c.logger.Debug("Flushed stale packet", "bytes", n, "src_ip", addr.IP.String())
-	}
-
-	if flushedCount > 0 {
-		c.logger.Debug("Flushed stale packets from buffer", "count", flushedCount)
-	}
-}
-
-// capturePacketFromExistingConn captures a packet using the client's existing UDP connection.
-// This is used as a fallback when a dedicated capture socket cannot be created.
-func (c *Client) capturePacketFromExistingConn(ctx context.Context, config PacketCaptureConfig) (*PacketCaptureResult, error) {
-	// First, flush any stale packets from the buffer by reading with a very short timeout
 	c.flushStalePackets()
 
-	// Set read deadline from context
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetReadDeadline(deadline)
 	}
 	defer c.conn.SetReadDeadline(time.Time{})
 
-	c.logger.Info("Started UDP capture on existing connection", "purpose", config.Purpose, "port", Port)
+	c.logger.Info("Started UDP capture", "purpose", config.Purpose, "port", Port)
 	c.logger.Debug("Capture filter", "expected_source_ip", config.SourceIP, "expected_source_port", config.SourcePort)
 
 	buffer := make([]byte, 2048)
@@ -547,11 +459,15 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 
 			srcIP := srcAddr.IP.String()
 			srcPort := uint16(srcAddr.Port)
-
 			c.logger.Debug("Capture received packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
 
-			// Filter by source criteria
-			// Accept if: no specific source IP required OR source IP matches OR source is 0.0.0.0 (bootstrap mode)
+			if isUDAPRequestPacket(buffer, n) {
+				c.logger.Debug("Skipped looped-back request packet", "purpose", config.Purpose, "src_ip", srcIP)
+				continue
+			}
+
+			// Accept if: no specific source IP required OR source IP matches
+			// OR source is 0.0.0.0 (bootstrap mode).
 			ipMatches := config.SourceIP == "" || srcIP == config.SourceIP || srcIP == "0.0.0.0"
 			portMatches := config.SourcePort == 0 || srcPort == config.SourcePort
 
@@ -563,18 +479,43 @@ func (c *Client) capturePacketFromExistingConn(ctx context.Context, config Packe
 				c.logger.Debug("Packet filtered out", "reason", "port mismatch", "expected", config.SourcePort, "got", srcPort)
 				continue
 			}
-
-			if n > 0 {
-				c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
-
-				result := &PacketCaptureResult{
-					Payload: make([]byte, n),
-					SrcIP:   srcIP,
-					SrcPort: srcPort,
-				}
-				copy(result.Payload, buffer[:n])
-				return result, nil
+			if n == 0 {
+				continue
 			}
+
+			c.logger.Info("Found matching packet", "purpose", config.Purpose, "bytes", n, "src_ip", srcIP, "src_port", srcPort)
+			result := &PacketCaptureResult{
+				Payload: make([]byte, n),
+				SrcIP:   srcIP,
+				SrcPort: srcPort,
+			}
+			copy(result.Payload, buffer[:n])
+			return result, nil
 		}
+	}
+}
+
+// flushStalePackets reads and discards any pending packets from the socket
+// buffer with a very short read deadline. Prevents responses from previous
+// operations (or our own looped-back broadcasts) being mistaken for the
+// next operation's response.
+func (c *Client) flushStalePackets() {
+	buffer := make([]byte, 2048)
+	flushedCount := 0
+
+	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+	defer c.conn.SetReadDeadline(time.Time{})
+
+	for {
+		n, addr, err := c.conn.ReadFromUDP(buffer)
+		if err != nil {
+			break
+		}
+		flushedCount++
+		c.logger.Debug("Flushed stale packet", "bytes", n, "src_ip", addr.IP.String())
+	}
+
+	if flushedCount > 0 {
+		c.logger.Debug("Flushed stale packets from buffer", "count", flushedCount)
 	}
 }

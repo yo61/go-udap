@@ -3,25 +3,35 @@ package udap
 import (
 	"fmt"
 	"net"
-	"regexp"
+	"strconv"
 	"strings"
-	"time"
 )
 
-// Regular expressions for validation
-var (
-	macRegex  = regexp.MustCompile(`^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$`)
-	uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-)
-
-// isValidMAC validates MAC address format (XX:XX:XX:XX:XX:XX)
+// isValidMAC reports whether mac is in canonical XX:XX:XX:XX:XX:XX form
+// (case-insensitive). Hand-rolled to avoid pulling regexp + regexp/syntax
+// (~80KB of binary size) for one trivial validation.
 func isValidMAC(mac string) bool {
-	return macRegex.MatchString(mac)
-}
-
-// isValidUUID validates UUID format
-func isValidUUID(uuid string) bool {
-	return uuid == "" || uuidRegex.MatchString(uuid)
+	if len(mac) != 17 {
+		return false
+	}
+	for i := 0; i < 17; i++ {
+		c := mac[i]
+		// colons at positions 2, 5, 8, 11, 14
+		if i%3 == 2 {
+			if c != ':' {
+				return false
+			}
+			continue
+		}
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'a' && c <= 'f':
+		case c >= 'A' && c <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // isValidIP validates IPv4 address format
@@ -34,25 +44,30 @@ func isValidIP(ip string) bool {
 	return parsedIP.To4() != nil
 }
 
+// ValidateParameter validates a single configuration parameter by name and value.
+// Unknown parameter names are accepted (return nil); rejection of unknown names
+// happens at the CLI boundary.
+func ValidateParameter(name, value string) error {
+	return validateParameter(name, value)
+}
+
 // validateParameter validates a configuration parameter based on its name and type
 func validateParameter(name, value string) error {
-	setting, exists := ConfigSettings[name]
+	p, exists := ParameterByName(name)
 	if !exists {
 		// Unknown parameter, but we'll allow it
 		return nil
 	}
 
-	switch setting.Length {
+	switch p.Length {
 	case 1:
-		// Single byte numeric value
-		var val uint8
-		if _, err := fmt.Sscanf(value, "%d", &val); err != nil {
+		// Single byte numeric value. ParseUint is stricter than fmt.Sscanf
+		// (which would silently accept "1abc" as 1).
+		if _, err := strconv.ParseUint(value, 10, 8); err != nil {
 			return fmt.Errorf("expected numeric value (0-255), got %q", value)
 		}
 	case 2:
-		// Two byte numeric value
-		var val uint16
-		if _, err := fmt.Sscanf(value, "%d", &val); err != nil {
+		if _, err := strconv.ParseUint(value, 10, 16); err != nil {
 			return fmt.Errorf("expected numeric value (0-65535), got %q", value)
 		}
 	case 4:
@@ -62,8 +77,8 @@ func validateParameter(name, value string) error {
 		}
 	default:
 		// String parameters
-		if len(value) > int(setting.Length) {
-			return fmt.Errorf("value too long (max %d chars), got %d", setting.Length, len(value))
+		if len(value) > int(p.Length) {
+			return fmt.Errorf("value too long (max %d chars), got %d", p.Length, len(value))
 		}
 	}
 
@@ -76,9 +91,8 @@ func validateParameter(name, value string) error {
 		}
 	case "wireless_channel":
 		// Typically 1-11 in US, 1-13 in EU
-		var ch int
-		fmt.Sscanf(value, "%d", &ch)
-		if ch < 1 || ch > 13 {
+		ch, err := strconv.Atoi(value)
+		if err != nil || ch < 1 || ch > 13 {
 			return fmt.Errorf("must be between 1 and 13")
 		}
 	case "wireless_keylen":
@@ -111,11 +125,6 @@ func (d *Device) Validate() error {
 	// Validate IP address if not in bootstrap mode
 	if d.IP != "" && d.IP != "0.0.0.0" && !isValidIP(d.IP) {
 		return fmt.Errorf("invalid IP address: %s", d.IP)
-	}
-
-	// Validate UUID if provided
-	if !isValidUUID(d.UUID) {
-		return fmt.Errorf("invalid UUID format: %s", d.UUID)
 	}
 
 	// Validate name length
@@ -160,7 +169,7 @@ func (p *Packet) Validate() error {
 	switch p.UCPMethod {
 	case MethodDiscover, MethodGetIP, MethodReset,
 		MethodGetData, MethodSetData, MethodError,
-		MethodSetDataAck, MethodAdvDisc:
+		MethodCredentialsError, MethodAdvDisc:
 		// Valid methods
 	default:
 		return fmt.Errorf("unknown UCP method: 0x%04x", p.UCPMethod)
@@ -190,44 +199,14 @@ func (t *TLVData) Validate() error {
 	return nil
 }
 
-// Validate checks if the ConfigSetting struct contains valid data
-func (c *ConfigSetting) Validate() error {
-	// Check for reasonable offset (NVRAM typically < 64KB)
-	if c.Offset > MaxNVRAMOffset {
-		return fmt.Errorf("offset too large: %d", c.Offset)
-	}
-
-	// Check for reasonable length
-	if c.Length == 0 {
-		return fmt.Errorf("length cannot be zero")
-	}
-	if c.Length > MaxConfigLength {
-		return fmt.Errorf("length too large: %d (max %d)", c.Length, MaxConfigLength)
-	}
-
-	return nil
-}
-
 // Validate checks if the PacketCaptureConfig struct contains valid data
 func (p *PacketCaptureConfig) Validate() error {
-	// Validate timeout
-	if p.Timeout < 0 {
-		return fmt.Errorf("timeout cannot be negative")
-	}
-	if p.Timeout > MaxTimeoutMinutes*60*time.Second {
-		return fmt.Errorf("timeout too large (max %d minutes)", MaxTimeoutMinutes)
-	}
-
-	// Validate source IP if provided
 	if p.SourceIP != "" && !isValidIP(p.SourceIP) {
 		return fmt.Errorf("invalid source IP: %s", p.SourceIP)
 	}
-
-	// Validate source port
 	if p.SourcePort > 65535 {
 		return fmt.Errorf("invalid source port: %d", p.SourcePort)
 	}
-
 	return nil
 }
 
