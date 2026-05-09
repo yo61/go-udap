@@ -44,6 +44,20 @@ func TestRunVersionFlag(t *testing.T) {
 	}
 }
 
+func TestVersionVariableIsOverridable(t *testing.T) {
+	original := Version
+	t.Cleanup(func() { Version = original })
+	Version = "test-1.2.3"
+
+	var stdout, stderr bytes.Buffer
+	if err := Run([]string{"--version"}, &stdout, &stderr); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !strings.Contains(stdout.String(), "test-1.2.3") {
+		t.Errorf("expected version output to contain 'test-1.2.3', got %q", stdout.String())
+	}
+}
+
 func TestMoveGlobalFlagsAfterSubcommand(t *testing.T) {
 	cases := []struct {
 		name string
