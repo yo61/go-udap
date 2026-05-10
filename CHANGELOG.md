@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0](https://github.com/yo61/go-udap/compare/v1.2.0...v1.3.0) (2026-05-10)
+
+### Features
+
+* **mocksbr:** add Phase 3 failure injection and InjectReply ([#18](https://github.com/yo61/go-udap/issues/18)) ([85c3df5](https://github.com/yo61/go-udap/commit/85c3df544ed3ee94bd9844db5a69a6133ea591c3))
+
 ## [1.2.0](https://github.com/yo61/go-udap/compare/v1.1.1...v1.2.0) (2026-05-10)
 
 ### Features
