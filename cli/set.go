@@ -55,7 +55,7 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	var fileLabel string
 	switch {
 	case *configPath == "-":
-		fileContent = os.Stdin
+		fileContent = stdinReader
 		fileLabel = "-"
 	case *configPath != "":
 		f, err := os.Open(*configPath)
@@ -68,10 +68,10 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	}
 
 	// Detect piped stdin (only consulted when no --config was given).
-	stdinPiped := isStdinPiped()
+	stdinPiped := stdinIsPiped()
 	var stdinContent io.Reader
 	if stdinPiped {
-		stdinContent = os.Stdin
+		stdinContent = stdinReader
 	}
 
 	merged, err := mergeSources(sourceInputs{
@@ -116,6 +116,14 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	}
 	return nil
 }
+
+// stdinReader and stdinIsPiped are package-level seams used by e2e
+// tests to substitute controlled stdin sources. Production code does
+// not reassign them.
+var (
+	stdinReader  io.Reader = os.Stdin
+	stdinIsPiped           = isStdinPiped
+)
 
 // isStdinPiped returns true when stdin is not a terminal (i.e. data is piped
 // or redirected from a file). False if stdin is interactive or unavailable.
