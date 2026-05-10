@@ -85,11 +85,18 @@ func (c *Client) createUdapPacket(dstMAC [6]byte, method uint16, flags uint8, br
 		SrcBroadcast: 0,                      // Source is never broadcast
 		SrcType:      AddrTypeETH,            // Use ETH type like Lua implementation
 		SrcAddress:   [MACAddressSize]byte{}, // All zeros for source
-		Sequence:     uint16(seq),
-		UDAPType:     TypeUCP, // Always 0xC001
-		UCPFlags:     flags,
-		UAPClass:     [4]byte{0x00, 0x01, 0x00, 0x01}, // Always UAP_CLASS_UCP
-		UCPMethod:    method,
+		// The wire field is uint16 by spec; the internal counter is
+		// uint32 so it never overflows in practice. The mask wraps
+		// modulo 65536 explicitly — a uint32→uint16 cast does the
+		// same arithmetic, but spelling it out documents the intent
+		// and makes any future "drop the cast and call atomic.Add
+		// directly" regression a compile error rather than a silent
+		// truncation.
+		Sequence:  uint16(seq & 0xFFFF),
+		UDAPType:  TypeUCP, // Always 0xC001
+		UCPFlags:  flags,
+		UAPClass:  [4]byte{0x00, 0x01, 0x00, 0x01}, // Always UAP_CLASS_UCP
+		UCPMethod: method,
 	}
 }
 
