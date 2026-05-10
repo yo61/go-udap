@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.4](https://github.com/yo61/go-udap/compare/v1.3.3...v1.3.4) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** clamp parseGetDataResponse map size hint ([#22](https://github.com/yo61/go-udap/issues/22)) ([ee1ffe4](https://github.com/yo61/go-udap/commit/ee1ffe45564f55fe1e55a1bed22391fc78d1ff7c))
+
 ## [1.3.3](https://github.com/yo61/go-udap/compare/v1.3.2...v1.3.3) (2026-05-10)
 
 ### Bug Fixes
