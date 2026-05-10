@@ -49,3 +49,4 @@ dist/
 # Task runner and verify caches
 .task/
 .verify/
+report.json
