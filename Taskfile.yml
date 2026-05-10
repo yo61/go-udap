@@ -130,3 +130,18 @@ tasks:
     desc: Run without building; pass CLI args via -- (e.g. task dev -- discover)
     cmds:
       - go run . {{.CLI_ARGS}}
+
+  mutate:
+    desc: 'Run mutation testing against udap/getdata_response.go (protocol
+      parser; clean unit tests, deterministic results). Requires
+      go-mutesting: `go install
+      github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest`.
+      Whole-package runs against ./udap/... are unreliable here because
+      timing-sensitive tests (Slow injection, --timeout assertions) flake
+      under concurrent mutation runs and produce noisy "survivor" lists.
+      Use this target for periodic audits of protocol-parsing files only;
+      target other files explicitly via `go-mutesting <file>`. Not run
+      in CI — too slow per-PR.'
+    cmds:
+      - command -v go-mutesting >/dev/null || { echo "go-mutesting not in PATH; run 'go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest'"; exit 1; }
+      - go-mutesting udap/getdata_response.go
