@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.5](https://github.com/yo61/go-udap/compare/v1.3.4...v1.3.5) (2026-05-10)
+
+### Bug Fixes
+
+* **cli:** share one context between discovery and the operation ([#26](https://github.com/yo61/go-udap/issues/26)) ([ab049e5](https://github.com/yo61/go-udap/commit/ab049e57f36919d2012bba72abe6a6543968fc12))
+
 ## [1.3.4](https://github.com/yo61/go-udap/compare/v1.3.3...v1.3.4) (2026-05-10)
 
 ### Bug Fixes
