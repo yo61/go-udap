@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
 // Client handles UDAP protocol communication via an injected Transport.
@@ -49,11 +50,13 @@ func newClientWithPort(port int, logger Logger) (*Client, error) {
 // NewClientWithTransport constructs a Client using an arbitrary Transport.
 // Used by tests that want to inject a MockTransport (from the mocksbr
 // package) for hermetic in-process testing.
+//
+// sequence starts at 0 because createUdapPacket uses
+// atomic.AddUint32(_, 1), so the first packet's Sequence is 1.
 func NewClientWithTransport(t Transport, logger Logger) *Client {
 	return &Client{
 		transport: t,
 		devices:   make(map[string]*Device),
-		sequence:  1,
 		logger:    logger,
 	}
 }
@@ -64,29 +67,30 @@ func (c *Client) Close() error {
 }
 
 // createUdapPacket creates the common UDAP packet header structure
-// All UDAP messages share the same initial format up to UCPMethod
+// All UDAP messages share the same initial format up to UCPMethod.
+// The sequence number is bumped atomically so concurrent Create*
+// callers cannot race on the counter.
 func (c *Client) createUdapPacket(dstMAC [6]byte, method uint16, flags uint8, broadcast bool) Packet {
 	var dstBroadcast uint8
 	if broadcast {
 		dstBroadcast = 1
 	}
 
-	packet := Packet{
+	seq := atomic.AddUint32(&c.sequence, 1)
+
+	return Packet{
 		DstBroadcast: dstBroadcast,
 		DstType:      AddrTypeETH, // Always use Ethernet addressing
 		DstAddress:   dstMAC,
 		SrcBroadcast: 0,                      // Source is never broadcast
 		SrcType:      AddrTypeETH,            // Use ETH type like Lua implementation
 		SrcAddress:   [MACAddressSize]byte{}, // All zeros for source
-		Sequence:     uint16(c.sequence),
+		Sequence:     uint16(seq),
 		UDAPType:     TypeUCP, // Always 0xC001
 		UCPFlags:     flags,
 		UAPClass:     [4]byte{0x00, 0x01, 0x00, 0x01}, // Always UAP_CLASS_UCP
 		UCPMethod:    method,
 	}
-
-	c.sequence++
-	return packet
 }
 
 // CreateDiscoveryPacket creates a standard UDAP discovery packet (method 0x0001)
