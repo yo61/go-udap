@@ -7,14 +7,23 @@ import (
 	"maps"
 )
 
-// waitForDeviceReply blocks on transport.Recv until it receives a packet
-// whose source MAC matches device.MAC, or until ctx is cancelled. Returns
-// the parsed packet header and trailing payload bytes. Replies from
-// other devices and stray traffic are silently dropped.
+// waitForDeviceReply blocks on transport.Recv until it receives a
+// packet matching device, or until ctx is cancelled. A reply matches
+// when both:
+//
+//   - the in-payload SrcAddress equals device.MAC, AND
+//   - the transport-reported source (an IP for UDPTransport) equals
+//     device.IP, when device.IP is set.
+//
+// The transport-source check (review finding #6) makes a forged UDAP
+// packet from a LAN attacker spoofing the target's MAC ineffective —
+// the reply has to arrive from the address discovery learned. When
+// device.IP is empty (e.g. the caller bypassed discovery), the check
+// falls back to MAC-only matching for backward compatibility.
 func (c *Client) waitForDeviceReply(ctx context.Context, device *Device) (*Packet, []byte, error) {
 	want := device.MAC
 	for {
-		reply, _, err := c.transport.Recv(ctx)
+		reply, src, err := c.transport.Recv(ctx)
 		if err != nil {
 			return nil, nil, fmt.Errorf("recv reply for %s: %w", want, err)
 		}
@@ -28,6 +37,11 @@ func (c *Client) waitForDeviceReply(ctx context.Context, device *Device) (*Packe
 			packet.SrcAddress[3], packet.SrcAddress[4], packet.SrcAddress[5])
 		if gotMAC != want {
 			c.logger.Debug("ignoring reply from different device", "from", gotMAC, "want", want)
+			continue
+		}
+		if device.IP != "" && src != device.IP {
+			c.logger.Warn("ignoring reply with mismatched source",
+				"mac", gotMAC, "src", src, "expected", device.IP)
 			continue
 		}
 		return packet, data, nil
