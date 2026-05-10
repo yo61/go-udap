@@ -3,18 +3,40 @@ package mocksbr
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"go-udap/udap"
 )
 
+// ScheduledReply is a reply packet plus the time the responding device
+// would take to send it. Callers (MockTransport, cmd/mocksbr's UDP
+// server) use Delay to time.AfterFunc the actual delivery so that
+// DeviceConfig.Slow visibly affects the wire timeline.
+type ScheduledReply struct {
+	Bytes []byte
+	Delay time.Duration
+}
+
 // Receive feeds an inbound packet to the matching device(s) and returns
-// zero or more reply packets.
+// zero or more reply packets, ignoring any per-device Slow delay. Use
+// ReceiveScheduled to honour Slow.
 //
 //   - Discovery requests (broadcast) fan out to every device.
 //   - Unicast requests (GetData, SetData, Reset) target one device by
 //     destination MAC. Unknown MACs produce no replies.
 //   - Devices in their post-Reset reboot window silently drop packets.
 func (n *Network) Receive(packetBytes []byte) [][]byte {
+	scheduled := n.ReceiveScheduled(packetBytes)
+	out := make([][]byte, 0, len(scheduled))
+	for _, s := range scheduled {
+		out = append(out, s.Bytes)
+	}
+	return out
+}
+
+// ReceiveScheduled is like Receive but returns each reply paired with
+// the responding device's configured Slow duration.
+func (n *Network) ReceiveScheduled(packetBytes []byte) []ScheduledReply {
 	pkt, payload, err := udap.ParsePacket(packetBytes)
 	if err != nil {
 		n.logger.Debug("mocksbr: ignoring unparseable packet", "error", err)
@@ -25,15 +47,15 @@ func (n *Network) Receive(packetBytes []byte) [][]byte {
 	case udap.MethodDiscover, udap.MethodAdvDisc:
 		return n.handleDiscovery(pkt)
 	case udap.MethodGetData:
-		return n.dispatchUnicast(pkt, func(d *device) []byte {
+		return n.dispatchUnicast(pkt, OpGet, func(d *device) []byte {
 			return d.buildGetDataResponse(pkt, payload)
 		})
 	case udap.MethodSetData:
-		return n.dispatchUnicast(pkt, func(d *device) []byte {
+		return n.dispatchUnicast(pkt, OpSet, func(d *device) []byte {
 			return d.handleSetData(pkt, payload)
 		})
 	case udap.MethodReset:
-		return n.dispatchUnicast(pkt, func(d *device) []byte {
+		return n.dispatchUnicast(pkt, OpReset, func(d *device) []byte {
 			ack := d.buildResetAck(pkt)
 			d.startReboot()
 			d.applyReset()
@@ -48,26 +70,38 @@ func (n *Network) Receive(packetBytes []byte) [][]byte {
 
 // handleDiscovery returns one discovery response per device, in the
 // stable insertion order used by NewNetwork/Add. Devices in their
-// reboot window are skipped.
-func (n *Network) handleDiscovery(pkt *udap.Packet) [][]byte {
+// reboot window, marked Unreachable, or with FailOn=OpDiscover are
+// skipped (real devices that reject discovery simply don't reply).
+func (n *Network) handleDiscovery(pkt *udap.Packet) []ScheduledReply {
 	n.mu.Lock()
 	macs := append([]string(nil), n.order...)
 	n.mu.Unlock()
 
-	replies := make([][]byte, 0, len(macs))
+	replies := make([]ScheduledReply, 0, len(macs))
 	for _, mac := range macs {
 		d := n.devices[mac]
+		if d.cfg.Unreachable {
+			continue
+		}
+		if d.failsOn(OpDiscover) {
+			continue
+		}
 		if d.rebooting() {
 			continue
 		}
-		replies = append(replies, d.buildDiscoveryResponse(pkt))
+		replies = append(replies, ScheduledReply{
+			Bytes: d.buildDiscoveryResponse(pkt),
+			Delay: d.cfg.Slow,
+		})
 	}
 	return replies
 }
 
 // dispatchUnicast looks up the target device by destination MAC and
-// invokes handler if the device is present and not rebooting.
-func (n *Network) dispatchUnicast(pkt *udap.Packet, handler func(*device) []byte) [][]byte {
+// invokes handler if the device is present, reachable, not rebooting,
+// and not configured to fail on op. A FailOn match swaps the handler
+// output for a MethodError response.
+func (n *Network) dispatchUnicast(pkt *udap.Packet, op Op, handler func(*device) []byte) []ScheduledReply {
 	mac := strings.ToLower(formatMAC(pkt.DstAddress))
 
 	n.mu.Lock()
@@ -77,15 +111,24 @@ func (n *Network) dispatchUnicast(pkt *udap.Packet, handler func(*device) []byte
 		n.logger.Debug("mocksbr: no device for MAC", "mac", mac)
 		return nil
 	}
+	if d.cfg.Unreachable {
+		n.logger.Debug("mocksbr: device unreachable, dropping packet", "mac", mac)
+		return nil
+	}
 	if d.rebooting() {
 		n.logger.Debug("mocksbr: device rebooting, dropping packet", "mac", mac)
 		return nil
+	}
+	if d.failsOn(op) {
+		n.logger.Debug("mocksbr: device configured to fail", "mac", mac, "op", op)
+		errReply := d.buildErrorResponse(pkt, "mocksbr: configured to fail "+string(op))
+		return []ScheduledReply{{Bytes: errReply, Delay: d.cfg.Slow}}
 	}
 	reply := handler(d)
 	if reply == nil {
 		return nil
 	}
-	return [][]byte{reply}
+	return []ScheduledReply{{Bytes: reply, Delay: d.cfg.Slow}}
 }
 
 // handleSetData parses the request, applies recognized params to working

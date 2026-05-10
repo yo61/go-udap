@@ -98,15 +98,35 @@ func writeTLV(buf *bytes.Buffer, t byte, value []byte) {
 
 // buildGetDataResponse constructs a GetData response (UCPMethod=0x0005)
 // containing offset/length/value triples for each (offset, length) pair
-// in the request payload.
+// in the request payload. If d.cfg.Malformed is set, the response is
+// post-processed into a deliberately broken shape.
 func (d *device) buildGetDataResponse(req *udap.Packet, payload []byte) []byte {
-	hdr := buildHeader(req, d.cfg.MAC, udap.MethodGetData)
+	method := uint16(udap.MethodGetData)
+	if d.cfg.Malformed == MalformedUnknownMethod {
+		method = 0x9999
+	}
+	hdr := buildHeader(req, d.cfg.MAC, method)
 
 	requested := parseGetDataRequest(payload)
 	working := d.snapshotWorking()
 
 	buf := new(bytes.Buffer)
 	_ = binary.Write(buf, binary.BigEndian, hdr)
+
+	switch d.cfg.Malformed {
+	case MalformedOversizedCount:
+		// Promise 65535 items, write zero bodies. The client should
+		// fail at the per-item bounds check.
+		_ = binary.Write(buf, binary.BigEndian, uint16(0xFFFF))
+		return buf.Bytes()
+	case MalformedLengthExceedsPayload:
+		// Promise 1 item, declare length=1000, write nothing.
+		_ = binary.Write(buf, binary.BigEndian, uint16(1))
+		_ = binary.Write(buf, binary.BigEndian, uint16(0)) // offset
+		_ = binary.Write(buf, binary.BigEndian, uint16(1000))
+		return buf.Bytes()
+	}
+
 	_ = binary.Write(buf, binary.BigEndian, uint16(len(requested)))
 	for _, item := range requested {
 		_ = binary.Write(buf, binary.BigEndian, item.offset)
@@ -131,6 +151,23 @@ func (d *device) buildSetDataAck(req *udap.Packet, accepted uint16) []byte {
 func (d *device) buildResetAck(req *udap.Packet) []byte {
 	hdr := buildHeader(req, d.cfg.MAC, udap.MethodReset)
 	return encodeHeader(hdr)
+}
+
+// buildErrorResponse constructs a MethodError (0x0007) response with a
+// single TLVTypeErrorMessage payload. Used by the FailOn failure
+// injection knob to simulate devices that reject a request.
+func (d *device) buildErrorResponse(req *udap.Packet, message string) []byte {
+	hdr := buildHeader(req, d.cfg.MAC, udap.MethodError)
+	if len(message) > udap.MaxTLVValueLength {
+		message = message[:udap.MaxTLVValueLength]
+	}
+	payload := udap.EncodeTLV([]udap.TLVData{{
+		Type:   udap.TLVTypeErrorMessage,
+		Length: uint8(len(message)),
+		Value:  []byte(message),
+	}})
+	out := encodeHeader(hdr)
+	return append(out, payload...)
 }
 
 // getDataItem represents one (offset, length, name) tuple decoded from
