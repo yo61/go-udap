@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
+	"go-udap/udap"
 )
 
 func runSet(args []string, stdout, stderr io.Writer) error {
@@ -41,13 +43,21 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 		return &ExitError{Code: 1, Err: err}
 	}
 
-	// Collect per-param flag values that were actually set.
+	// Collect per-param flag values that were actually set, and reject
+	// invalid ones up front (review finding #2). The INI/stdin path
+	// already runs through ParseINI which calls udap.ValidateParameter;
+	// before this gate, --<param> VALUE flags slipped past it and were
+	// silently zero-filled by CreateSetDataPacket on parse failure.
 	flagValues := make(map[string]string)
 	for _, p := range pf {
 		if !fs.Changed(p.flagName) {
 			continue
 		}
-		flagValues[p.udapName] = paramValues[p.udapName].String()
+		val := paramValues[p.udapName].String()
+		if err := udap.ValidateParameter(p.udapName, val); err != nil {
+			return &ExitError{Code: 1, Err: fmt.Errorf("--%s: %w", p.flagName, err)}
+		}
+		flagValues[p.udapName] = val
 	}
 
 	// Resolve --config (file path, "-" for stdin, or unset).
