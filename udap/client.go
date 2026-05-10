@@ -261,38 +261,31 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) (
 
 		switch entry.Length {
 		case 4:
-			// Check if this is an IP address parameter (all 4-byte parameters are IP addresses)
-			// Parse IP address and convert to 4 bytes
+			// All 4-byte parameters are IPv4 addresses. Reject anything
+			// that doesn't parse — pre-fix this used to silently zero-fill,
+			// so a typo like "192.168.1.x" would write 0.0.0.0 to NVRAM.
 			ip := net.ParseIP(entry.value)
-			if ip != nil {
-				ip = ip.To4()
-				if ip != nil {
-					data = []byte(ip)
-				} else {
-					c.logger.Warn("Invalid IPv4 address", "param", entry.Name, "value", entry.value, "device_mac", device.MAC)
-					data = make([]byte, 4) // Use zeros
-				}
-			} else {
-				c.logger.Warn("Could not parse IP address", "param", entry.Name, "value", entry.value, "device_mac", device.MAC)
-				data = make([]byte, 4) // Use zeros
+			if ip == nil {
+				return nil, fmt.Errorf("param %q: cannot parse %q as IPv4 address", entry.Name, entry.value)
 			}
+			ip4 := ip.To4()
+			if ip4 == nil {
+				return nil, fmt.Errorf("param %q: %q is not an IPv4 address", entry.Name, entry.value)
+			}
+			data = []byte(ip4)
 		case 1:
-			// Single byte numeric values - convert string to integer
-			if val, err := strconv.ParseUint(entry.value, 10, 8); err == nil {
-				data = []byte{byte(val)}
-			} else {
-				c.logger.Warn("Invalid numeric value", "param", entry.Name, "value", entry.value, "type", "uint8", "device_mac", device.MAC)
-				data = []byte{0} // Use zero as fallback
+			val, err := strconv.ParseUint(entry.value, 10, 8)
+			if err != nil {
+				return nil, fmt.Errorf("param %q: %q is not a valid uint8: %w", entry.Name, entry.value, err)
 			}
+			data = []byte{byte(val)}
 		case 2:
-			// Two byte numeric values - convert string to integer
-			if val, err := strconv.ParseUint(entry.value, 10, 16); err == nil {
-				data = make([]byte, 2)
-				binary.BigEndian.PutUint16(data, uint16(val))
-			} else {
-				c.logger.Warn("Invalid numeric value", "param", entry.Name, "value", entry.value, "type", "uint16", "device_mac", device.MAC)
-				data = make([]byte, 2) // Use zeros as fallback
+			val, err := strconv.ParseUint(entry.value, 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("param %q: %q is not a valid uint16: %w", entry.Name, entry.value, err)
 			}
+			data = make([]byte, 2)
+			binary.BigEndian.PutUint16(data, uint16(val))
 		default:
 			// String data
 			data = []byte(entry.value)

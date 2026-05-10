@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -40,11 +41,15 @@ func startMockEnv(t *testing.T, n int) *e2eEnv {
 }
 
 // runCLI invokes Run with the given argv. Stdout, stderr, and the exit
-// code are returned. Errors are surfaced via exitCode (matching the
-// real binary's behaviour).
+// code are returned. Errors that Run propagates are appended to stderr
+// in the same "error: <msg>" form main.go prints, so tests see what
+// the real binary would have shown the user.
 func (e *e2eEnv) runCLI(t *testing.T, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
 	var outBuf, errBuf bytes.Buffer
 	err := Run(args, &outBuf, &errBuf)
+	if err != nil {
+		fmt.Fprintln(&errBuf, "error:", err)
+	}
 	return outBuf.String(), errBuf.String(), ExitCode(err)
 }
