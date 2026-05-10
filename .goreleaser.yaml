@@ -56,9 +56,8 @@ checksum:
 release:
   draft: true
 
-brews:
+homebrew_casks:
   - name: go-udap
-    directory: Formula
     repository:
       owner: yo61
       name: homebrew-tap
@@ -67,12 +66,14 @@ brews:
     homepage: "https://github.com/yo61/go-udap"
     description: "Squeezebox UDAP configuration tool"
     license: MIT
-    test: |
-      assert_match "go-udap", shell_output("#{bin}/go-udap --version")
-      assert_match "Usage:", shell_output("#{bin}/go-udap --help")
-      assert_match "unknown command", shell_output("#{bin}/go-udap floop 2>&1", 1)
-    install: |
-      bin.install "go-udap"
+    url:
+      verified: github.com/yo61/go-udap
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/go-udap"]
+          end
 
 changelog:
   use: github
