@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.9](https://github.com/yo61/go-udap/compare/v1.3.8...v1.3.9) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** clear stale offset_NNN keys before each GetAll merge ([#32](https://github.com/yo61/go-udap/issues/32)) ([130187a](https://github.com/yo61/go-udap/commit/130187ab749267738dfd2cbd3d07fe068a0b3d02))
+* **udap:** make Sequence field's uint16 wrap explicit and tested ([#31](https://github.com/yo61/go-udap/issues/31)) ([a52a38e](https://github.com/yo61/go-udap/commit/a52a38eed92d59f1c5659d9fec656dae8a0a17b4))
+
 ## [1.3.8](https://github.com/yo61/go-udap/compare/v1.3.7...v1.3.8) (2026-05-10)
 
 ### Bug Fixes
