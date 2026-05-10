@@ -62,7 +62,10 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 // newClient constructs a udap.Client whose logger writes through the
 // supplied stderr writer (typically a *stderrSync that serializes log
 // output with the progress bar).
-func newClient(verbose bool, stderr io.Writer) (*udap.Client, error) {
+//
+// Declared as a package variable so e2e tests can substitute a Client
+// backed by mocksbr.MockTransport. Production code never reassigns it.
+var newClient = func(verbose bool, stderr io.Writer) (*udap.Client, error) {
 	logger := udap.NewStructuredLoggerWith(stderr)
 	if verbose {
 		logger.SetLevel(udap.LogLevelDebug)
