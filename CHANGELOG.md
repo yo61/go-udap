@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1](https://github.com/yo61/go-udap/compare/v1.3.0...v1.3.1) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** make Client.sequence increment race-free ([#20](https://github.com/yo61/go-udap/issues/20)) ([8cb5885](https://github.com/yo61/go-udap/commit/8cb5885836355b3a0e8b4a3e2c039b61ef119c5b))
+
 ## [1.3.0](https://github.com/yo61/go-udap/compare/v1.2.0...v1.3.0) (2026-05-10)
 
 ### Features
