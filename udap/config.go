@@ -144,7 +144,8 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 // ResetDeviceWithContext sends a UCP_METHOD_RESET (0x0004) command. The
 // device may reboot before sending an ack, so a context-cancellation
-// error is treated as success.
+// error is treated as success. A MethodError reply is surfaced as an
+// error rather than being misclassified as a successful ack.
 func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) error {
 	packet, err := c.CreateResetPacket(device)
 	if err != nil {
@@ -155,7 +156,7 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 	}
 	c.logger.Info("Sent Reset", "device_mac", device.MAC)
 
-	respPacket, _, err := c.waitForDeviceReply(ctx, device)
+	respPacket, data, err := c.waitForDeviceReply(ctx, device)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			c.logger.Info("No reset acknowledgment; device may have reset immediately")
@@ -163,6 +164,21 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 		}
 		return err
 	}
-	c.logger.Info("Device acknowledged reset", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
-	return nil
+
+	switch respPacket.UCPMethod {
+	case MethodReset:
+		c.logger.Info("Device acknowledged reset")
+		return nil
+	case MethodError:
+		if len(data) > 0 {
+			for _, tlv := range DecodeTLV(data) {
+				if tlv.Type == TLVTypeErrorMessage {
+					return fmt.Errorf("device %s rejected reset: %s", device.MAC, string(tlv.Value))
+				}
+			}
+		}
+		return fmt.Errorf("device %s rejected reset", device.MAC)
+	default:
+		return fmt.Errorf("device %s: unexpected response method 0x%04x", device.MAC, respPacket.UCPMethod)
+	}
 }

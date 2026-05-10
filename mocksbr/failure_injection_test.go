@@ -167,6 +167,30 @@ func TestFailOnSetReturnsErrorResponseWithMessage(t *testing.T) {
 	}
 }
 
+// TestFailOnResetReturnsErrorThroughClient verifies that a MethodError
+// reply to a Reset request propagates as an error from
+// ResetDeviceWithContext. Before review finding #10's fix, the client
+// silently accepted any reply method as success.
+func TestFailOnResetReturnsErrorThroughClient(t *testing.T) {
+	net := NewNetwork(0, udap.NewNoOpLogger())
+	mac, err := net.Add(DeviceConfig{MAC: "aa:bb:cc:dd:ee:01", FailOn: []Op{OpReset}})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
+	defer client.Close()
+
+	dev := &udap.Device{MAC: mac}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	err = client.ResetDeviceWithContext(ctx, dev)
+	if err == nil {
+		t.Fatalf("expected ResetDeviceWithContext to return error, got nil")
+	}
+}
+
 func TestFailOnResetEmitsErrorResponseOnWire(t *testing.T) {
 	// Verifies the wire-level response only. The udap.Client's
 	// ResetDeviceWithContext currently treats any reply as success
