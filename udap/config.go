@@ -189,6 +189,12 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 			c.logger.Info("No reset acknowledgment; device may have reset immediately")
 			return nil
 		}
+		// Non-context errors here (transport-level, packet-parse,
+		// etc.) are returned as-is. UDP doesn't have connection
+		// teardown, so a successful reset never breaks the local
+		// socket; any non-context error from Recv indicates a real
+		// problem the caller should surface, not a silently-
+		// successful reboot.
 		return err
 	}
 
