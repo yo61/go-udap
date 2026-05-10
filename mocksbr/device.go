@@ -39,7 +39,31 @@ type DeviceConfig struct {
 	Slow        time.Duration
 	Unreachable bool
 	RebootDelay time.Duration
+
+	// Malformed selects a deliberately broken response shape used by
+	// tests that exercise the client's error-handling path.
+	Malformed MalformedMode
 }
+
+// MalformedMode selects a deliberately broken GetData response shape.
+// Used by tests that exercise the client's error-handling path.
+type MalformedMode int
+
+const (
+	// MalformedNone is the default — well-formed responses.
+	MalformedNone MalformedMode = iota
+	// MalformedOversizedCount declares count=65535 with no item bodies,
+	// triggering the client's per-item bounds check.
+	MalformedOversizedCount
+	// MalformedLengthExceedsPayload writes one item header whose
+	// declared length would extend past the payload, triggering the
+	// client's "item exceeds payload" branch.
+	MalformedLengthExceedsPayload
+	// MalformedUnknownMethod replaces the response's UCPMethod with an
+	// unrecognized value so the client takes its "unexpected method"
+	// branch.
+	MalformedUnknownMethod
+)
 
 // Op identifies a UDAP operation for failure-injection knobs (Phase 3).
 type Op string
@@ -158,6 +182,24 @@ func (d *device) rebooting() bool {
 	}
 	d.rebootDeadline = time.Time{}
 	d.workingMemory = cloneMap(d.nvram)
+	return false
+}
+
+// failsOn reports whether the device is configured (via FailOn) to
+// reject the given op with a MethodError response. SetData and SaveData
+// share one wire method, so OpSet and OpSave are treated as aliases.
+func (d *device) failsOn(op Op) bool {
+	for _, configured := range d.cfg.FailOn {
+		if configured == op {
+			return true
+		}
+		if op == OpSet && configured == OpSave {
+			return true
+		}
+		if op == OpSave && configured == OpSet {
+			return true
+		}
+	}
 	return false
 }
 

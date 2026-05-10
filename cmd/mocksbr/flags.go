@@ -89,6 +89,30 @@ func parseOneDeviceSpec(spec string, nDevices int) (deviceOverride, error) {
 				return ov, fmt.Errorf("--device %q: reboot=%q is not a duration", spec, val)
 			}
 			ov.cfg.RebootDelay = d
+		case "slow":
+			d, err := time.ParseDuration(val)
+			if err != nil {
+				return ov, fmt.Errorf("--device %q: slow=%q is not a duration", spec, val)
+			}
+			ov.cfg.Slow = d
+		case "unreachable":
+			b, err := strconv.ParseBool(val)
+			if err != nil {
+				return ov, fmt.Errorf("--device %q: unreachable=%q is not a bool", spec, val)
+			}
+			ov.cfg.Unreachable = b
+		case "fail-on", "failon":
+			ops, err := parseFailOn(val)
+			if err != nil {
+				return ov, fmt.Errorf("--device %q: %w", spec, err)
+			}
+			ov.cfg.FailOn = ops
+		case "malformed":
+			m, err := parseMalformed(val)
+			if err != nil {
+				return ov, fmt.Errorf("--device %q: %w", spec, err)
+			}
+			ov.cfg.Malformed = m
 		default:
 			return ov, fmt.Errorf("--device %q: unknown key %q", spec, key)
 		}
@@ -97,6 +121,51 @@ func parseOneDeviceSpec(spec string, nDevices int) (deviceOverride, error) {
 		return ov, fmt.Errorf("--device %q: idx is required", spec)
 	}
 	return ov, nil
+}
+
+// parseFailOn decodes a fail-on= value into a list of mocksbr.Op. The
+// value is a colon-separated list (slashes and pipes work too) of op
+// names: discover, get, set, save, reset.
+func parseFailOn(val string) ([]mocksbr.Op, error) {
+	if val == "" {
+		return nil, nil
+	}
+	splitters := func(r rune) bool { return r == ':' || r == '/' || r == '|' }
+	parts := strings.FieldsFunc(val, splitters)
+	out := make([]mocksbr.Op, 0, len(parts))
+	for _, p := range parts {
+		switch strings.ToLower(strings.TrimSpace(p)) {
+		case "discover":
+			out = append(out, mocksbr.OpDiscover)
+		case "get":
+			out = append(out, mocksbr.OpGet)
+		case "set":
+			out = append(out, mocksbr.OpSet)
+		case "save":
+			out = append(out, mocksbr.OpSave)
+		case "reset":
+			out = append(out, mocksbr.OpReset)
+		default:
+			return nil, fmt.Errorf("fail-on: unknown op %q (want discover|get|set|save|reset)", p)
+		}
+	}
+	return out, nil
+}
+
+// parseMalformed decodes a malformed= value into a mocksbr.MalformedMode.
+func parseMalformed(val string) (mocksbr.MalformedMode, error) {
+	switch strings.ToLower(strings.TrimSpace(val)) {
+	case "", "none":
+		return mocksbr.MalformedNone, nil
+	case "oversized-count", "oversized_count", "oversizedcount":
+		return mocksbr.MalformedOversizedCount, nil
+	case "length-exceeds-payload", "length_exceeds_payload", "lengthexceedspayload":
+		return mocksbr.MalformedLengthExceedsPayload, nil
+	case "unknown-method", "unknown_method", "unknownmethod":
+		return mocksbr.MalformedUnknownMethod, nil
+	default:
+		return mocksbr.MalformedNone, fmt.Errorf("malformed: unknown mode %q", val)
+	}
 }
 
 // replaceAutoDevice replaces the auto-generated device at position idx

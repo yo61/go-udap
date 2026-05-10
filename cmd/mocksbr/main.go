@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -123,6 +124,23 @@ func run(args []string, stderr, stdout *os.File) error {
 	return serve(ctx, conn, net, logger)
 }
 
+// writeReply unicasts one scheduled reply back to src, deferring via
+// time.AfterFunc when the responding device has DeviceConfig.Slow > 0
+// so the wire-side delay matches what the in-process MockTransport
+// already produces.
+func writeReply(conn *net.UDPConn, src *net.UDPAddr, reply mocksbr.ScheduledReply, logger udap.Logger) {
+	send := func() {
+		if _, werr := conn.WriteToUDP(reply.Bytes, src); werr != nil {
+			logger.Warn("mocksbr write reply", "to", src.String(), "error", werr)
+		}
+	}
+	if reply.Delay <= 0 {
+		send()
+		return
+	}
+	time.AfterFunc(reply.Delay, send)
+}
+
 // serve is the read loop: pull packets off the socket, hand them to the
 // network, unicast each reply back to the requesting source.
 func serve(ctx context.Context, conn *net.UDPConn, network *mocksbr.Network, logger udap.Logger) error {
@@ -150,11 +168,8 @@ func serve(ctx context.Context, conn *net.UDPConn, network *mocksbr.Network, log
 		}
 		packet := make([]byte, n)
 		copy(packet, buf[:n])
-		replies := network.Receive(packet)
-		for _, reply := range replies {
-			if _, werr := conn.WriteToUDP(reply, src); werr != nil {
-				logger.Warn("mocksbr write reply", "to", src.String(), "error", werr)
-			}
+		for _, reply := range network.ReceiveScheduled(packet) {
+			writeReply(conn, src, reply, logger)
 		}
 	}
 }
