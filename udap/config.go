@@ -88,15 +88,15 @@ func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Devi
 // SetDeviceConfigWithContext writes the named parameters to a device.
 // Read-modify-write: omitted params would clobber neighbouring NVRAM
 // regions with zeros, so the client first reads the device's current
-// values and merges the caller's overrides on top.
+// values and merges the caller's overrides on top. If that prelude
+// read fails, the whole operation aborts — the previous warn-and-
+// continue path produced exactly the partial write the read was
+// supposed to prevent.
 func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device, config map[string]string) error {
 	if len(device.Parameters) == 0 {
 		c.logger.Info("Device parameters not loaded, reading current configuration")
 		if err := c.GetAllDeviceConfigWithContext(ctx, device); err != nil {
-			c.logger.Warn("Could not read current parameters; proceeding with new only", "error", err)
-			if device.Parameters == nil {
-				device.Parameters = make(map[string]string)
-			}
+			return fmt.Errorf("read current parameters before set: %w", err)
 		}
 	}
 
