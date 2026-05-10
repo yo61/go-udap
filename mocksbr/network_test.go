@@ -79,7 +79,10 @@ func TestNetworkReceiveUnicastByMAC(t *testing.T) {
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
 	dev := &udap.Device{MAC: mac}
-	getPkt := c.CreateGetDataPacket(dev, []string{"hostname"})
+	getPkt, err := c.CreateGetDataPacket(dev, []string{"hostname"})
+	if err != nil {
+		t.Fatalf("CreateGetDataPacket: %v", err)
+	}
 
 	replies := net.Receive(getPkt)
 	if len(replies) != 1 {
@@ -101,7 +104,10 @@ func TestNetworkReceiveUnknownMACReturnsNoReply(t *testing.T) {
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
 	dev := &udap.Device{MAC: "ff:ff:ff:ff:ff:ff"}
-	getPkt := c.CreateGetDataPacket(dev, []string{"hostname"})
+	getPkt, err := c.CreateGetDataPacket(dev, []string{"hostname"})
+	if err != nil {
+		t.Fatalf("CreateGetDataPacket: %v", err)
+	}
 
 	replies := net.Receive(getPkt)
 	if len(replies) != 0 {

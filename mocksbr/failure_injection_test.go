@@ -21,7 +21,10 @@ func TestUnreachableDeviceDropsUnicastPackets(t *testing.T) {
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
 	dev := &udap.Device{MAC: mac}
-	getPkt := c.CreateGetDataPacket(dev, []string{"hostname"})
+	getPkt, err := c.CreateGetDataPacket(dev, []string{"hostname"})
+	if err != nil {
+		t.Fatalf("CreateGetDataPacket: %v", err)
+	}
 
 	if replies := net.Receive(getPkt); len(replies) != 0 {
 		t.Errorf("expected 0 replies from unreachable device, got %d", len(replies))
@@ -75,7 +78,10 @@ func TestSlowDeviceReplyDelayedByConfiguredDuration(t *testing.T) {
 	defer client.Close()
 
 	dev := &udap.Device{MAC: mac}
-	getPkt := client.CreateGetDataPacket(dev, []string{"hostname"})
+	getPkt, err := client.CreateGetDataPacket(dev, []string{"hostname"})
+	if err != nil {
+		t.Fatalf("CreateGetDataPacket: %v", err)
+	}
 
 	start := time.Now()
 	if err := transport.Send(getPkt); err != nil {
@@ -175,7 +181,10 @@ func TestFailOnResetEmitsErrorResponseOnWire(t *testing.T) {
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
 	dev := &udap.Device{MAC: mac}
-	resetPkt := c.CreateResetPacket(dev)
+	resetPkt, err := c.CreateResetPacket(dev)
+	if err != nil {
+		t.Fatalf("CreateResetPacket: %v", err)
+	}
 
 	replies := net.Receive(resetPkt)
 	if len(replies) != 1 {
