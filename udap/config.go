@@ -38,7 +38,10 @@ func (c *Client) waitForDeviceReply(ctx context.Context, device *Device) (*Packe
 // Sends a UCP_METHOD_GET_DATA (0x0005) request and decodes the matching
 // offset/length/value response.
 func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device, params []string) (map[string]string, error) {
-	packet := c.CreateGetDataPacket(device, params)
+	packet, err := c.CreateGetDataPacket(device, params)
+	if err != nil {
+		return nil, fmt.Errorf("build GetData packet: %w", err)
+	}
 	if err := c.transport.Send(packet); err != nil {
 		return nil, fmt.Errorf("send GetData: %w", err)
 	}
@@ -104,7 +107,10 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 		device.Parameters[k] = v
 	}
 
-	packet := c.CreateSetDataPacket(device, allParams)
+	packet, err := c.CreateSetDataPacket(device, allParams)
+	if err != nil {
+		return fmt.Errorf("build SetData packet: %w", err)
+	}
 	if err := c.transport.Send(packet); err != nil {
 		return fmt.Errorf("send SetData: %w", err)
 	}
@@ -140,7 +146,10 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 // device may reboot before sending an ack, so a context-cancellation
 // error is treated as success.
 func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) error {
-	packet := c.CreateResetPacket(device)
+	packet, err := c.CreateResetPacket(device)
+	if err != nil {
+		return fmt.Errorf("build Reset packet: %w", err)
+	}
 	if err := c.transport.Send(packet); err != nil {
 		return fmt.Errorf("send Reset: %w", err)
 	}

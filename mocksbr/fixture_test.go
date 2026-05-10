@@ -89,7 +89,10 @@ func TestResetAckMatchesFixture(t *testing.T) {
 	defer c.Close()
 	_ = c.CreateAdvancedDiscoveryPacket() // burns sequence=1
 	dev := &udap.Device{MAC: "00:04:20:16:05:8f"}
-	resetReq := c.CreateResetPacket(dev) // sequence=2
+	resetReq, err := c.CreateResetPacket(dev) // sequence=2
+	if err != nil {
+		t.Fatalf("CreateResetPacket: %v", err)
+	}
 
 	replies := net.Receive(resetReq)
 	if len(replies) != 1 {

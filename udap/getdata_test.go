@@ -39,7 +39,10 @@ func TestCreateGetDataPacketWireFormat(t *testing.T) {
 	c := &Client{logger: NewNoOpLogger(), sequence: 1}
 	device := &Device{MAC: "00:04:20:16:05:8f"}
 
-	pkt := c.CreateGetDataPacket(device, perlGetDataParams)
+	pkt, err := c.CreateGetDataPacket(device, perlGetDataParams)
+	if err != nil {
+		t.Fatalf("CreateGetDataPacket: %v", err)
+	}
 
 	const userPassLen = UsernameFieldSize + PasswordFieldSize
 	wantLen := UDAPHeaderSize + userPassLen + 2 + len(perlGetDataParams)*4
@@ -109,7 +112,10 @@ func TestCreateGetDataPacketMatchesPerlPayload(t *testing.T) {
 
 	c := &Client{logger: NewNoOpLogger(), sequence: 1}
 	device := &Device{MAC: "00:04:20:16:05:8f"}
-	got := c.CreateGetDataPacket(device, perlGetDataParams)
+	got, err := c.CreateGetDataPacket(device, perlGetDataParams)
+	if err != nil {
+		t.Fatalf("CreateGetDataPacket: %v", err)
+	}
 
 	if len(got) != len(perl) {
 		t.Fatalf("packet length: got %d, want %d", len(got), len(perl))
