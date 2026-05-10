@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.2](https://github.com/yo61/go-udap/compare/v1.3.1...v1.3.2) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** return error on malformed MAC instead of silent zero MAC ([#21](https://github.com/yo61/go-udap/issues/21)) ([aa274d1](https://github.com/yo61/go-udap/commit/aa274d17c0cf5944a957477001e547976b2cdc62))
+
 ## [1.3.1](https://github.com/yo61/go-udap/compare/v1.3.0...v1.3.1) (2026-05-10)
 
 ### Bug Fixes
