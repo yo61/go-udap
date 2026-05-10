@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.3](https://github.com/yo61/go-udap/compare/v1.3.2...v1.3.3) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** surface MethodError replies from ResetDeviceWithContext ([#25](https://github.com/yo61/go-udap/issues/25)) ([6e31c4a](https://github.com/yo61/go-udap/commit/6e31c4a1bd1252eed610105e3989b73b33627fa8))
+
 ## [1.3.2](https://github.com/yo61/go-udap/compare/v1.3.1...v1.3.2) (2026-05-10)
 
 ### Bug Fixes
