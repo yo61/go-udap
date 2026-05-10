@@ -1,16 +1,23 @@
 name: Release
 
+# Triggered by a successful CI run on main, not by the push itself, so
+# semantic-release can never cut a tag from a commit that fails go vet
+# or tests. The previous push-triggered config let v1.3.2 ship from a
+# vet-failing tree because the Release and CI workflows fired in
+# parallel: when CI failed on the merge result, semantic-release had
+# already finished tagging.
+#
+# CI runs on every push to main (no path filter), so this workflow
+# fires for every successful CI on main. Pushes that change only
+# non-Go files still trigger CI and therefore this workflow, but
+# semantic-release no-ops when there are no feat/fix commits since
+# the last tag — no spurious releases get cut.
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - '**/*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/release.yaml'
-      - '.goreleaser.yaml'
-      - '.releaserc.json'
 
 permissions:
   contents: read
@@ -19,7 +26,10 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'yo61'
+    if: >-
+      github.repository_owner == 'yo61' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.workflow_run.conclusion == 'success')
     steps:
       - id: create_token
         uses: actions/create-github-app-token@v3

@@ -27,11 +27,13 @@ func TestSequenceCounterConcurrentAccess(t *testing.T) {
 	stop := make(chan struct{})
 
 	// Three concurrent packet-builders, mirroring the public Create*
-	// surface. Each one independently reads + writes c.sequence.
+	// surface. Each one independently reads + writes c.sequence. The
+	// packet/error returns are intentionally discarded — this test
+	// only exercises the counter, not the packet contents.
 	for _, fn := range []func(){
 		func() { _ = c.CreateAdvancedDiscoveryPacket() },
-		func() { _ = c.CreateGetDataPacket(dev, []string{"hostname"}) },
-		func() { _ = c.CreateResetPacket(dev) },
+		func() { _, _ = c.CreateGetDataPacket(dev, []string{"hostname"}) },
+		func() { _, _ = c.CreateResetPacket(dev) },
 	} {
 		fn := fn
 		wg.Add(1)
