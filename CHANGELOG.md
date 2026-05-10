@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.8](https://github.com/yo61/go-udap/compare/v1.3.7...v1.3.8) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** pin reply source against device.IP in waitForDeviceReply ([#29](https://github.com/yo61/go-udap/issues/29)) ([a56b8ac](https://github.com/yo61/go-udap/commit/a56b8ac8cbb03a5aa842c47b1cca74a8b0a06548))
+
 ## [1.3.7](https://github.com/yo61/go-udap/compare/v1.3.6...v1.3.7) (2026-05-10)
 
 ### Bug Fixes
