@@ -23,3 +23,21 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       - run: go test -race ./...
+
+  # Run the same pre-commit hooks contributors run locally
+  # (.pre-commit-config.yaml). commitlint is at the commit-msg stage
+  # and is skipped by `prek run` automatically.
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      # dnephin/pre-commit-golang's go-imports hook calls goimports
+      # directly; install it on PATH before prek runs.
+      - run: go install golang.org/x/tools/cmd/goimports@latest
+      - uses: j178/prek-action@v2
+        with:
+          prek-version: 0.3.13
