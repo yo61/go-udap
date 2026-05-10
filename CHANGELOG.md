@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.7](https://github.com/yo61/go-udap/compare/v1.3.6...v1.3.7) (2026-05-10)
+
+### Bug Fixes
+
+* **udap:** error out of SetDeviceConfigWithContext when prelude read fails ([#28](https://github.com/yo61/go-udap/issues/28)) ([e550e75](https://github.com/yo61/go-udap/commit/e550e750b80c0cb3d129af5cd647506ba1b58840))
+
 ## [1.3.6](https://github.com/yo61/go-udap/compare/v1.3.5...v1.3.6) (2026-05-10)
 
 ### Bug Fixes
