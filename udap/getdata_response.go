@@ -37,7 +37,11 @@ func parseGetDataResponse(data []byte) (map[string]string, error) {
 	}
 	count := binary.BigEndian.Uint16(data[:2])
 	pos := 2
-	out := make(map[string]string, count)
+	// Clamp the map size hint to what the payload can actually hold:
+	// each item header is 4 bytes, so at most (len(data)-2)/4 items can
+	// fit. Without this, a crafted count=0xFFFF with a tiny body would
+	// allocate a ~5 MB bucket array per response.
+	out := make(map[string]string, min(int(count), (len(data)-2)/4))
 	for i := 0; i < int(count); i++ {
 		if pos+4 > len(data) {
 			return nil, fmt.Errorf("getdata response: truncated header for item %d at offset %d", i, pos)
