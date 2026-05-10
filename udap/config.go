@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 )
 
 // waitForDeviceReply blocks on transport.Recv until it receives a
@@ -82,6 +83,13 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 // GetAllDeviceConfigWithContext retrieves all known parameters using the
 // caller-supplied context for cancellation/timeout.
+//
+// Stale `offset_NNN` synthetic keys from any previous call are cleared
+// before the new response is merged. parseGetDataResponse emits those
+// keys for NVRAM offsets unknown to the udap.Parameters table, and
+// without this cleanup a long-running consumer calling GetAll
+// repeatedly would let device.Parameters grow without bound across
+// firmware variations.
 func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Device) error {
 	c.logger.Info("Reading all device parameters", "device_mac", device.MAC)
 
@@ -92,6 +100,11 @@ func (c *Client) GetAllDeviceConfigWithContext(ctx context.Context, device *Devi
 
 	if device.Parameters == nil {
 		device.Parameters = make(map[string]string)
+	}
+	for k := range device.Parameters {
+		if strings.HasPrefix(k, "offset_") {
+			delete(device.Parameters, k)
+		}
 	}
 	maps.Copy(device.Parameters, config)
 
