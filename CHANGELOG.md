@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0](https://github.com/yo61/go-udap/compare/v1.1.1...v1.2.0) (2026-05-10)
+
+### Features
+
+* **release:** switch Homebrew distribution from formula to cask ([#17](https://github.com/yo61/go-udap/issues/17)) ([b0d48d5](https://github.com/yo61/go-udap/commit/b0d48d5d3f841d70327a114f68b47f4d3fa04d99)), closes [yo61/homebrew-tap#2](https://github.com/yo61/homebrew-tap/issues/2)
+
 ## [1.1.1](https://github.com/yo61/go-udap/compare/v1.1.0...v1.1.1) (2026-05-09)
 
 ### Bug Fixes
