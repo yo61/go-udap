@@ -83,24 +83,26 @@ func isLowerHexByte(c byte) bool {
 // avoid pointless CPU on the device map.
 const findPollInterval = 50 * time.Millisecond
 
-// discoverAndFind broadcasts a discovery and returns the device whose MAC
-// matches as soon as it appears, cancelling discovery early instead of
-// waiting for the full timeout. Returns an *ExitError with code 2 if no
-// matching device responds within the timeout.
-func discoverAndFind(client *udap.Client, mac string, timeout time.Duration) (*udap.Device, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+// discoverAndFind broadcasts a discovery and returns the device whose
+// MAC matches as soon as it appears, cancelling discovery early
+// instead of waiting for the full timeout. The caller's ctx is used
+// directly so the discovery and the subsequent operation share one
+// time budget — review finding #4. Returns an *ExitError with code 2
+// if no matching device responds before ctx fires.
+func discoverAndFind(ctx context.Context, client *udap.Client, mac string) (*udap.Device, error) {
+	discoverCtx, cancelDiscover := context.WithCancel(ctx)
+	defer cancelDiscover()
 
 	discoverDone := make(chan error, 1)
 	go func() {
-		discoverDone <- client.DiscoverDevicesWithContext(ctx)
+		discoverDone <- client.DiscoverDevicesWithContext(discoverCtx)
 	}()
 
 	ticker := time.NewTicker(findPollInterval)
 	defer ticker.Stop()
 	for {
 		if d := client.GetDevice(mac); d != nil {
-			cancel()
+			cancelDiscover()
 			<-discoverDone
 			return d, nil
 		}
@@ -114,7 +116,7 @@ func discoverAndFind(client *udap.Client, mac string, timeout time.Duration) (*u
 			if err != nil && ctx.Err() == nil {
 				return nil, &ExitError{Code: 2, Err: fmt.Errorf("discovery failed: %w", err)}
 			}
-			return nil, &ExitError{Code: 2, Err: fmt.Errorf("device %s not found within %s", mac, timeout)}
+			return nil, &ExitError{Code: 2, Err: fmt.Errorf("device %s not found before timeout", mac)}
 		}
 	}
 }

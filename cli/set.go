@@ -91,15 +91,15 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
+	defer cancel()
 	stop := startProgress(stderr, "set", timeout.Value())
 	defer stop()
-	device, err := discoverAndFind(client, mac, timeout.Value())
+	device, err := discoverAndFind(ctx, client, mac)
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
-	defer cancel()
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
 	}

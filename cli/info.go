@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -31,8 +32,10 @@ func runInfo(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
+	defer cancel()
 	stop := startProgress(stderr, "info", timeout.Value())
-	device, err := discoverAndFind(client, mac, timeout.Value())
+	device, err := discoverAndFind(ctx, client, mac)
 	stop()
 	if err != nil {
 		return err
