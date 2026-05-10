@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.6](https://github.com/yo61/go-udap/compare/v1.3.5...v1.3.6) (2026-05-10)
+
+### Bug Fixes
+
+* **cli,udap:** validate set values at flag boundary and on packet build ([#27](https://github.com/yo61/go-udap/issues/27)) ([b0003c2](https://github.com/yo61/go-udap/commit/b0003c2096a85ea9d61e13bbb445cfe295d2dd54)), closes [#2](https://github.com/yo61/go-udap/issues/2) [#2](https://github.com/yo61/go-udap/issues/2) [#3](https://github.com/yo61/go-udap/issues/3)
+
 ## [1.3.5](https://github.com/yo61/go-udap/compare/v1.3.4...v1.3.5) (2026-05-10)
 
 ### Bug Fixes
