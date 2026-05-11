@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0](https://github.com/yo61/go-udap/compare/v1.3.10...v1.4.0) (2026-05-11)
+
+### Features
+
+* **udap:** introduce MAC value object and adopt it internally ([#41](https://github.com/yo61/go-udap/issues/41)) ([645a75d](https://github.com/yo61/go-udap/commit/645a75d64affd5bec8b90a0b432fae5a70693dd6))
+
 ## [1.3.10](https://github.com/yo61/go-udap/compare/v1.3.9...v1.3.10) (2026-05-11)
 
 ### Bug Fixes
