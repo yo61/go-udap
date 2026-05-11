@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.10](https://github.com/yo61/go-udap/compare/v1.3.9...v1.3.10) (2026-05-11)
+
+### Bug Fixes
+
+* **udap:** defer Device.Parameters mutation until SetData ack ([#38](https://github.com/yo61/go-udap/issues/38)) ([7739185](https://github.com/yo61/go-udap/commit/7739185641fee2abd988702bbef42830d2c9779b))
+
 ## [1.3.9](https://github.com/yo61/go-udap/compare/v1.3.8...v1.3.9) (2026-05-10)
 
 ### Bug Fixes
