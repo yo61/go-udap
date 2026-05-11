@@ -129,10 +129,7 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 	allParams := make(map[string]string, len(device.Parameters)+len(config))
 	maps.Copy(allParams, device.Parameters)
-	for k, v := range config {
-		allParams[k] = v
-		device.Parameters[k] = v
-	}
+	maps.Copy(allParams, config)
 
 	packet, err := c.CreateSetDataPacket(device, allParams)
 	if err != nil {
@@ -150,6 +147,11 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 
 	switch respPacket.UCPMethod {
 	case MethodSetData, MethodGetData, MethodGetIP:
+		// Apply caller's overrides to the cached aggregate only after
+		// the device has acknowledged the write. Mutating earlier left
+		// device.Parameters showing values that were never persisted to
+		// NVRAM if the round-trip failed.
+		maps.Copy(device.Parameters, config)
 		c.logger.Info("Device acknowledged configuration change", "method", fmt.Sprintf("0x%04x", respPacket.UCPMethod))
 		return nil
 	case MethodError:
