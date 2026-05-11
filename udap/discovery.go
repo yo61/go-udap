@@ -86,18 +86,25 @@ var productNameByID = map[string]string{
 // Device. TLV codes are per Net::UDAP Constant.pm — see the const
 // block above.
 func (c *Client) parseDiscoveryResponse(data []byte, ip string, packet *Packet) *Device {
+	// Real Squeezebox devices reply with AddrTypeETH and a 6-byte hardware
+	// address. AddrTypeUDP is a Net::UDAP wire-spec constant for pseudo-
+	// addressed devices, but no observed device actually uses it; the
+	// previous code synthesised a "udp:<ip>" pseudo-MAC that no operation
+	// downstream could actually use (Create*Packet would have failed to
+	// parse it). With MAC promoted to a typed Value Object, the pseudo
+	// path has no representable form — and removing it costs us nothing
+	// that ever worked.
+	if packet.SrcType != AddrTypeETH {
+		c.logger.Warn("Ignoring discovery reply with non-Ethernet source type",
+			"src_ip", ip, "src_type", fmt.Sprintf("0x%02x", packet.SrcType))
+		return nil
+	}
+
 	device := &Device{
+		MAC:        MAC(packet.SrcAddress),
 		IP:         ip,
 		LastSeen:   time.Now(),
 		Parameters: make(map[string]string),
-	}
-
-	if packet.SrcType == AddrTypeETH {
-		device.MAC = fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
-			packet.SrcAddress[0], packet.SrcAddress[1], packet.SrcAddress[2],
-			packet.SrcAddress[3], packet.SrcAddress[4], packet.SrcAddress[5])
-	} else {
-		device.MAC = fmt.Sprintf("udp:%s", ip)
 	}
 
 	var deviceType, deviceID string

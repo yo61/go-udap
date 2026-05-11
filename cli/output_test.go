@@ -54,7 +54,7 @@ func TestFormatGetMultipleValuesIsKeyEqValue(t *testing.T) {
 func TestFormatDeviceInfoLines(t *testing.T) {
 	var buf bytes.Buffer
 	d := &udap.Device{
-		MAC:      "aa:bb:cc:dd:ee:ff",
+		MAC:      udap.MustParseMAC("aa:bb:cc:dd:ee:ff"),
 		Name:     "Receiver",
 		Model:    "Squeezebox Receiver",
 		Firmware: "77",
@@ -75,7 +75,7 @@ func TestFormatDeviceInfoLines(t *testing.T) {
 
 func TestFormatDeviceInfoOmitsEmptyFields(t *testing.T) {
 	var buf bytes.Buffer
-	d := &udap.Device{MAC: "aa:bb:cc:dd:ee:ff", IP: "0.0.0.0"}
+	d := &udap.Device{MAC: udap.MustParseMAC("aa:bb:cc:dd:ee:ff"), IP: "0.0.0.0"}
 	formatDeviceInfo(&buf, d)
 	got := buf.String()
 	for _, unexpected := range []string{"Name:", "Model:", "Firmware:", "State:"} {

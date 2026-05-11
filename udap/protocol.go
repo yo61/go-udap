@@ -96,8 +96,12 @@ type Packet struct {
 //	State     ← TLV 0x0c device_status (init / wait_slimserver / connected)
 //
 // MAC and IP come from the UDAP packet header / UDP source address.
+// MAC is the canonical value-object form: validated once at the point
+// of construction (discovery, CLI input parsing, JSON unmarshal) and
+// then carried by the type system throughout. JSON wire format is
+// unchanged thanks to MAC.MarshalText / UnmarshalText.
 type Device struct {
-	MAC        string            `json:"mac"`
+	MAC        MAC               `json:"mac"`
 	IP         string            `json:"ip"`
 	Name       string            `json:"name"`
 	Model      string            `json:"model"`

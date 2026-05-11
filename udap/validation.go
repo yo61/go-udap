@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 )
 
 // isValidMAC reports whether mac parses as a canonical
@@ -98,9 +97,12 @@ func validateParameter(name, value string) error {
 
 // Validate checks if the Device struct contains valid data
 func (d *Device) Validate() error {
-	// Validate MAC address format
-	if !isValidMAC(d.MAC) && !strings.HasPrefix(d.MAC, "udp:") {
-		return fmt.Errorf("invalid MAC address format: %s", d.MAC)
+	// MAC is a typed Value Object that's always structurally valid by
+	// construction, so the only failure mode is the zero MAC — a real
+	// device's reply never has SrcAddress = 00:00:00:00:00:00, so an
+	// uninitialised Device.MAC is treated as an error.
+	if d.MAC.IsZero() {
+		return fmt.Errorf("device has zero MAC address")
 	}
 
 	// Validate IP address if not in bootstrap mode

@@ -48,7 +48,7 @@ func TestParseRealSBRDiscoveryResponse(t *testing.T) {
 	t.Logf("MAC=%q Name=%q Model=%q Firmware=%q State=%q",
 		device.MAC, device.Name, device.Model, device.Firmware, device.State)
 
-	if device.MAC != "00:04:20:16:05:8f" {
+	if device.MAC != MustParseMAC("00:04:20:16:05:8f") {
 		t.Errorf("MAC: got %q, want 00:04:20:16:05:8f", device.MAC)
 	}
 	// Empty TLV 0x02 in this capture means the device has no configured

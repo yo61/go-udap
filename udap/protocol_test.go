@@ -3,7 +3,9 @@ package udap
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -241,7 +243,7 @@ func TestParsePacket(t *testing.T) {
 
 func TestDevice(t *testing.T) {
 	device := Device{
-		MAC:      "00:04:20:12:34:56",
+		MAC:      MustParseMAC("00:04:20:12:34:56"),
 		IP:       "192.168.1.100",
 		Name:     "Test Device",
 		Model:    "Squeezebox Receiver",
@@ -255,8 +257,8 @@ func TestDevice(t *testing.T) {
 	}
 
 	// Test that device structure is properly initialized
-	if device.MAC == "" {
-		t.Error("Device MAC should not be empty")
+	if device.MAC.IsZero() {
+		t.Error("Device MAC should not be zero")
 	}
 
 	if device.Parameters == nil {
@@ -265,6 +267,32 @@ func TestDevice(t *testing.T) {
 
 	if len(device.Parameters) != 2 {
 		t.Errorf("Expected 2 parameters, got %d", len(device.Parameters))
+	}
+}
+
+// TestDeviceJSONMACFieldShape pins the JSON wire format of Device.MAC.
+// Before the field-type flip from string to MAC, JSON marshalled the
+// MAC as a quoted "aa:bb:..." string. MarshalText / UnmarshalText on
+// the MAC type are designed to preserve that shape so any consumer of
+// the JSON wire format (e.g. external tooling reading discover output)
+// keeps working. This test fails fast if a future change accidentally
+// breaks that contract.
+func TestDeviceJSONMACFieldShape(t *testing.T) {
+	d := Device{MAC: MustParseMAC("aa:bb:cc:dd:ee:ff")}
+	out, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if got := string(out); !strings.Contains(got, `"mac":"aa:bb:cc:dd:ee:ff"`) {
+		t.Errorf("Marshal output missing canonical MAC string; got %s", got)
+	}
+
+	var back Device
+	if err := json.Unmarshal(out, &back); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if back.MAC != d.MAC {
+		t.Errorf("Unmarshal roundtrip: got %s, want %s", back.MAC, d.MAC)
 	}
 }
 

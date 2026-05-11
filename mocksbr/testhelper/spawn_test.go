@@ -77,7 +77,7 @@ func TestSpawnMockGetDataRoundTrip(t *testing.T) {
 	const mac = "00:04:20:00:00:01"
 	client := udap.NewClientWithTransport(tr, udap.NewNoOpLogger())
 	defer client.Close()
-	pkt, err := client.CreateGetDataPacket(&udap.Device{MAC: mac}, []string{"hostname"})
+	pkt, err := client.CreateGetDataPacket(&udap.Device{MAC: udap.MustParseMAC(mac)}, []string{"hostname"})
 	if err != nil {
 		t.Fatalf("CreateGetDataPacket: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestSpawnMockSetDataPersists(t *testing.T) {
 	)
 	client := udap.NewClientWithTransport(tr, udap.NewNoOpLogger())
 	defer client.Close()
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 
 	setPkt, err := client.CreateSetDataPacket(dev, map[string]string{"hostname": hostname})
 	if err != nil {
@@ -156,7 +156,7 @@ func TestSpawnMockResetAcksWithMethodReset(t *testing.T) {
 	const mac = "00:04:20:00:00:01"
 	client := udap.NewClientWithTransport(tr, udap.NewNoOpLogger())
 	defer client.Close()
-	pkt, err := client.CreateResetPacket(&udap.Device{MAC: mac})
+	pkt, err := client.CreateResetPacket(&udap.Device{MAC: udap.MustParseMAC(mac)})
 	if err != nil {
 		t.Fatalf("CreateResetPacket: %v", err)
 	}

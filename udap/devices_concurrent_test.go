@@ -36,7 +36,7 @@ func TestDeviceMapConcurrentAccess(t *testing.T) {
 				return
 			default:
 				c.recordDevice(&Device{
-					MAC:      fmt.Sprintf("00:04:20:%02x:%02x:%02x", i&0xff, (i>>8)&0xff, (i>>16)&0xff),
+					MAC:      MustParseMAC(fmt.Sprintf("00:04:20:%02x:%02x:%02x", i&0xff, (i>>8)&0xff, (i>>16)&0xff)),
 					LastSeen: time.Now(),
 				})
 				i++

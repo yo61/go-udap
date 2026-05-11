@@ -12,7 +12,7 @@ import (
 // NVRAM. Post-fix, CreateSetDataPacket returns an error.
 func TestCreateSetDataPacketRejectsInvalidIP(t *testing.T) {
 	c := newTestClient(t)
-	dev := &Device{MAC: "00:04:20:00:00:01"}
+	dev := &Device{MAC: MustParseMAC("00:04:20:00:00:01")}
 	_, err := c.CreateSetDataPacket(dev, map[string]string{
 		"server_address": "192.168.1.x",
 	})
@@ -26,7 +26,7 @@ func TestCreateSetDataPacketRejectsInvalidIP(t *testing.T) {
 
 func TestCreateSetDataPacketRejectsInvalidUint8(t *testing.T) {
 	c := newTestClient(t)
-	dev := &Device{MAC: "00:04:20:00:00:01"}
+	dev := &Device{MAC: MustParseMAC("00:04:20:00:00:01")}
 	_, err := c.CreateSetDataPacket(dev, map[string]string{
 		"wireless_channel": "999",
 	})
@@ -37,7 +37,7 @@ func TestCreateSetDataPacketRejectsInvalidUint8(t *testing.T) {
 
 func TestCreateSetDataPacketRejectsInvalidUint16(t *testing.T) {
 	c := newTestClient(t)
-	dev := &Device{MAC: "00:04:20:00:00:01"}
+	dev := &Device{MAC: MustParseMAC("00:04:20:00:00:01")}
 	_, err := c.CreateSetDataPacket(dev, map[string]string{
 		"wireless_region_id": "999999",
 	})
@@ -48,7 +48,7 @@ func TestCreateSetDataPacketRejectsInvalidUint16(t *testing.T) {
 
 func TestCreateSetDataPacketAcceptsValidValues(t *testing.T) {
 	c := newTestClient(t)
-	dev := &Device{MAC: "00:04:20:00:00:01"}
+	dev := &Device{MAC: MustParseMAC("00:04:20:00:00:01")}
 	pkt, err := c.CreateSetDataPacket(dev, map[string]string{
 		"server_address": "10.0.0.1",
 		"hostname":       "test-host",

@@ -21,7 +21,7 @@ func TestSequenceCounterConcurrentAccess(t *testing.T) {
 	}
 	defer c.Close()
 
-	dev := &Device{MAC: "00:04:20:00:00:01"}
+	dev := &Device{MAC: MustParseMAC("00:04:20:00:00:01")}
 
 	var wg sync.WaitGroup
 	stop := make(chan struct{})

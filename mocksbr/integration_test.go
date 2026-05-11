@@ -37,7 +37,7 @@ func TestClientDiscoversAllDevices(t *testing.T) {
 		"00:04:20:00:00:03": true,
 	}
 	for _, d := range devices {
-		if !wantMACs[d.MAC] {
+		if !wantMACs[d.MAC.String()] {
 			t.Errorf("unexpected device MAC: %s", d.MAC)
 		}
 	}
