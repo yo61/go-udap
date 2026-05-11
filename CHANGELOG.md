@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0](https://github.com/yo61/go-udap/compare/v1.4.0...v1.5.0) (2026-05-11)
+
+### Features
+
+* **udap:** promote Device.MAC from string to MAC value object ([#42](https://github.com/yo61/go-udap/issues/42)) ([31a2825](https://github.com/yo61/go-udap/commit/31a2825a2e05cf9c9298e73012469cd77d5057c4)), closes [#41](https://github.com/yo61/go-udap/issues/41)
+
 ## [1.4.0](https://github.com/yo61/go-udap/compare/v1.3.10...v1.4.0) (2026-05-11)
 
 ### Features
