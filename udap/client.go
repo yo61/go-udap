@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"net"
 	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 )
@@ -255,56 +253,18 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) (
 	binary.Write(buf, binary.BigEndian, uint16(len(paramList)))
 	c.logger.Debug("Parameters sorted", "param_count", len(paramList), "device_mac", device.MAC)
 
-	// Write each parameter using offset/length format
+	// Write each parameter using offset/length format. Parameter.Encode
+	// owns the wire encoding (uint8/uint16/IPv4/string) and guarantees
+	// exactly entry.Length bytes on success — no separate padding step.
 	for _, entry := range paramList {
-		// Write offset (2 bytes big-endian)
-		binary.Write(buf, binary.BigEndian, entry.Offset)
-
-		// Write length (2 bytes big-endian)
-		binary.Write(buf, binary.BigEndian, entry.Length)
-
-		// Convert value based on parameter type
-		var data []byte
-
-		switch entry.Length {
-		case 4:
-			// All 4-byte parameters are IPv4 addresses. Reject anything
-			// that doesn't parse — pre-fix this used to silently zero-fill,
-			// so a typo like "192.168.1.x" would write 0.0.0.0 to NVRAM.
-			ip := net.ParseIP(entry.value)
-			if ip == nil {
-				return nil, fmt.Errorf("param %q: cannot parse %q as IPv4 address", entry.Name, entry.value)
-			}
-			ip4 := ip.To4()
-			if ip4 == nil {
-				return nil, fmt.Errorf("param %q: %q is not an IPv4 address", entry.Name, entry.value)
-			}
-			data = []byte(ip4)
-		case 1:
-			val, err := strconv.ParseUint(entry.value, 10, 8)
-			if err != nil {
-				return nil, fmt.Errorf("param %q: %q is not a valid uint8: %w", entry.Name, entry.value, err)
-			}
-			data = []byte{byte(val)}
-		case 2:
-			val, err := strconv.ParseUint(entry.value, 10, 16)
-			if err != nil {
-				return nil, fmt.Errorf("param %q: %q is not a valid uint16: %w", entry.Name, entry.value, err)
-			}
-			data = make([]byte, 2)
-			binary.BigEndian.PutUint16(data, uint16(val))
-		default:
-			// String data
-			data = []byte(entry.value)
-			if len(data) > int(entry.Length) {
-				data = data[:entry.Length] // Truncate if too long
-			}
+		data, err := entry.Encode(entry.value)
+		if err != nil {
+			return nil, fmt.Errorf("param %q: %w", entry.Name, err)
 		}
 
-		// Pad with zeros to reach the required length
-		padded := make([]byte, entry.Length)
-		copy(padded, data)
-		buf.Write(padded)
+		binary.Write(buf, binary.BigEndian, entry.Offset)
+		binary.Write(buf, binary.BigEndian, entry.Length)
+		buf.Write(data)
 
 		c.logger.Debug("Parameter details",
 			"param", entry.Name,
