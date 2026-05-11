@@ -143,13 +143,13 @@ func (c *Client) CreateAdvancedDiscoveryPacket() []byte {
 // Items are sorted by offset for deterministic output, matching
 // CreateSetDataPacket.
 func (c *Client) CreateGetDataPacket(device *Device, params []string) ([]byte, error) {
-	macBytes, err := c.parseMACAddress(device.MAC)
+	mac, err := ParseMAC(device.MAC)
 	if err != nil {
 		return nil, err
 	}
 
 	packet := c.createUdapPacket(
-		macBytes,
+		mac.Bytes(),
 		MethodGetData, // 0x0005
 		0x01,          // Request flag
 		false,         // Not broadcast
@@ -181,33 +181,18 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) ([]byte, e
 	return buf.Bytes(), nil
 }
 
-// parseMACAddress converts an "aa:bb:cc:dd:ee:ff" string to a [6]byte.
-// Returns an error if the input doesn't parse to six hex bytes — prior
-// versions silently returned an all-zeros MAC, which would unicast to
-// 00:00:00:00:00:00 if a malformed device.MAC ever reached this code.
-func (c *Client) parseMACAddress(mac string) ([6]byte, error) {
-	var macBytes [6]byte
-	n, err := fmt.Sscanf(mac, "%02x:%02x:%02x:%02x:%02x:%02x",
-		&macBytes[0], &macBytes[1], &macBytes[2], &macBytes[3], &macBytes[4], &macBytes[5])
-	if err != nil || n != 6 {
-		return macBytes, fmt.Errorf("invalid MAC address %q", mac)
-	}
-	return macBytes, nil
-}
-
 // CreateSetDataPacket creates a UDAP SetData packet using the correct Lua format
 // Based on the createSetData function from the authoritative Lua implementation
 func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) ([]byte, error) {
 	c.logger.Info("Creating SetData packet", "device_mac", device.MAC, "param_count", len(params))
 
-	// Convert MAC address to bytes
-	macBytes, err := c.parseMACAddress(device.MAC)
+	mac, err := ParseMAC(device.MAC)
 	if err != nil {
 		return nil, err
 	}
 
 	packet := c.createUdapPacket(
-		macBytes,
+		mac.Bytes(),
 		MethodSetData, // 0x0006
 		0x01,          // Request flag
 		false,         // Not broadcast
@@ -306,14 +291,14 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) (
 
 // CreateResetPacket creates a UDAP reset packet to restart the device.
 func (c *Client) CreateResetPacket(device *Device) ([]byte, error) {
-	macBytes, err := c.parseMACAddress(device.MAC)
+	mac, err := ParseMAC(device.MAC)
 	if err != nil {
 		return nil, err
 	}
 
 	// Reset uses the MethodReset (0x0004) not MethodError
 	packet := c.createUdapPacket(
-		macBytes,
+		mac.Bytes(),
 		MethodReset, // 0x0004 - Reset method from Lua implementation
 		0x01,        // Request flag
 		false,       // Not broadcast - send directly to device
