@@ -1,7 +1,10 @@
 package udap
 
 import (
+	"encoding/binary"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 )
 
@@ -38,6 +41,57 @@ type Parameter struct {
 // "wireless-ssid").
 func (p Parameter) FlagName() string {
 	return strings.ReplaceAll(strings.ToLower(p.Name), "_", "-")
+}
+
+// Encode produces the wire-format bytes for value, always returning a
+// slice of exactly p.Length bytes on success. The encoding switches on
+// p.Length:
+//
+//   - 1: parsed as uint8 (decimal).
+//   - 2: parsed as uint16 (decimal), written big-endian.
+//   - 4: parsed as an IPv4 address (rejects IPv6, malformed octets).
+//   - other: treated as a UTF-8 string; zero-padded if shorter, silently
+//     truncated if longer. The truncation branch is unreachable from the
+//     CLI (validateParameter rejects over-length strings upstream); it is
+//     preserved for library callers that bypass CLI validation, matching
+//     the historical CreateSetDataPacket behavior.
+//
+// Encode is the wire-side counterpart to validateParameter: this method
+// owns the bytes-on-the-wire contract; validateParameter owns
+// user-input validation with friendlier messages and per-parameter rules.
+func (p Parameter) Encode(value string) ([]byte, error) {
+	switch p.Length {
+	case 1:
+		n, err := strconv.ParseUint(value, 10, 8)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not a valid uint8: %w", value, err)
+		}
+		return []byte{byte(n)}, nil
+	case 2:
+		n, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not a valid uint16: %w", value, err)
+		}
+		out := make([]byte, 2)
+		binary.BigEndian.PutUint16(out, uint16(n))
+		return out, nil
+	case 4:
+		ip := net.ParseIP(value)
+		if ip == nil {
+			return nil, fmt.Errorf("cannot parse %q as IPv4 address", value)
+		}
+		ip4 := ip.To4()
+		if ip4 == nil {
+			return nil, fmt.Errorf("%q is not an IPv4 address", value)
+		}
+		out := make([]byte, 4)
+		copy(out, ip4)
+		return out, nil
+	default:
+		out := make([]byte, p.Length)
+		copy(out, value)
+		return out, nil
+	}
 }
 
 // Validate sanity-checks the Parameter's NVRAM offset and length.
