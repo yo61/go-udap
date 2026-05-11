@@ -80,6 +80,14 @@ tasks:
       - upx --best --lzma {{.BINARY_NAME}}-linux-arm64
       - upx --best --lzma {{.BINARY_NAME}}.exe
 
+  release:stats:
+    desc: Print a table of GitHub release-asset download counts.
+      Thin wrapper over the gh-release-stats extension. Install once
+      with `gh extension install yo61/gh-release-stats`. Pass extra
+      flags via CLI_ARGS (e.g. `task release:stats -- --json`).
+    cmds:
+      - gh release-stats {{.CLI_ARGS}}
+
   test:
     desc: Run all tests
     cmds:
