@@ -369,7 +369,12 @@ func (c *Client) CreateResetPacket(device *Device) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ListDevices returns a snapshot of currently-discovered devices.
+// ListDevices returns a snapshot slice of currently-discovered devices.
+// The slice is a fresh allocation, but each *Device points at the same
+// underlying value held by the client; callers that mutate fields on a
+// returned device (e.g. GetAllDeviceConfigWithContext writing through
+// device.Parameters) update the client's view. Do not retain a returned
+// *Device past the lifetime of the Client.
 func (c *Client) ListDevices() []*Device {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()
@@ -381,15 +386,19 @@ func (c *Client) ListDevices() []*Device {
 }
 
 // GetDevice returns a device by MAC address, or nil if not present.
+// The returned *Device aliases the client's internal entry — see
+// ListDevices for the mutation contract.
 func (c *Client) GetDevice(mac string) *Device {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()
 	return c.devices[mac]
 }
 
-// GetDevices returns a snapshot copy of the devices map. Callers may
-// mutate the returned map without affecting the client's internal
-// state.
+// GetDevices returns a snapshot copy of the devices map. The map itself
+// is freshly allocated, so callers may add or remove keys without
+// affecting the client; but each *Device value aliases the client's
+// internal entry, so mutating fields on a returned device updates the
+// client's view (see ListDevices for the same contract).
 func (c *Client) GetDevices() map[string]*Device {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()
