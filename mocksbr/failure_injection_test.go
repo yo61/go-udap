@@ -167,6 +167,38 @@ func TestFailOnSetReturnsErrorResponseWithMessage(t *testing.T) {
 	}
 }
 
+// TestFailOnSetDoesNotMutateCachedParameters verifies the aggregate
+// invariant on Device: when SetDeviceConfigWithContext fails (here, the
+// device replies with MethodError), the in-memory device.Parameters
+// cache must not reflect the attempted write. Before the fix,
+// device.Parameters was updated in the same loop that built the wire
+// payload, so a failing round-trip left the cache showing values that
+// were never written to NVRAM. A subsequent `read` against the cached
+// device would then return phantom values.
+func TestFailOnSetDoesNotMutateCachedParameters(t *testing.T) {
+	net := NewNetwork(0, udap.NewNoOpLogger())
+	mac, err := net.Add(DeviceConfig{MAC: "aa:bb:cc:dd:ee:01", FailOn: []Op{OpSet}})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
+	defer client.Close()
+
+	const original = "before"
+	const attempted = "after"
+	dev := &udap.Device{MAC: mac, Parameters: map[string]string{"hostname": original}}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	if err := client.SetDeviceConfigWithContext(ctx, dev, map[string]string{"hostname": attempted}); err == nil {
+		t.Fatalf("expected SetDeviceConfig to return error, got nil")
+	}
+	if got := dev.Parameters["hostname"]; got != original {
+		t.Errorf("device.Parameters[hostname] = %q after failed write, want %q (phantom write regression)", got, original)
+	}
+}
+
 // TestFailOnResetReturnsErrorThroughClient verifies that a MethodError
 // reply to a Reset request propagates as an error from
 // ResetDeviceWithContext. Before review finding #10's fix, the client
