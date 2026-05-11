@@ -37,7 +37,7 @@ var perlGetDataParams = []string{
 // *names* here, which the device silently ignored — every read timed out.
 func TestCreateGetDataPacketWireFormat(t *testing.T) {
 	c := &Client{logger: NewNoOpLogger(), sequence: 1}
-	device := &Device{MAC: "00:04:20:16:05:8f"}
+	device := &Device{MAC: MustParseMAC("00:04:20:16:05:8f")}
 
 	pkt, err := c.CreateGetDataPacket(device, perlGetDataParams)
 	if err != nil {
@@ -111,7 +111,7 @@ func TestCreateGetDataPacketMatchesPerlPayload(t *testing.T) {
 	}
 
 	c := &Client{logger: NewNoOpLogger(), sequence: 1}
-	device := &Device{MAC: "00:04:20:16:05:8f"}
+	device := &Device{MAC: MustParseMAC("00:04:20:16:05:8f")}
 	got, err := c.CreateGetDataPacket(device, perlGetDataParams)
 	if err != nil {
 		t.Fatalf("CreateGetDataPacket: %v", err)

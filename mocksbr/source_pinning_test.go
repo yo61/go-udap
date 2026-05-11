@@ -31,7 +31,7 @@ func TestClientRejectsForgedReplyFromUnexpectedSrc(t *testing.T) {
 	const mac = "aa:bb:cc:dd:ee:01"
 	const expectedSrc = "src-of-real-device"
 	const spoofedSrc = "src-of-attacker"
-	dev := &udap.Device{MAC: mac, IP: expectedSrc}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac), IP: expectedSrc}
 
 	transport.InjectReply(forgeGetDataReply(t, mac), spoofedSrc)
 
@@ -52,7 +52,7 @@ func TestClientAcceptsReplyFromExpectedSrc(t *testing.T) {
 
 	const mac = "aa:bb:cc:dd:ee:01"
 	const expectedSrc = "src-of-real-device"
-	dev := &udap.Device{MAC: mac, IP: expectedSrc}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac), IP: expectedSrc}
 
 	transport.InjectReply(forgeGetDataReply(t, mac), expectedSrc)
 

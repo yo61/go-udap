@@ -143,13 +143,12 @@ func (c *Client) CreateAdvancedDiscoveryPacket() []byte {
 // Items are sorted by offset for deterministic output, matching
 // CreateSetDataPacket.
 func (c *Client) CreateGetDataPacket(device *Device, params []string) ([]byte, error) {
-	mac, err := ParseMAC(device.MAC)
-	if err != nil {
-		return nil, err
+	if device.MAC.IsZero() {
+		return nil, fmt.Errorf("cannot build GetData packet: device has zero MAC address")
 	}
 
 	packet := c.createUdapPacket(
-		mac.Bytes(),
+		device.MAC.Bytes(),
 		MethodGetData, // 0x0005
 		0x01,          // Request flag
 		false,         // Not broadcast
@@ -186,13 +185,12 @@ func (c *Client) CreateGetDataPacket(device *Device, params []string) ([]byte, e
 func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) ([]byte, error) {
 	c.logger.Info("Creating SetData packet", "device_mac", device.MAC, "param_count", len(params))
 
-	mac, err := ParseMAC(device.MAC)
-	if err != nil {
-		return nil, err
+	if device.MAC.IsZero() {
+		return nil, fmt.Errorf("cannot build SetData packet: device has zero MAC address")
 	}
 
 	packet := c.createUdapPacket(
-		mac.Bytes(),
+		device.MAC.Bytes(),
 		MethodSetData, // 0x0006
 		0x01,          // Request flag
 		false,         // Not broadcast
@@ -291,14 +289,13 @@ func (c *Client) CreateSetDataPacket(device *Device, params map[string]string) (
 
 // CreateResetPacket creates a UDAP reset packet to restart the device.
 func (c *Client) CreateResetPacket(device *Device) ([]byte, error) {
-	mac, err := ParseMAC(device.MAC)
-	if err != nil {
-		return nil, err
+	if device.MAC.IsZero() {
+		return nil, fmt.Errorf("cannot build Reset packet: device has zero MAC address")
 	}
 
 	// Reset uses the MethodReset (0x0004) not MethodError
 	packet := c.createUdapPacket(
-		mac.Bytes(),
+		device.MAC.Bytes(),
 		MethodReset, // 0x0004 - Reset method from Lua implementation
 		0x01,        // Request flag
 		false,       // Not broadcast - send directly to device
@@ -357,8 +354,15 @@ func (c *Client) GetDevices() map[string]*Device {
 // recordDevice stores a discovered device under its MAC. Used by the
 // discovery listener; takes the write lock so it's safe to call
 // concurrently with reads.
+//
+// The map key is d.MAC.String() rather than d.MAC directly so that
+// CLI lookup paths (GetDevice(mac string)) keep working with the
+// canonical "aa:bb:..." form callers already have. Promoting the map
+// key type to MAC would force every caller to ParseMAC at the
+// boundary; the current arrangement keeps that boundary at the CLI's
+// normalizeMAC layer instead.
 func (c *Client) recordDevice(d *Device) {
 	c.devicesMu.Lock()
-	c.devices[d.MAC] = d
+	c.devices[d.MAC.String()] = d
 	c.devicesMu.Unlock()
 }

@@ -97,10 +97,20 @@ func (m MAC) IsZero() bool {
 	return m == MAC{}
 }
 
+// MustParseMAC is the panic-on-error variant of ParseMAC, intended for
+// test fixtures and other contexts where the input is a compile-time
+// constant and an unparseable value is a programmer error. Do not use
+// in production code paths that handle user-supplied input.
+func MustParseMAC(s string) MAC {
+	m, err := ParseMAC(s)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
 // MarshalText / UnmarshalText make MAC encode as its canonical string
-// in JSON, YAML, and any other encoding/text-based serializer. Added
-// now so that a future PR can switch Device.MAC's field type from
-// string to MAC without changing the JSON wire format.
+// in JSON, YAML, and any other encoding/text-based serializer.
 func (m MAC) MarshalText() ([]byte, error) {
 	return []byte(m.String()), nil
 }

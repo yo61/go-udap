@@ -39,7 +39,7 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 	}
 
 	devices := client.ListDevices()
-	sort.Slice(devices, func(i, j int) bool { return devices[i].MAC < devices[j].MAC })
+	sort.Slice(devices, func(i, j int) bool { return devices[i].MAC.String() < devices[j].MAC.String() })
 
 	if len(devices) == 0 {
 		fmt.Fprintf(stderr, "no devices found within %s\n", timeout.Value())

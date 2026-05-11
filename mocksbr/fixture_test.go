@@ -88,7 +88,7 @@ func TestResetAckMatchesFixture(t *testing.T) {
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
 	_ = c.CreateAdvancedDiscoveryPacket() // burns sequence=1
-	dev := &udap.Device{MAC: "00:04:20:16:05:8f"}
+	dev := &udap.Device{MAC: udap.MustParseMAC("00:04:20:16:05:8f")}
 	resetReq, err := c.CreateResetPacket(dev) // sequence=2
 	if err != nil {
 		t.Fatalf("CreateResetPacket: %v", err)

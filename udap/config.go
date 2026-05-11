@@ -33,7 +33,7 @@ func (c *Client) waitForDeviceReply(ctx context.Context, device *Device) (*Packe
 			c.logger.Warn("ignoring unparseable reply", "error", perr)
 			continue
 		}
-		gotMAC := MAC(packet.SrcAddress).String()
+		gotMAC := MAC(packet.SrcAddress)
 		if gotMAC != want {
 			c.logger.Debug("ignoring reply from different device", "from", gotMAC, "want", want)
 			continue

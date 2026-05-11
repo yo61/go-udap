@@ -20,7 +20,7 @@ func TestUnreachableDeviceDropsUnicastPackets(t *testing.T) {
 
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	getPkt, err := c.CreateGetDataPacket(dev, []string{"hostname"})
 	if err != nil {
 		t.Fatalf("CreateGetDataPacket: %v", err)
@@ -77,7 +77,7 @@ func TestSlowDeviceReplyDelayedByConfiguredDuration(t *testing.T) {
 	client := udap.NewClientWithTransport(transport, udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	getPkt, err := client.CreateGetDataPacket(dev, []string{"hostname"})
 	if err != nil {
 		t.Fatalf("CreateGetDataPacket: %v", err)
@@ -113,7 +113,7 @@ func TestSlowDeviceTimesOutWhenDeadlineShorter(t *testing.T) {
 	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	ctx, cancel := context.WithTimeout(context.Background(), ctxBudget)
 	defer cancel()
 
@@ -135,7 +135,7 @@ func TestFailOnGetReturnsErrorResponse(t *testing.T) {
 	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -157,7 +157,7 @@ func TestFailOnSetReturnsErrorResponseWithMessage(t *testing.T) {
 
 	// Pre-load device.Parameters to skip the SetData read-modify-write
 	// prelude that would otherwise fail first.
-	dev := &udap.Device{MAC: mac, Parameters: map[string]string{"hostname": "x"}}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac), Parameters: map[string]string{"hostname": "x"}}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -187,7 +187,7 @@ func TestFailOnSetDoesNotMutateCachedParameters(t *testing.T) {
 
 	const original = "before"
 	const attempted = "after"
-	dev := &udap.Device{MAC: mac, Parameters: map[string]string{"hostname": original}}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac), Parameters: map[string]string{"hostname": original}}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -213,7 +213,7 @@ func TestFailOnResetReturnsErrorThroughClient(t *testing.T) {
 	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -236,7 +236,7 @@ func TestFailOnResetEmitsErrorResponseOnWire(t *testing.T) {
 
 	c := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer c.Close()
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	resetPkt, err := c.CreateResetPacket(dev)
 	if err != nil {
 		t.Fatalf("CreateResetPacket: %v", err)
@@ -270,7 +270,7 @@ func TestMalformedOversizedCountIsRejectedByClient(t *testing.T) {
 	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
@@ -293,7 +293,7 @@ func TestMalformedLengthExceedsPayloadIsRejectedByClient(t *testing.T) {
 	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
@@ -316,7 +316,7 @@ func TestMalformedUnknownMethodIsRejectedByClient(t *testing.T) {
 	client := udap.NewClientWithTransport(NewMockTransport(net), udap.NewNoOpLogger())
 	defer client.Close()
 
-	dev := &udap.Device{MAC: mac}
+	dev := &udap.Device{MAC: udap.MustParseMAC(mac)}
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 

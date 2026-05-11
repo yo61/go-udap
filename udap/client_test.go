@@ -69,7 +69,7 @@ func TestClientDeviceManagement(t *testing.T) {
 
 	// Test adding a device
 	device := &Device{
-		MAC:      "00:04:20:12:34:56",
+		MAC:      MustParseMAC("00:04:20:12:34:56"),
 		IP:       "192.168.1.100",
 		Name:     "Test Device",
 		Model:    "Squeezebox Receiver",
@@ -81,14 +81,15 @@ func TestClientDeviceManagement(t *testing.T) {
 		},
 	}
 
-	client.devices[device.MAC] = device
+	macKey := device.MAC.String()
+	client.devices[macKey] = device
 
 	// Test that device was added
 	if len(client.devices) != 1 {
 		t.Errorf("Expected 1 device, got %d", len(client.devices))
 	}
 
-	retrievedDevice, exists := client.devices[device.MAC]
+	retrievedDevice, exists := client.devices[macKey]
 	if !exists {
 		t.Error("Device should exist in client devices map")
 	}
@@ -103,12 +104,12 @@ func TestClientDeviceManagement(t *testing.T) {
 		t.Errorf("Expected 1 device from GetDevices, got %d", len(devicesMap))
 	}
 
-	if devicesMap[device.MAC] == nil {
+	if devicesMap[macKey] == nil {
 		t.Error("Expected device to be in GetDevices map")
 	}
 
 	// Test GetDevice
-	foundDevice := client.GetDevice(device.MAC)
+	foundDevice := client.GetDevice(macKey)
 	if foundDevice == nil {
 		t.Error("GetDevice should return the device")
 	} else if foundDevice.MAC != device.MAC {
