@@ -188,9 +188,17 @@ func TestGetIPHandlerReturnsConfiguredIPs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParsePacket: %v", err)
 	}
-	// Verify IP TLV (0x05) is present with the configured value bytes
-	if !bytes.Contains(payload, []byte{0x05, 0x04, 192, 168, 1, 50}) {
-		t.Errorf("payload missing IP TLV; got %x", payload)
+	// Verify all three TLVs (IP 0x05, SubnetMask 0x06, Gateway 0x07) are
+	// present with the configured value bytes. Pinning all three guards
+	// against a regression where buildGetIPResponse drops subnet/gateway.
+	for _, want := range [][]byte{
+		{0x05, 0x04, 192, 168, 1, 50},
+		{0x06, 0x04, 255, 255, 255, 0},
+		{0x07, 0x04, 192, 168, 1, 1},
+	} {
+		if !bytes.Contains(payload, want) {
+			t.Errorf("payload missing TLV %x; got %x", want, payload)
+		}
 	}
 }
 
