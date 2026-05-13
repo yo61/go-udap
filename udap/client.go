@@ -87,7 +87,7 @@ func (c *Client) sendRetried(packet []byte) error {
 	attempts := c.retries + 1
 	var firstErr error
 	successCount := 0
-	for i := 0; i < attempts; i++ {
+	for range attempts {
 		if err := c.transport.Send(packet); err != nil {
 			if firstErr == nil {
 				firstErr = err
