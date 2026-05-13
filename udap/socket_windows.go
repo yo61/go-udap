@@ -44,6 +44,6 @@ func bindToInterface(_ *net.UDPConn, _ NetInterface, _ Logger) error {
 // Windows anyway (bindToInterface returns "not supported"), so this
 // is defensive — the function exists so transport.go compiles on
 // Windows.
-func setReusePortPreBind(fd uintptr) error {
+func setReusePortPreBind(_ uintptr) error {
 	return nil
 }

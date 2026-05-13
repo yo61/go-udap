@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -74,6 +75,9 @@ func TestUDPTransportRoundTrip(t *testing.T) {
 }
 
 func TestNewUDPTransportOnInterfaceConstructs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("per-interface binding is not yet supported on Windows; tracked as Task #29")
+	}
 	ifs, err := EnumerateInterfaces()
 	if err != nil || len(ifs) == 0 {
 		t.Skip("no usable interfaces")
