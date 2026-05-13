@@ -1,0 +1,33 @@
+---
+title: Global flags
+description: Flags that apply to every go-udap subcommand
+---
+
+# Global flags
+
+Every flag below can appear before OR after the subcommand —
+`go-udap -v read <mac>` and `go-udap read -v <mac>` are equivalent.
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--timeout DURATION` | `5s` | Operation timeout, e.g. `5s`, `30s`, `2m` |
+| `--verbose`, `-v` | off | Debug logging to stderr. Also surfaces soft-fail warnings (e.g. `get_ip` timeout in `discover --info`) that are silent by default |
+| `--interface NAME` | — | Bind discovery (and all subsequent operations) to one named network interface. See [`interfaces`](./commands/interfaces) for valid names. Mutually exclusive with `--all-interfaces`. **Not supported on Windows** — the flag is hidden from `--help` there |
+| `--all-interfaces` | off | Fan out discovery across every usable network interface. Useful on multi-homed hosts. Mutually exclusive with `--interface`. **Not supported on Windows** |
+| `--retries N` | `0` | Re-transmit each UDAP send `N` additional times back-to-back. Useful on lossy links (ad-hoc Wi-Fi). `--retries 2` matches the squeezeplay reference triple-send |
+| `--version` | — | Print version and exit |
+| `--help`, `-h` | — | Print help |
+
+## Multi-interface behaviour (`--interface` / `--all-interfaces`)
+
+Discovery only emits broadcasts on the kernel's default-route NIC by
+default. On a multi-homed laptop (Wi-Fi + Ethernet both up), if the
+Squeezebox is on the non-default subnet you'll see zero devices.
+
+`--interface NAME` forces UDAP traffic out a specific NIC via
+`IP_BOUND_IF` (macOS) / `SO_BINDTODEVICE` (Linux). `--all-interfaces`
+sends concurrently on every NIC.
+
+See [How to discover on a multi-NIC laptop](/docs/how-to/discover-on-multi-nic-laptop)
+for usage, and [Multi-NIC discovery](/docs/concepts/multi-nic-discovery)
+for the underlying mechanics.
