@@ -223,3 +223,65 @@ func TestGetIPHandlerHonoursDropGetIP(t *testing.T) {
 		t.Errorf("got %d replies, want 0 (dropped)", len(replies))
 	}
 }
+
+func TestGetUUIDHandlerReturnsConfiguredUUID(t *testing.T) {
+	n := mocksbr.NewNetwork(0, udap.NewNoOpLogger())
+	defer func() { _ = n.Close() }()
+	if _, err := n.Add(mocksbr.DeviceConfig{
+		MAC:  "00:04:20:00:00:01",
+		UUID: "deadbeefcafebabe1122334455667788",
+	}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	client, _ := udap.NewClientWithLogger(udap.NewNoOpLogger())
+	mac, _ := udap.ParseMAC("00:04:20:00:00:01")
+	dev := &udap.Device{MAC: mac}
+	req, err := client.CreateGetUUIDPacket(dev)
+	if err != nil {
+		t.Fatalf("CreateGetUUIDPacket: %v", err)
+	}
+	client.Close()
+
+	replies := n.Receive(req)
+	if len(replies) != 1 {
+		t.Fatalf("got %d replies, want 1", len(replies))
+	}
+
+	_, payload, err := udap.ParsePacket(replies[0])
+	if err != nil {
+		t.Fatalf("ParsePacket: %v", err)
+	}
+	// Verify TLV 0x0d is present with the configured raw UUID bytes.
+	want := []byte{
+		0x0d, 0x10,
+		0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe, 0xba, 0xbe,
+		0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+	}
+	if !bytes.Contains(payload, want) {
+		t.Errorf("payload missing UUID TLV %x; got %x", want, payload)
+	}
+}
+
+func TestGetUUIDHandlerHonoursDropGetUUID(t *testing.T) {
+	n := mocksbr.NewNetwork(0, udap.NewNoOpLogger())
+	defer func() { _ = n.Close() }()
+	if _, err := n.Add(mocksbr.DeviceConfig{
+		MAC:         "00:04:20:00:00:01",
+		UUID:        "deadbeefcafebabe1122334455667788",
+		DropGetUUID: true,
+	}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	client, _ := udap.NewClientWithLogger(udap.NewNoOpLogger())
+	mac, _ := udap.ParseMAC("00:04:20:00:00:01")
+	dev := &udap.Device{MAC: mac}
+	req, _ := client.CreateGetUUIDPacket(dev)
+	client.Close()
+
+	replies := n.Receive(req)
+	if len(replies) != 0 {
+		t.Errorf("got %d replies, want 0 (dropped)", len(replies))
+	}
+}

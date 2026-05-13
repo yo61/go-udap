@@ -367,3 +367,18 @@ func writeIPTLV(buf *bytes.Buffer, t byte, ipStr string) {
 	buf.WriteByte(0x04)
 	buf.Write(out)
 }
+
+// buildGetUUIDResponse constructs a get_uuid reply (UCPMethod=0x000b)
+// with the UUID as TLV 0x0d. The configured UUID string is converted
+// via uuidWireBytes — a hex UUID like "deadbeefcafebabe1122334455667788"
+// decodes to 16 raw bytes; a non-hex placeholder like "mock-sbr-001"
+// is emitted as raw string bytes (length != 16, which will fail the
+// client's UUID-length check — handy for exercising the fallback's
+// error path).
+func (d *device) buildGetUUIDResponse(req *udap.Packet) []byte {
+	hdr := buildHeader(req, d.cfg.MAC, udap.MethodGetUUID)
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.BigEndian, hdr)
+	writeTLV(buf, 0x0d, uuidWireBytes(d.cfg.UUID))
+	return buf.Bytes()
+}
