@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.1](https://github.com/yo61/go-udap/compare/v1.6.0...v1.6.1) (2026-05-13)
+
+### Bug Fixes
+
+* **cli:** suppress get_ip warning during discover --info unless --verbose ([#45](https://github.com/yo61/go-udap/issues/45)) ([a9ff8e5](https://github.com/yo61/go-udap/commit/a9ff8e5d8e9f27f941c8eef67ba2c657319a3a14)), closes [#33](https://github.com/yo61/go-udap/issues/33)
+
 ## [1.6.0](https://github.com/yo61/go-udap/compare/v1.5.0...v1.6.0) (2026-05-13)
 
 ### Features
