@@ -40,6 +40,7 @@ func runInfo(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
+	maybeFillUUID(ctx, client, device, *verbose, stderr)
 	formatDeviceInfo(stdout, device)
 	return nil
 }

@@ -51,6 +51,7 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 			if i > 0 {
 				fmt.Fprintln(stdout)
 			}
+			maybeFillUUID(ctx, client, d, *verbose, stderr)
 			formatDeviceInfo(stdout, d)
 			nc, err := client.GetDeviceNetworkConfigWithContext(ctx, d)
 			if err != nil {

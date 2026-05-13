@@ -82,7 +82,7 @@ func (d *device) buildDiscoveryResponse(req *udap.Packet) []byte {
 	writeTLV(buf, 0x09, []byte(d.cfg.Firmware))
 	writeTLV(buf, 0x03, []byte(d.cfg.Model))
 	writeTLV(buf, 0x02, []byte(hostname))
-	if d.cfg.UUID != "" {
+	if d.cfg.UUID != "" && !d.cfg.SuppressDiscoveryUUID {
 		writeTLV(buf, 0x0d, uuidWireBytes(d.cfg.UUID))
 	}
 
