@@ -129,6 +129,8 @@ func dispatch(cmd string, subArgs []string, stdout, syncErr io.Writer) error {
 		return runSet(subArgs, stdout, syncErr)
 	case "reboot":
 		return runReboot(subArgs, stdout, syncErr)
+	case "getip":
+		return runGetIP(subArgs, stdout, syncErr)
 	default:
 		return &ExitError{Code: 1, Err: fmt.Errorf("unknown command: %s", cmd)}
 	}
@@ -228,6 +230,7 @@ Commands:
                                  immediately, but some changes only take
                                  effect after reboot).
   reboot <mac>                   Reboot the device
+  getip <mac>                    Query device IP / subnet / gateway via UCP get_ip
 
 Global flags:
   --timeout DURATION  Operation timeout (default 5s)

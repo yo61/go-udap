@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"net"
 	"sort"
 
 	"go-udap/udap"
@@ -64,4 +65,19 @@ func formatDeviceInfo(w io.Writer, d *udap.Device) {
 	if d.State != "" {
 		fmt.Fprintf(w, "State:    %s\n", d.State)
 	}
+}
+
+// formatNetworkConfig writes IP / Subnet / Gateway lines, using "-"
+// for any empty field.
+func formatNetworkConfig(w io.Writer, nc udap.NetworkConfig) {
+	fmt.Fprintf(w, "IP:      %s\n", ipOrDashCLI(nc.IP))
+	fmt.Fprintf(w, "Subnet:  %s\n", ipOrDashCLI(nc.SubnetMask))
+	fmt.Fprintf(w, "Gateway: %s\n", ipOrDashCLI(nc.Gateway))
+}
+
+func ipOrDashCLI(ip net.IP) string {
+	if len(ip) == 0 || ip.IsUnspecified() {
+		return "-"
+	}
+	return ip.String()
 }
