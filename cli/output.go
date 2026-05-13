@@ -55,6 +55,12 @@ func formatDeviceInfo(w io.Writer, d *udap.Device) {
 	if d.Firmware != "" {
 		fmt.Fprintf(w, "Firmware: %s\n", d.Firmware)
 	}
+	if d.HardwareRev != "" {
+		fmt.Fprintf(w, "HW Rev:   %s\n", d.HardwareRev)
+	}
+	if d.UUID != "" {
+		fmt.Fprintf(w, "UUID:     %s\n", d.UUID)
+	}
 	if d.State != "" {
 		fmt.Fprintf(w, "State:    %s\n", d.State)
 	}

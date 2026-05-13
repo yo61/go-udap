@@ -78,9 +78,31 @@ func TestFormatDeviceInfoOmitsEmptyFields(t *testing.T) {
 	d := &udap.Device{MAC: udap.MustParseMAC("aa:bb:cc:dd:ee:ff"), IP: "0.0.0.0"}
 	formatDeviceInfo(&buf, d)
 	got := buf.String()
-	for _, unexpected := range []string{"Name:", "Model:", "Firmware:", "State:"} {
+	for _, unexpected := range []string{"Name:", "Model:", "Firmware:", "State:", "HW Rev:", "UUID:"} {
 		if strings.Contains(got, unexpected) {
 			t.Errorf("output should omit %q for empty value; got %q", unexpected, got)
+		}
+	}
+}
+
+func TestFormatDeviceInfoIncludesHardwareRevAndUUID(t *testing.T) {
+	mac, err := udap.ParseMAC("00:04:20:00:00:01")
+	if err != nil {
+		t.Fatalf("ParseMAC: %v", err)
+	}
+	d := &udap.Device{
+		MAC:         mac,
+		IP:          "192.168.1.50",
+		Name:        "test",
+		HardwareRev: "0005",
+		UUID:        "000102030405060708090a0b0c0d0e0f",
+	}
+	var buf bytes.Buffer
+	formatDeviceInfo(&buf, d)
+	out := buf.String()
+	for _, want := range []string{"0005", "000102030405060708090a0b0c0d0e0f", "HW Rev", "UUID"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q; got:\n%s", want, out)
 		}
 	}
 }
