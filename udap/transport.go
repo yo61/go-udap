@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"syscall"
 	"time"
 )
 
@@ -165,15 +166,30 @@ func NewUDPTransportOnInterface(iface NetInterface, port int, logger Logger) (*U
 	if iface.Addr == nil {
 		return nil, fmt.Errorf("interface %s has no IPv4 address", iface.Name)
 	}
-	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", port))
-	if err != nil {
-		return nil, fmt.Errorf("resolve UDP addr: %w", err)
+	// Set SO_REUSEADDR + SO_REUSEPORT pre-bind so that
+	// NewClientForAllInterfaces can stand up multiple sockets on the
+	// same 0.0.0.0:port (one per interface).
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var sockErr error
+			if cerr := c.Control(func(fd uintptr) {
+				sockErr = setReusePortPreBind(fd)
+			}); cerr != nil {
+				return cerr
+			}
+			return sockErr
+		},
 	}
-	conn, err := net.ListenUDP("udp4", addr)
+	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return nil, fmt.Errorf("listen UDP: %w", err)
 	}
-	enableBroadcast(conn, logger)
+	conn, ok := pc.(*net.UDPConn)
+	if !ok {
+		_ = pc.Close()
+		return nil, fmt.Errorf("listen UDP: unexpected conn type %T", pc)
+	}
+	enableBroadcast(conn, logger) // sets SO_BROADCAST post-bind
 	if err := bindToInterface(conn, iface, logger); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("bind to interface %s: %w", iface.Name, err)

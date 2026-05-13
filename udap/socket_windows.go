@@ -38,3 +38,12 @@ func enableBroadcast(conn *net.UDPConn, logger Logger) {
 func bindToInterface(conn *net.UDPConn, iface NetInterface, logger Logger) error {
 	return fmt.Errorf("--interface NAME is not yet supported on Windows; omit the flag to use the default discovery mode")
 }
+
+// setReusePortPreBind is a no-op on Windows because SO_REUSEPORT
+// doesn't exist there. NewClientForAllInterfaces is unreachable on
+// Windows anyway (bindToInterface returns "not supported"), so this
+// is defensive — the function exists so transport.go compiles on
+// Windows.
+func setReusePortPreBind(fd uintptr) error {
+	return nil
+}
