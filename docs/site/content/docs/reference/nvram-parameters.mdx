@@ -1,0 +1,73 @@
+---
+title: NVRAM parameters
+description: The 26 known UDAP NVRAM parameters, by category
+---
+
+# NVRAM parameters
+
+go-udap knows 26 canonical parameters. These are the only ones
+[`set`](./commands/set) accepts as `--<param>` flags, and the only
+ones [`read`](./commands/read) reports. Unknown parameters returned
+by the device appear as `offset_NNN` entries (visible with
+`read --all`).
+
+## Network
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `lan_ip_mode` | Integer (0-1) | 0 = Static IP, 1 = DHCP |
+| `lan_network_address` | IPv4 | Static IP address |
+| `lan_subnet_mask` | IPv4 | Subnet mask |
+| `lan_gateway` | IPv4 | Default gateway |
+| `primary_dns` | IPv4 | Primary DNS |
+| `secondary_dns` | IPv4 | Secondary DNS |
+| `hostname` | String (max 33) | Device hostname |
+| `bridging` | Integer (0-1) | Enable/disable bridging |
+| `interface` | Integer (0-1) | 0 = Wireless, 1 = Wired |
+
+## Server
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `server_address` | IPv4 | LMS address |
+| `lms_address` | IPv4 | Alternative LMS address |
+| `squeezecenter_address` | IPv4 | Alias for `server_address` |
+| `slimserver_address` | IPv4 | Alias for `server_address` |
+
+The aliases (`squeezecenter_address`, `slimserver_address`,
+`lms_address`) all point at the same NVRAM offset. `set` accepts any
+of them; `read` emits the canonical `server_address`.
+
+## Wireless
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wireless_mode` | Integer (0-1) | 0 = Infrastructure, 1 = Ad-hoc |
+| `wireless_SSID` | String (1-32) | Network name |
+| `wireless_channel` | Integer (1-13) | Channel |
+| `wireless_region_id` | Integer | Region |
+
+## Wireless security — WEP
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wireless_wep_on` | Integer (0-1) | Enable/disable WEP |
+| `wireless_keylen` | Integer (5/13) | WEP key length |
+| `wireless_wep_key` | String | Primary WEP key |
+| `wireless_wep_key_1`..`_3` | String | WEP key slots 1-3 |
+
+## Wireless security — WPA/WPA2
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wireless_wpa_on` | Integer (0-1) | Enable/disable WPA |
+| `wireless_wpa_mode` | Integer | WPA mode |
+| `wireless_wpa_cipher` | Integer | WPA cipher |
+| `wireless_wpa_psk` | String (8-63) | WPA pre-shared key |
+
+## Factory reset
+
+Factory reset is **not** exposed by the protocol. Perform it on the
+device itself: hold the front button for ~6 seconds until it blinks
+fast red. See
+[the wiki](https://wiki.lyrion.org/index.php/SBRFrontButtonAndLED).
