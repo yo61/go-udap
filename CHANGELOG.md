@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0](https://github.com/yo61/go-udap/compare/v1.8.0...v1.9.0) (2026-05-13)
+
+### Features
+
+* **docs:** scaffold Fumadocs site with GitHub Pages deploy (M1) ([#49](https://github.com/yo61/go-udap/issues/49)) ([4bc8837](https://github.com/yo61/go-udap/commit/4bc8837326ea95d00942c01969b935e6aa22486e))
+
 ## [1.8.0](https://github.com/yo61/go-udap/compare/v1.7.0...v1.8.0) (2026-05-13)
 
 ### Features
