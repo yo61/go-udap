@@ -40,6 +40,11 @@ The application is structured with a modular design:
 - **udap/getip.go**: CreateGetIPPacket + GetDeviceNetworkConfigWithContext
   for UCP_METHOD_GET_IP (0x0002). parseGetIPResponse decodes TLV 0x05
   (IP) / 0x06 (SubnetMask) / 0x07 (Gateway) into NetworkConfig.
+- **udap/getuuid.go**: CreateGetUUIDPacket + GetDeviceUUIDWithContext
+  for UCP_METHOD_GET_UUID (0x000b). parseGetUUIDResponse decodes TLV
+  0x0d (16-byte UUID) into a 32-char lowercase hex string. Used by the
+  CLI as a fallback when discovery's TLV 0x0d is missing (older
+  firmware that omits UUID from adv_discover).
 - **udap/netconfig.go**: NetworkConfig value object (result of get_ip).
 - **udap/interfaces.go**: NetInterface value object + EnumerateInterfaces
   (filters: Up + Broadcast + !Loopback + has IPv4) + computeDirectedBroadcast.
@@ -136,8 +141,8 @@ go run .
 The tool is single-shot CLI; every operation is one invocation. There is no
 interactive shell.
 
-- `go-udap discover [--info]` — Discover devices; MACs only, or full metadata (including IP/subnet/gateway via per-device get_ip) with `--info`. Per-device get_ip failures are soft (warning to stderr, dashes in output)
-- `go-udap info <mac>` — Show metadata for one device (MAC, IP, Name, Model, Firmware, HW Rev, UUID, State)
+- `go-udap discover [--info]` — Discover devices; MACs only, or full metadata (including IP/subnet/gateway via per-device get_ip) with `--info`. Per-device get_ip failures are soft (dashes in output; warning gated on `--verbose`). When discovery omits TLV 0x0d (older firmware), `--info` falls back to `get_uuid` (UCP 0x000b) to populate UUID — also soft-fail with `--verbose`-gated warning.
+- `go-udap info <mac>` — Show metadata for one device (MAC, IP, Name, Model, Firmware, HW Rev, UUID, State). Same `get_uuid` fallback as `discover --info`.
 - `go-udap read <mac> [--all/-a]` — Read parameters from a device. By default skips factory-default values (so output round-trips cleanly through `set`); pass `--all`/`-a` to dump everything including factory defaults and unrecognized `offset_NNN` entries.
 - `go-udap get <mac> <param> [<param>...]` — Read specific parameters
 - `go-udap set <mac> [--reboot/-r] [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win). The wire op writes NVRAM directly (every UCP_METHOD_SET_DATA writes — there is no separate save_data wire method per the Net::UDAP reference). Pass `--reboot/-r` to also reboot after writing.
@@ -193,6 +198,7 @@ m, err := client.GetDeviceConfigWithContext(ctx, device, names)// read selected
 err = client.SetDeviceConfigWithContext(ctx, device, kvMap)    // write (RMW: read-modify-write all 26)
 err = client.ResetDeviceWithContext(ctx, device)               // reboot
 nc, err := client.GetDeviceNetworkConfigWithContext(ctx, device) // UCP_METHOD_GET_IP (0x0002) → NetworkConfig
+uuid, err := client.GetDeviceUUIDWithContext(ctx, device)      // UCP_METHOD_GET_UUID (0x000b) → 32-char hex string
 
 ifs, err := udap.EnumerateInterfaces()                         // []NetInterface: Up+Broadcast+!Loopback+IPv4
 ```
