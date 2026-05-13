@@ -157,3 +157,61 @@ func TestDiscoveryResponseIncludesUUID(t *testing.T) {
 		t.Errorf("reply does not contain UUID bytes; reply hex=%x", replies[0])
 	}
 }
+
+func TestGetIPHandlerReturnsConfiguredIPs(t *testing.T) {
+	n := mocksbr.NewNetwork(0, udap.NewNoOpLogger())
+	defer n.Close()
+	if _, err := n.Add(mocksbr.DeviceConfig{
+		MAC:        "00:04:20:00:00:01",
+		IP:         "192.168.1.50",
+		SubnetMask: "255.255.255.0",
+		Gateway:    "192.168.1.1",
+	}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	client, _ := udap.NewClientWithLogger(udap.NewNoOpLogger())
+	mac, _ := udap.ParseMAC("00:04:20:00:00:01")
+	dev := &udap.Device{MAC: mac}
+	req, err := client.CreateGetIPPacket(dev)
+	if err != nil {
+		t.Fatalf("CreateGetIPPacket: %v", err)
+	}
+	client.Close()
+
+	replies := n.Receive(req)
+	if len(replies) != 1 {
+		t.Fatalf("got %d replies, want 1", len(replies))
+	}
+
+	_, payload, err := udap.ParsePacket(replies[0])
+	if err != nil {
+		t.Fatalf("ParsePacket: %v", err)
+	}
+	// Verify IP TLV (0x05) is present with the configured value bytes
+	if !bytes.Contains(payload, []byte{0x05, 0x04, 192, 168, 1, 50}) {
+		t.Errorf("payload missing IP TLV; got %x", payload)
+	}
+}
+
+func TestGetIPHandlerHonoursDropGetIP(t *testing.T) {
+	n := mocksbr.NewNetwork(0, udap.NewNoOpLogger())
+	defer n.Close()
+	if _, err := n.Add(mocksbr.DeviceConfig{
+		MAC:       "00:04:20:00:00:01",
+		DropGetIP: true,
+	}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	client, _ := udap.NewClientWithLogger(udap.NewNoOpLogger())
+	mac, _ := udap.ParseMAC("00:04:20:00:00:01")
+	dev := &udap.Device{MAC: mac}
+	req, _ := client.CreateGetIPPacket(dev)
+	client.Close()
+
+	replies := n.Receive(req)
+	if len(replies) != 0 {
+		t.Errorf("got %d replies, want 0 (dropped)", len(replies))
+	}
+}

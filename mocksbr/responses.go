@@ -337,3 +337,33 @@ func decodeParamValue(value []byte) string {
 	}
 	return string(value[:end])
 }
+
+// buildGetIPResponse constructs a get_ip reply (UCPMethod=0x0002) with
+// TLV-encoded IP / SubnetMask / Gateway from DeviceConfig. Missing
+// fields are encoded as zero IPv4 (0.0.0.0). The wire TLV codes match
+// Net::UDAP: 0x05 IP_ADDR, 0x06 SUBNET_MASK, 0x07 GATEWAY_ADDR.
+func (d *device) buildGetIPResponse(req *udap.Packet) []byte {
+	hdr := buildHeader(req, d.cfg.MAC, udap.MethodGetIP)
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.BigEndian, hdr)
+	writeIPTLV(buf, 0x05, d.cfg.IP)
+	writeIPTLV(buf, 0x06, d.cfg.SubnetMask)
+	writeIPTLV(buf, 0x07, d.cfg.Gateway)
+	return buf.Bytes()
+}
+
+// writeIPTLV emits a 4-byte IPv4 TLV. Empty or unparseable inputs
+// produce a 0.0.0.0 value.
+func writeIPTLV(buf *bytes.Buffer, t byte, ipStr string) {
+	out := []byte{0, 0, 0, 0}
+	if ipStr != "" {
+		if ip := net.ParseIP(ipStr); ip != nil {
+			if ip4 := ip.To4(); ip4 != nil {
+				out = ip4
+			}
+		}
+	}
+	buf.WriteByte(t)
+	buf.WriteByte(0x04)
+	buf.Write(out)
+}

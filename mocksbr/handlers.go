@@ -61,6 +61,13 @@ func (n *Network) ReceiveScheduled(packetBytes []byte) []ScheduledReply {
 			d.applyReset()
 			return ack
 		})
+	case udap.MethodGetIP:
+		return n.dispatchUnicast(pkt, OpGetIP, func(d *device) []byte {
+			if d.cfg.DropGetIP {
+				return nil
+			}
+			return d.buildGetIPResponse(pkt)
+		})
 	default:
 		n.logger.Debug("mocksbr: unhandled UCPMethod",
 			"method", fmt.Sprintf("0x%04x", pkt.UCPMethod))
