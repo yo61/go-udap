@@ -21,6 +21,7 @@ type Client struct {
 	devices   map[string]*Device
 	sequence  uint32
 	logger    Logger
+	retries   int
 }
 
 // NewClient creates a new UDAP client bound to the standard UDAP port
@@ -63,6 +64,42 @@ func NewClientWithTransport(t Transport, logger Logger) *Client {
 // Close releases the underlying transport resources.
 func (c *Client) Close() error {
 	return c.transport.Close()
+}
+
+// SetRetries configures the number of retransmissions beyond the initial
+// send. Negative values are silently clamped to 0. Default is 0 (no retries,
+// just one send). Passing N means (N+1) total sends.
+func (c *Client) SetRetries(n int) {
+	if n < 0 {
+		n = 0
+	}
+	c.retries = n
+}
+
+// sendRetried sends packet via the underlying transport, retransmitting
+// c.retries additional times after the initial send. UDP send is
+// fire-and-forget; aggregate success semantics: returns nil if any of
+// the (c.retries + 1) attempts succeeded, returning the first error
+// only when every attempt failed. There is no inter-send delay —
+// matches squeezeplay's triple-send pattern (Net::UDAP applet's
+// t_udapSend, SetupSqueezeboxApplet.lua:947-949).
+func (c *Client) sendRetried(packet []byte) error {
+	attempts := c.retries + 1
+	var firstErr error
+	successCount := 0
+	for range attempts {
+		if err := c.transport.Send(packet); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else {
+			successCount++
+		}
+	}
+	if successCount == 0 {
+		return firstErr
+	}
+	return nil
 }
 
 // createUdapPacket creates the common UDAP packet header structure

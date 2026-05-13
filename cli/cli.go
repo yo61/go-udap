@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,10 @@ type interfaceSelection struct {
 }
 
 var currentInterfaceSelection interfaceSelection
+
+// currentRetries holds the --retries N flag value. Defaults to 0 (no retries,
+// just one send). Used by newClient in discover.go to configure the UDP client.
+var currentRetries int
 
 // parseSubcommandFlags wraps fs.Parse and translates pflag.ErrHelp (the
 // signal pflag returns when --help is requested, after it has already
@@ -129,6 +134,17 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	defer func() { currentInterfaceSelection = prevSel }()
 	args = remaining
 
+	{
+		retries, remaining, rerr := extractRetriesFlag(args)
+		if rerr != nil {
+			return rerr
+		}
+		prevRetries := currentRetries
+		currentRetries = retries
+		defer func() { currentRetries = prevRetries }()
+		args = remaining
+	}
+
 	if len(args) == 0 {
 		printUsage(stdout)
 		return nil
@@ -194,6 +210,7 @@ var (
 	globalFlagsValue = map[string]bool{
 		"--timeout":   true,
 		"--interface": true,
+		"--retries":   true,
 	}
 )
 
@@ -258,6 +275,41 @@ scan:
 	return out
 }
 
+// extractRetriesFlag scans args for --retries N (in either --foo=bar or
+// --foo bar form), removes it, and returns the parsed value plus the
+// leftover argv. Value must be a non-negative integer; otherwise an
+// ExitError Code 1 is returned.
+func extractRetriesFlag(args []string) (int, []string, error) {
+	retries := 0
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case strings.HasPrefix(a, "--retries="):
+			v := strings.TrimPrefix(a, "--retries=")
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 0 {
+				return 0, nil, &ExitError{Code: 1, Err: fmt.Errorf("--retries: invalid value %q (must be a non-negative integer)", v)}
+			}
+			retries = n
+		case a == "--retries":
+			if i+1 >= len(args) {
+				return 0, nil, &ExitError{Code: 1, Err: fmt.Errorf("--retries requires a value")}
+			}
+			v := args[i+1]
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 0 {
+				return 0, nil, &ExitError{Code: 1, Err: fmt.Errorf("--retries: invalid value %q (must be a non-negative integer)", v)}
+			}
+			retries = n
+			i++
+		default:
+			out = append(out, a)
+		}
+	}
+	return retries, out, nil
+}
+
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `go-udap — Squeezebox UDAP configuration tool
 
@@ -291,7 +343,8 @@ Global flags:
 		fmt.Fprintln(w, `  --interface NAME        Bind discovery to one network interface
   --all-interfaces        Broadcast on every usable interface (fan-out)`)
 	}
-	fmt.Fprintln(w, `  --verbose, -v           Debug logging to stderr
+	fmt.Fprintln(w, `  --retries N             Re-transmit each UDAP send N additional times (default 0; useful on lossy links)
+  --verbose, -v           Debug logging to stderr
   --version               Print version and exit
   --help, -h              Print this help`)
 }
