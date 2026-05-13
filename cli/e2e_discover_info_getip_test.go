@@ -81,4 +81,40 @@ func TestE2EDiscoverInfoPartialFailureRendersDashes(t *testing.T) {
 	if got := strings.Count(outBuf.String(), "Subnet:"); got != 2 {
 		t.Errorf("got %d Subnet: lines, want 2", got)
 	}
+	// The dashes already signal "config unavailable"; without --verbose the
+	// per-device get_ip-failed warning must stay off stderr.
+	if strings.Contains(errBuf.String(), "warning: get_ip failed") {
+		t.Errorf("stderr unexpectedly contains get_ip warning without --verbose; got:\n%s", errBuf.String())
+	}
+}
+
+func TestE2EDiscoverInfoVerboseShowsGetIPWarning(t *testing.T) {
+	network := mocksbr.NewNetwork(0, udap.NewNoOpLogger())
+	t.Cleanup(func() { _ = network.Close() })
+	if _, err := network.Add(mocksbr.DeviceConfig{
+		MAC:       "00:04:20:00:00:01",
+		DropGetIP: true,
+	}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	prev := newClient
+	newClient = func(_ bool, _ io.Writer) (*udap.Client, error) {
+		return udap.NewClientWithTransport(
+			mocksbr.NewMockTransport(network),
+			udap.NewNoOpLogger(),
+		), nil
+	}
+	t.Cleanup(func() { newClient = prev })
+
+	var outBuf, errBuf bytes.Buffer
+	err := Run([]string{"-v", "discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
+	if ExitCode(err) != 0 {
+		t.Errorf("exit code %d, want 0", ExitCode(err))
+	}
+	// With -v the per-device get_ip-failed warning must reach stderr so a
+	// user debugging a non-responsive device can see why the table shows
+	// dashes.
+	if !strings.Contains(errBuf.String(), "warning: get_ip failed for 00:04:20:00:00:01") {
+		t.Errorf("stderr missing get_ip warning under --verbose; got:\n%s", errBuf.String())
+	}
 }
