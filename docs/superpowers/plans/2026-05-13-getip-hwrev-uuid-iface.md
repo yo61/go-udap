@@ -3024,4 +3024,13 @@ git commit -m "docs: document getip and interfaces subcommands + interface flags
 
 ## Spike result
 
-(This section is populated by Tasks 1.1 and 7.3.)
+❯ sudo tcpdump -i any -n -nn 'udp port 17784'
+tcpdump: data link type PKTAP
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on any, link-type PKTAP (Apple DLT_PKTAP), snapshot length 524288 bytes
+14:40:33.160298 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
+14:40:33.160300 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
+14:40:33.160304 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
+14:40:33.160660 IP 0.0.0.0.17784 > 255.255.255.255.17784: UDP, length 61
+14:40:33.399624 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
+14:40:33.399626 IP 0.0.0.0.17784 > 255.255.255.255.17784: UDP, length 61
