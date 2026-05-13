@@ -101,14 +101,16 @@ type Packet struct {
 // then carried by the type system throughout. JSON wire format is
 // unchanged thanks to MAC.MarshalText / UnmarshalText.
 type Device struct {
-	MAC        MAC               `json:"mac"`
-	IP         string            `json:"ip"`
-	Name       string            `json:"name"`
-	Model      string            `json:"model"`
-	Firmware   string            `json:"firmware"`
-	State      string            `json:"state,omitempty"`
-	LastSeen   time.Time         `json:"last_seen"`
-	Parameters map[string]string `json:"parameters"` // Stores all device parameters
+	MAC         MAC               `json:"mac"`
+	IP          string            `json:"ip"`
+	Name        string            `json:"name"`
+	Model       string            `json:"model"`
+	Firmware    string            `json:"firmware"`
+	HardwareRev string            `json:"hardware_rev,omitempty"`
+	UUID        string            `json:"uuid,omitempty"`
+	State       string            `json:"state,omitempty"`
+	LastSeen    time.Time         `json:"last_seen"`
+	Parameters  map[string]string `json:"parameters"`
 }
 
 // TLVData represents a Type-Length-Value data structure
