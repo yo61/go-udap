@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"time"
 
@@ -281,10 +282,16 @@ Commands:
   interfaces                     List network interfaces usable for discovery
 
 Global flags:
-  --timeout DURATION      Operation timeout (default 5s)
-  --interface NAME        Bind discovery to one network interface
-  --all-interfaces        Broadcast on every usable interface (fan-out)
-  --verbose, -v           Debug logging to stderr
+  --timeout DURATION      Operation timeout (default 5s)`)
+	// --interface and --all-interfaces depend on platform-specific socket
+	// options (IP_BOUND_IF on macOS, SO_BINDTODEVICE on Linux). Windows
+	// has no documented equivalent for broadcast traffic, so hiding the
+	// flags here avoids exposing options that would always error.
+	if runtime.GOOS != "windows" {
+		fmt.Fprintln(w, `  --interface NAME        Bind discovery to one network interface
+  --all-interfaces        Broadcast on every usable interface (fan-out)`)
+	}
+	fmt.Fprintln(w, `  --verbose, -v           Debug logging to stderr
   --version               Print version and exit
   --help, -h              Print this help`)
 }
