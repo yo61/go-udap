@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0](https://github.com/yo61/go-udap/compare/v1.5.0...v1.6.0) (2026-05-13)
+
+### Features
+
+* add get_ip, hwrev/uuid surfacing, per-interface discovery ([#43](https://github.com/yo61/go-udap/issues/43)) ([3612854](https://github.com/yo61/go-udap/commit/36128542a4f1025bcdcc40e95f880f95f1d463d6)), closes [#29](https://github.com/yo61/go-udap/issues/29)
+
 ## [1.5.0](https://github.com/yo61/go-udap/compare/v1.4.0...v1.5.0) (2026-05-11)
 
 ### Features
