@@ -62,10 +62,11 @@ func encodeHeader(pkt udap.Packet) []byte {
 }
 
 // buildDiscoveryResponse constructs the discovery response for one
-// device. Layout matches the captured discovery-factory.bin and
-// discovery-configured.bin fixtures: 27-byte header + ordered TLV
-// payload (state, device_id, hardware_rev, firmware_rev, device_type,
-// device_name).
+// device. Layout: 27-byte header + ordered TLV payload (state,
+// device_id, hardware_rev, firmware_rev, device_type, device_name,
+// and optionally uuid if configured). The captured fixtures
+// discovery-factory.bin and discovery-configured.bin predate UUID
+// support and therefore lack TLV 0x0d.
 func (d *device) buildDiscoveryResponse(req *udap.Packet) []byte {
 	hdr := buildHeader(req, d.cfg.MAC, req.UCPMethod)
 
