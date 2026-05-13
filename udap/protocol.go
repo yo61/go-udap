@@ -95,6 +95,7 @@ type Packet struct {
 //	Firmware    ← TLV 0x09 firmware_rev (e.g. "77")
 //	State       ← TLV 0x0c device_status (init / wait_slimserver / connected)
 //	HardwareRev ← TLV 0x0a hardware_rev (opaque string, e.g. "0005")
+//	UUID        ← TLV 0x0d uuid (hex-encoded, 16 bytes → 32 hex chars)
 //
 // MAC and IP come from the UDAP packet header / UDP source address.
 // MAC is the canonical value-object form: validated once at the point
