@@ -3,6 +3,7 @@ package mocksbr
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"net"
 	"strconv"
 
@@ -80,6 +81,9 @@ func (d *device) buildDiscoveryResponse(req *udap.Packet) []byte {
 	writeTLV(buf, 0x09, []byte(d.cfg.Firmware))
 	writeTLV(buf, 0x03, []byte(d.cfg.Model))
 	writeTLV(buf, 0x02, []byte(hostname))
+	if d.cfg.UUID != "" {
+		writeTLV(buf, 0x0d, uuidWireBytes(d.cfg.UUID))
+	}
 
 	return buf.Bytes()
 }
@@ -94,6 +98,18 @@ func writeTLV(buf *bytes.Buffer, t byte, value []byte) {
 	buf.WriteByte(t)
 	buf.WriteByte(byte(len(value)))
 	buf.Write(value)
+}
+
+// uuidWireBytes converts a hex-string UUID config into wire bytes. If
+// the config isn't valid hex (e.g. "mock-sbr-001"), the bytes of the
+// string are used directly; the client's hex.EncodeToString will then
+// surface those bytes hex-encoded, which is harmless for tests.
+func uuidWireBytes(uuid string) []byte {
+	b, err := hex.DecodeString(uuid)
+	if err != nil {
+		return []byte(uuid)
+	}
+	return b
 }
 
 // buildGetDataResponse constructs a GetData response (UCPMethod=0x0005)

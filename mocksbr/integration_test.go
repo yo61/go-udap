@@ -1,6 +1,7 @@
 package mocksbr_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -128,5 +129,31 @@ func TestClientResetEntersRebootWindow(t *testing.T) {
 	}
 	if _, ok := cfg["hostname"]; !ok {
 		t.Errorf("post-reboot read missing hostname key")
+	}
+}
+
+// TestDiscoveryResponseIncludesUUID verifies that discovery responses
+// include the UUID TLV (0x0d) when a device is configured with a UUID.
+func TestDiscoveryResponseIncludesUUID(t *testing.T) {
+	n := mocksbr.NewNetwork(0, udap.NewNoOpLogger())
+	defer n.Close()
+	if _, err := n.Add(mocksbr.DeviceConfig{
+		MAC:  "00:04:20:00:00:01",
+		UUID: "deadbeefcafebabe1122334455667788",
+	}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	// Build a discovery request packet to feed into Receive.
+	client, _ := udap.NewClientWithLogger(udap.NewNoOpLogger())
+	req := client.CreateAdvancedDiscoveryPacket()
+	client.Close()
+
+	replies := n.Receive(req)
+	if len(replies) != 1 {
+		t.Fatalf("got %d replies, want 1", len(replies))
+	}
+	if !bytes.Contains(replies[0], []byte{0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe, 0xba, 0xbe, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}) {
+		t.Errorf("reply does not contain UUID bytes; reply hex=%x", replies[0])
 	}
 }
