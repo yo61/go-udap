@@ -51,12 +51,14 @@ go-udap [global flags] <command> [args] [flags]
 
 | Command | Description |
 |---------|-------------|
-| `discover [--info]` | Discover devices; print MAC addresses (or full metadata with `--info`) |
-| `info <mac>` | Show metadata for one device |
+| `discover [--info]` | Discover devices; print MAC addresses (or full metadata + IP/subnet/gateway with `--info`) |
+| `info <mac>` | Show metadata for one device (MAC, IP, Name, Model, Firmware, HW Rev, UUID, State) |
 | `read <mac> [--all/-a]` | Read parameters from a device. By default skips factory-default values so the output round-trips cleanly through `set`; pass `--all`/`-a` to dump everything. |
 | `get <mac> <param> [<param>...]` | Read specific parameters |
 | `set <mac> [--reboot/-r] [--config FILE] [--<param> VALUE ...]` | Set parameters from any combination of `--config FILE` (or `--config -` for stdin), piped stdin, and per-param flags. The wire op writes NVRAM directly; pass `--reboot/-r` to also reboot afterward. |
 | `reboot <mac>` | Reboot the device |
+| `getip <mac>` | Query the device's current IP / subnet / gateway via UCP get_ip (0x0002) |
+| `interfaces` | List local network interfaces usable for discovery |
 
 ### Global flags
 
@@ -64,6 +66,8 @@ go-udap [global flags] <command> [args] [flags]
 |---|---|---|
 | `--timeout DURATION` | `5s` | Operation timeout (e.g. `5s`, `30s`, `2m`) |
 | `--verbose, -v` | off | Debug logging to stderr |
+| `--interface NAME` | — | Bind discovery to one named network interface (see `go-udap interfaces`). Mutually exclusive with `--all-interfaces`. Not supported on Windows. |
+| `--all-interfaces` | off | Fan out discovery across every usable network interface. Useful on multi-homed hosts. Mutually exclusive with `--interface`. Not supported on Windows. |
 | `--version` | — | Print version and exit |
 | `--help, -h` | — | Print help |
 
@@ -76,10 +80,12 @@ Command output is on **stdout**; logs and warnings are on **stderr**. This
 keeps stdout machine-parseable.
 
 - `discover` — one MAC per line.
-- `discover --info` — multi-line metadata block per device.
+- `discover --info` — multi-line metadata block per device (including a per-device get_ip; soft-fails to dashes on error).
 - `read` — `param=value` lines, sorted by name.
 - `get <mac> <param>` (single) — bare value.
 - `get <mac> <p1> <p2>` (multi) — `param=value` lines in request order.
+- `getip <mac>` — three lines: `IP:`, `Subnet:`, `Gateway:` (each `-` if unconfigured).
+- `interfaces` — fixed-column table of usable interfaces (`NAME INDEX ADDRESS BROADCAST`).
 
 ### Examples
 
@@ -235,6 +241,11 @@ See https://wiki.lyrion.org/index.php/SBRFrontButtonAndLED.
 - Devices in bootstrap mode (unconfigured) report IP `0.0.0.0` and are still
   reachable via broadcast.
 - Make sure UDP port 17784 is not blocked by a firewall.
+- On a multi-homed host (e.g. Wi-Fi + wired Ethernet both up), the default
+  discovery only emits on the kernel's default-route NIC. If the device is
+  reachable only via a non-default interface, use `go-udap interfaces` to
+  see which NICs qualify and then either `--interface NAME` (single NIC) or
+  `--all-interfaces` (fan out everywhere).
 
 ### Configuration not applying
 
