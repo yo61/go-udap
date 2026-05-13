@@ -1,0 +1,49 @@
+---
+title: read
+description: Read NVRAM parameters from a device
+---
+
+# `read`
+
+```text
+go-udap read <mac> [--all|-a] [--timeout DURATION]
+```
+
+## What it does
+
+Reads every recognised NVRAM parameter (the 26 in
+[`udap.Parameters`](../nvram-parameters)) from the device and prints
+them as `param=value` lines, sorted by parameter name.
+
+By default, factory-default values are filtered out so the output
+round-trips cleanly through [`set --config FILE`](./set). Pass
+`--all` (or `-a`) to include factory defaults *and* unrecognised
+`offset_NNN` entries.
+
+## Output
+
+`param=value` lines, one per parameter, sorted by name. Suitable for
+redirection to a `.conf` file.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--all`, `-a` | off | Include factory-default values and unknown-offset entries |
+| `--timeout DURATION` | `5s` | Operation timeout |
+
+## Exit codes
+
+- `0` — success
+- `1` — invalid MAC argument
+- `2` — device not found, or transport error
+
+## Examples
+
+```bash
+# Back up a device's non-default settings
+go-udap read 00:04:20:16:06:02 > backup.conf
+
+# Restore later
+go-udap set 00:04:20:16:06:02 --config backup.conf --reboot
+```

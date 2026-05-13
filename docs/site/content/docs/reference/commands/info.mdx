@@ -1,0 +1,42 @@
+---
+title: info
+description: Show metadata for one device
+---
+
+# `info`
+
+```text
+go-udap info <mac> [--timeout DURATION]
+```
+
+## What it does
+
+Discovers devices on the network, then prints the full metadata block
+for the one whose MAC matches `<mac>`. Same metadata as
+`discover --info` but scoped to one device.
+
+Also fires `get_ip` to populate IP / Subnet / Gateway, and (if the
+device's discovery TLV 0x0d was missing) falls back to `get_uuid`
+to populate UUID.
+
+## Output
+
+Multi-line metadata block, one field per line.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--timeout DURATION` | `5s` | Operation timeout |
+
+## Exit codes
+
+- `0` — success
+- `1` — invalid MAC argument
+- `2` — device not found, or transport error
+
+## Example
+
+```bash
+go-udap info 00:04:20:16:06:02
+```

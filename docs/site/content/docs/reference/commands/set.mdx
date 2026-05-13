@@ -1,0 +1,74 @@
+---
+title: set
+description: Write NVRAM parameters to a device
+---
+
+# `set`
+
+```text
+go-udap set <mac> [--reboot|-r] [--config FILE] [--<param> VALUE ...] [--timeout DURATION]
+```
+
+## What it does
+
+Writes one or more NVRAM parameters to the device. The wire op writes
+NVRAM directly — every `UCP_METHOD_SET_DATA` writes; there is no
+separate `save_data` method.
+
+Parameter values are layered from three sources, in the following
+priority (later wins):
+
+1. `--config FILE` — INI-format `key=value` file
+2. Piped stdin (use `--config -` or just pipe to stdin)
+3. Per-parameter flags (`--hostname newname`, `--lan-ip-mode 1`, etc.)
+
+Pass `--reboot`/`-r` to also reboot the device afterwards. Some
+changes (e.g. network config) only take effect after reboot.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--config FILE` | — | INI-format config file. Use `-` to read from stdin |
+| `--reboot`, `-r` | off | Also reboot the device after writing |
+| `--timeout DURATION` | `5s` | Operation timeout |
+| `--<param> VALUE` | — | One flag per parameter you want to set (see [NVRAM parameters](../nvram-parameters) for the canonical list) |
+
+## Examples
+
+DHCP on wireless with WPA2:
+
+```bash
+go-udap set 00:04:20:16:06:02 \
+  --interface 0 --lan-ip-mode 1 \
+  --wireless-ssid SlimNet --wireless-wpa-on 1 --wireless-wpa-mode 2 \
+  --wireless-wpa-psk 'shared-secret' \
+  --server-address 192.168.1.250 \
+  --reboot
+```
+
+Restore from a backup:
+
+```bash
+go-udap set 00:04:20:16:06:02 --config backup.conf --reboot
+```
+
+Pipe parameters from stdin:
+
+```bash
+go-udap set 00:04:20:16:06:02 <<EOF
+interface=1
+lan_ip_mode=0
+lan_network_address=192.168.1.50
+lan_subnet_mask=255.255.255.0
+lan_gateway=192.168.1.1
+EOF
+```
+
+## Exit codes
+
+- `0` — success
+- `1` — invalid MAC, unknown parameter, or malformed config
+- `2` — device not found, or transport error
+
+See [Config file format](../config-file-format) for the `.conf` syntax.
