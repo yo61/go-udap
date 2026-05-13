@@ -271,3 +271,22 @@ func TestClientWithTestLogger(t *testing.T) {
 		t.Errorf("Expected second log level ERROR, got %s", logs[1].Level)
 	}
 }
+
+func TestNewClientForInterfaceRejectsUnknownName(t *testing.T) {
+	_, err := NewClientForInterface("nonexistent-xyz-iface", NewNoOpLogger())
+	if err == nil {
+		t.Fatal("NewClientForInterface with nonexistent name returned nil error")
+	}
+}
+
+func TestNewClientForInterfaceAcceptsKnownName(t *testing.T) {
+	ifs, err := EnumerateInterfaces()
+	if err != nil || len(ifs) == 0 {
+		t.Skip("no usable interfaces")
+	}
+	c, err := NewClientForInterface(ifs[0].Name, NewNoOpLogger())
+	if err != nil {
+		t.Fatalf("NewClientForInterface(%q): %v", ifs[0].Name, err)
+	}
+	defer c.Close()
+}

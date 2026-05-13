@@ -366,3 +366,24 @@ func (c *Client) recordDevice(d *Device) {
 	c.devices[d.MAC.String()] = d
 	c.devicesMu.Unlock()
 }
+
+// NewClientForInterface constructs a Client whose UDP transport is
+// bound to the given interface name's IPv4 address. Used by the CLI's
+// --interface NAME flag. Errors if the interface does not exist, is
+// down, lacks an IPv4 address, or is not broadcast-capable.
+func NewClientForInterface(name string, logger Logger) (*Client, error) {
+	ifs, err := EnumerateInterfaces()
+	if err != nil {
+		return nil, fmt.Errorf("enumerate interfaces: %w", err)
+	}
+	for _, iface := range ifs {
+		if iface.Name == name {
+			tr, err := NewUDPTransportOnInterface(iface, Port, logger)
+			if err != nil {
+				return nil, err
+			}
+			return NewClientWithTransport(tr, logger), nil
+		}
+	}
+	return nil, fmt.Errorf("interface %q is not usable (must be up, broadcast-capable, with an IPv4 address)", name)
+}
