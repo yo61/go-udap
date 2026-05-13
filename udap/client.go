@@ -387,3 +387,12 @@ func NewClientForInterface(name string, logger Logger) (*Client, error) {
 	}
 	return nil, fmt.Errorf("interface %q is not usable (must be up, broadcast-capable, with an IPv4 address)", name)
 }
+
+// NewClientForAllInterfaces constructs a Client whose UDP transport
+// fans out to every usable interface returned by EnumerateInterfaces.
+// Implemented in Phase 7 — currently returns an error.
+//
+// TODO(getip-phase-7): real implementation.
+func NewClientForAllInterfaces(logger Logger) (*Client, error) {
+	return nil, fmt.Errorf("--all-interfaces not yet implemented")
+}
