@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0](https://github.com/yo61/go-udap/compare/v1.6.1...v1.7.0) (2026-05-13)
+
+### Features
+
+* **udap:** implement get_uuid (0x000b) fallback when discovery omits TLV 0x0d ([#46](https://github.com/yo61/go-udap/issues/46)) ([b9fd106](https://github.com/yo61/go-udap/commit/b9fd10659bb1c6346885f512340931cbfe670050))
+
 ## [1.6.1](https://github.com/yo61/go-udap/compare/v1.6.0...v1.6.1) (2026-05-13)
 
 ### Bug Fixes
