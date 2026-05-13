@@ -68,6 +68,13 @@ func (n *Network) ReceiveScheduled(packetBytes []byte) []ScheduledReply {
 			}
 			return d.buildGetIPResponse(pkt)
 		})
+	case udap.MethodGetUUID:
+		return n.dispatchUnicast(pkt, OpGetUUID, func(d *device) []byte {
+			if d.cfg.DropGetUUID {
+				return nil
+			}
+			return d.buildGetUUIDResponse(pkt)
+		})
 	default:
 		n.logger.Debug("mocksbr: unhandled UCPMethod",
 			"method", fmt.Sprintf("0x%04x", pkt.UCPMethod))

@@ -52,6 +52,16 @@ type DeviceConfig struct {
 	// (for timeout testing).
 	DropGetIP bool
 
+	// DropGetUUID makes the device silently ignore get_uuid requests
+	// (for testing the discover --info fallback path).
+	DropGetUUID bool
+
+	// SuppressDiscoveryUUID makes the device omit TLV 0x0d (uuid) from
+	// its discovery response even when UUID is configured. Used by the
+	// CLI's get_uuid fallback test to simulate older firmware that
+	// doesn't include UUID in adv_discover.
+	SuppressDiscoveryUUID bool
+
 	// Malformed selects a deliberately broken response shape used by
 	// tests that exercise the client's error-handling path.
 	Malformed MalformedMode
@@ -87,6 +97,7 @@ const (
 	OpSave     Op = "save"
 	OpReset    Op = "reset"
 	OpGetIP    Op = "getip"
+	OpGetUUID  Op = "getuuid"
 )
 
 // defaultRebootDelay is the post-Reset window during which the device

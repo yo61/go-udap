@@ -44,6 +44,7 @@ const (
 	MethodError            = 0x0007
 	MethodCredentialsError = 0x0008
 	MethodAdvDisc          = 0x0009
+	MethodGetUUID          = 0x000b
 
 	// UCP Flags
 	FlagsDiscover = 0x01
