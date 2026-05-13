@@ -1,0 +1,59 @@
+---
+title: Install go-udap
+description: Get the go-udap binary onto your machine
+---
+
+# Install go-udap
+
+Three options, in order of preference for most users.
+
+## Option 1 — Homebrew (macOS and Linux)
+
+```bash
+brew install yo61/tap/go-udap
+```
+
+Updates flow through `brew upgrade` like any other formula. This is the
+fastest path for users who already use Homebrew.
+
+## Option 2 — Pre-built binaries
+
+Download the archive for your platform from the
+[Releases](https://github.com/yo61/go-udap/releases) page:
+
+- `go-udap_<version>_macos_arm64.tar.gz` (Apple Silicon)
+- `go-udap_<version>_macos_amd64.tar.gz` (Intel Mac)
+- `go-udap_<version>_linux_amd64.tar.gz`
+- `go-udap_<version>_linux_arm64.tar.gz`
+- `go-udap_<version>_windows_amd64.zip`
+
+Each release also has a `SHA256SUMS` file you can verify against:
+
+```bash
+shasum -a 256 -c SHA256SUMS
+```
+
+Extract the archive; put the `go-udap` (or `go-udap.exe`) binary on
+your `PATH`.
+
+## Option 3 — Build from source
+
+Requires Go 1.26 or later.
+
+```bash
+git clone https://github.com/yo61/go-udap.git
+cd go-udap
+go build -o go-udap .
+```
+
+The repo also has a [Taskfile](https://taskfile.dev) for cross-compile
+and release tasks; see the [Contributing](/docs/contributing) section
+if you're working on the tool itself.
+
+## Verify the install
+
+```bash
+go-udap --version
+```
+
+Expected: prints the installed version.
