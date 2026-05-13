@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -345,9 +346,7 @@ func (c *Client) GetDevices() map[string]*Device {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()
 	out := make(map[string]*Device, len(c.devices))
-	for k, v := range c.devices {
-		out[k] = v
-	}
+	maps.Copy(out, c.devices)
 	return out
 }
 

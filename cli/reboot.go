@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func runReboot(args []string, stdout, stderr io.Writer) error {
+func runReboot(args []string, _, stderr io.Writer) error {
 	fs := pflag.NewFlagSet("reboot", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
 	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)

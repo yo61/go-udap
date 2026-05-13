@@ -3,6 +3,7 @@
 package mocksbr
 
 import (
+	"maps"
 	"sync"
 	"time"
 
@@ -141,9 +142,7 @@ func newDevice(cfg DeviceConfig) *device {
 func (d *device) applySet(params map[string]string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	for k, v := range params {
-		d.workingMemory[k] = v
-	}
+	maps.Copy(d.workingMemory, params)
 }
 
 // applySave copies working memory to NVRAM.
@@ -229,8 +228,6 @@ func (d *device) state() string {
 
 func cloneMap(m map[string]string) map[string]string {
 	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }

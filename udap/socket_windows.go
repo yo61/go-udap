@@ -35,7 +35,7 @@ func enableBroadcast(conn *net.UDPConn, logger Logger) {
 // error so --interface NAME surfaces "not supported" rather than
 // silently misbehaving. The Windows equivalent is IP_UNICAST_IF
 // (IPPROTO_IP option), but implementation is out of scope for now.
-func bindToInterface(conn *net.UDPConn, iface NetInterface, logger Logger) error {
+func bindToInterface(_ *net.UDPConn, _ NetInterface, _ Logger) error {
 	return fmt.Errorf("--interface NAME is not yet supported on Windows; omit the flag to use the default discovery mode")
 }
 

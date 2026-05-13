@@ -73,8 +73,8 @@ func ExitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	var ee *ExitError
-	if errors.As(err, &ee) {
+	ee, ok := errors.AsType[*ExitError](err)
+	if ok {
 		return ee.Code
 	}
 	return 2

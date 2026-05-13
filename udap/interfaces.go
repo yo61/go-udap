@@ -89,7 +89,7 @@ func computeDirectedBroadcast(addr net.IP, mask net.IPMask) net.IP {
 		m = m[12:16]
 	}
 	out := make(net.IP, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		out[i] = ip4[i] | ^m[i]
 	}
 	return out

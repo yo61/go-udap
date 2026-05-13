@@ -102,7 +102,7 @@ func TestMultiTransportRecvMergesReplies(t *testing.T) {
 	defer cancel()
 
 	got := make(map[byte]bool)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		pkt, _, err := mt.Recv(ctx)
 		if err != nil {
 			t.Fatalf("Recv: %v", err)

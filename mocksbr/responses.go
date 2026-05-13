@@ -34,7 +34,7 @@ func buildHeader(req *udap.Packet, deviceMAC string, method uint16) udap.Packet 
 // produces all-zeros. validMAC must have been called by the caller.
 func parseMAC(s string) [6]byte {
 	var out [6]byte
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		hi := hexNibble(s[i*3])
 		lo := hexNibble(s[i*3+1])
 		out[i] = (hi << 4) | lo
