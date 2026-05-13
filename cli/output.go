@@ -81,3 +81,15 @@ func ipOrDashCLI(ip net.IP) string {
 	}
 	return ip.String()
 }
+
+// formatInterfacesTable writes a fixed-column table for NetInterfaces.
+// If the slice is empty, writes nothing.
+func formatInterfacesTable(w io.Writer, ifs []udap.NetInterface) {
+	if len(ifs) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "NAME            INDEX  ADDRESS            BROADCAST")
+	for _, ni := range ifs {
+		fmt.Fprintf(w, "%-15s %-5d  %-18s %s\n", ni.Name, ni.Index, ni.Addr, ni.Broadcast)
+	}
+}
