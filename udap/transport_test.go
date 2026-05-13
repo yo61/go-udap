@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -70,5 +71,22 @@ func TestUDPTransportRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(got, payload) {
 		t.Errorf("got %v, want %v", got, payload)
+	}
+}
+
+func TestNewUDPTransportOnInterfaceBindsToAddr(t *testing.T) {
+	ifs, err := EnumerateInterfaces()
+	if err != nil || len(ifs) == 0 {
+		t.Skip("no usable interfaces")
+	}
+	iface := ifs[0]
+	tr, err := NewUDPTransportOnInterface(iface, 0, NewNoOpLogger())
+	if err != nil {
+		t.Fatalf("NewUDPTransportOnInterface: %v", err)
+	}
+	defer tr.Close()
+	addr := tr.LocalAddr().String()
+	if !strings.Contains(addr, iface.Addr.String()) {
+		t.Errorf("LocalAddr = %s, want it to contain %s", addr, iface.Addr)
 	}
 }
