@@ -89,11 +89,12 @@ type Packet struct {
 // Device represents a discovered Squeezebox device. Fields are populated
 // from the discovery-response TLVs (per Net::UDAP Constant.pm code map):
 //
-//	Name      ← TLV 0x02 device_name (the configured hostname)
-//	Model     ← TLV 0x03 device_type + TLV 0x0b device_id, joined into a
-//	            human label (e.g. "Squeezebox Receiver")
-//	Firmware  ← TLV 0x09 firmware_rev (e.g. "77")
-//	State     ← TLV 0x0c device_status (init / wait_slimserver / connected)
+//	Name        ← TLV 0x02 device_name (the configured hostname)
+//	Model       ← TLV 0x03 device_type + TLV 0x0b device_id, joined into a
+//	              human label (e.g. "Squeezebox Receiver")
+//	Firmware    ← TLV 0x09 firmware_rev (e.g. "77")
+//	State       ← TLV 0x0c device_status (init / wait_slimserver / connected)
+//	HardwareRev ← TLV 0x0a hardware_rev (opaque string, e.g. "0005")
 //
 // MAC and IP come from the UDAP packet header / UDP source address.
 // MAC is the canonical value-object form: validated once at the point

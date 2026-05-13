@@ -131,7 +131,7 @@ func (c *Client) parseDiscoveryResponse(data []byte, ip string, packet *Packet) 
 		case tlvDeviceStatus:
 			device.State = string(value)
 		case tlvHardwareRev:
-			// Not surfaced today; recorded for future use.
+			device.HardwareRev = string(value)
 		default:
 			c.logger.Debug("unknown discovery TLV", "tag", fmt.Sprintf("0x%02x", tagType), "len", length)
 		}
