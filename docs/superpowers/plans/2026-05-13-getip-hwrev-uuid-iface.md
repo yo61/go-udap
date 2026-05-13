@@ -3047,3 +3047,29 @@ Real-hardware testing of `./go-udap discover --interface en7` after Task 6.3 (co
 Conclusion: The original Task 6.1 design (bind to interface's unicast IP, send to interface's directed broadcast) is wrong for the discovery use case. UDAP discovery is specifically designed for unconfigured devices, which only respond to limited broadcasts.
 
 Fix shipped: `NewUDPTransportOnInterface` now binds to `0.0.0.0:port` (so it receives limited-broadcast replies) and uses `IP_BOUND_IF` (macOS) / `SO_BINDTODEVICE` (Linux) to constrain the egress interface. Send destination remains `255.255.255.255`. `NetInterface.Broadcast` field stays for the `interfaces` subcommand display but is no longer used as a send target.
+
+### Post-implementation finding (Task 7.2 bug-fix)
+
+Task 7.3 spike of `./go-udap --all-interfaces discover` after Task 7.2 (commit `498d5e9`) failed: only the first interface bound, the second produced `bind: address already in use`. Multiple UDP sockets on `0.0.0.0:17784` need `SO_REUSEPORT` (in addition to `SO_REUSEADDR`) AND both must be set BEFORE `bind()`. The existing `enableBroadcast` set options post-bind via `net.ListenUDP`, which was too late for the bind-time semantics.
+
+Fix shipped (commit `04b37a2`): `NewUDPTransportOnInterface` now uses `net.ListenConfig{Control: ...}` to set `SO_REUSEADDR` + `SO_REUSEPORT` pre-bind via a platform-specific helper (`setReusePortPreBind` in `socket_darwin.go` / `socket_linux.go`, no-op on Windows).
+
+### Post-implementation spike (Task 7.3) — successful fan-out
+
+`./go-udap --all-interfaces discover --timeout 3s` after commit `04b37a2`:
+
+```
+00:04:20:16:06:02
+```
+
+tcpdump (`-i any 'udp port 17784'`):
+
+```
+16:58:38.746037 IP 192.168.1.118.17784 > 255.255.255.255.17784: UDP, length 27
+16:58:38.746183 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
+16:58:38.746539 IP 0.0.0.0.17784       > 255.255.255.255.17784: UDP, length 61   (Squeezebox reply)
+16:58:38.747684 IP 192.168.1.118.17784 > 255.255.255.255.17784: UDP, length 27   (retry from en0)
+16:58:38.854010 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27   (retry from en7)
+```
+
+Both interfaces (en0 = `192.168.1.118`, en7 = `192.168.1.226`) emit the discovery packet within 150µs of each other; the Squeezebox replies via limited broadcast and is found. Fan-out verified on macOS with both NICs on the same `192.168.1.0/24` subnet — the use case `--all-interfaces` was designed for.
