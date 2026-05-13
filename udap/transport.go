@@ -34,9 +34,8 @@ type Transport interface {
 
 // UDPTransport implements Transport over a real *net.UDPConn.
 type UDPTransport struct {
-	conn        *net.UDPConn
-	logger      Logger
-	broadcastIP net.IP // nil → fall back to 255.255.255.255 (default constructor)
+	conn   *net.UDPConn
+	logger Logger
 }
 
 // NewUDPTransport binds a UDP socket on 0.0.0.0:port (port 0 lets the OS
@@ -56,15 +55,9 @@ func NewUDPTransport(port int, logger Logger) (*UDPTransport, error) {
 	return &UDPTransport{conn: conn, logger: logger}, nil
 }
 
-// Send broadcasts the packet. If a per-interface broadcast IP was
-// supplied at construction (NewUDPTransportOnInterface), use that;
-// otherwise fall back to limited broadcast 255.255.255.255.
+// Send broadcasts the packet to 255.255.255.255:Port.
 func (t *UDPTransport) Send(packet []byte) error {
-	dstStr := "255.255.255.255"
-	if t.broadcastIP != nil {
-		dstStr = t.broadcastIP.String()
-	}
-	dst, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", dstStr, Port))
+	dst, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", Port))
 	if err != nil {
 		return fmt.Errorf("resolve broadcast addr: %w", err)
 	}
@@ -155,34 +148,41 @@ func (t *UDPTransport) Close() error {
 	return t.conn.Close()
 }
 
-// NewUDPTransportOnInterface binds a UDP socket to the given
-// interface's IPv4 address (so the kernel routes outbound packets out
-// that NIC) and sends broadcasts to the interface's directed broadcast
-// address rather than to 255.255.255.255. This is the fan-out building
-// block used by MultiTransport, and also the single-interface mode
-// used when --interface NAME is passed.
+// NewUDPTransportOnInterface returns a UDPTransport bound to 0.0.0.0
+// (so it can receive limited broadcasts), with the kernel constrained
+// to send outbound packets through the given interface via a
+// platform-specific socket option (IP_BOUND_IF on macOS,
+// SO_BINDTODEVICE on Linux). The destination remains 255.255.255.255
+// because unconfigured Squeezebox devices (source IP 0.0.0.0) only
+// process limited broadcasts — directed-subnet broadcasts like
+// 192.168.1.255 don't reach them.
+//
+// Earlier design (bind-to-interface-IP + send-to-directed-broadcast)
+// was reverted after real-hardware testing showed pre-DHCP devices
+// never replied. See `docs/superpowers/plans/2026-05-13-getip-hwrev-uuid-iface.md`
+// "## Spike result" for the wire-trace evidence.
 func NewUDPTransportOnInterface(iface NetInterface, port int, logger Logger) (*UDPTransport, error) {
 	if iface.Addr == nil {
 		return nil, fmt.Errorf("interface %s has no IPv4 address", iface.Name)
 	}
-	if iface.Broadcast == nil {
-		return nil, fmt.Errorf("interface %s has no broadcast address", iface.Name)
-	}
-	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", iface.Addr, port))
+	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		return nil, fmt.Errorf("resolve UDP addr for %s: %w", iface.Name, err)
+		return nil, fmt.Errorf("resolve UDP addr: %w", err)
 	}
 	conn, err := net.ListenUDP("udp4", addr)
 	if err != nil {
-		return nil, fmt.Errorf("listen UDP on %s: %w", iface.Name, err)
+		return nil, fmt.Errorf("listen UDP: %w", err)
 	}
 	enableBroadcast(conn, logger)
+	if err := bindToInterface(conn, iface, logger); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("bind to interface %s: %w", iface.Name, err)
+	}
 	logger.Debug("UDPTransport bound to interface",
 		"interface", iface.Name, "address", conn.LocalAddr().String(),
-		"broadcast", iface.Broadcast.String())
+		"egress_index", iface.Index)
 	return &UDPTransport{
-		conn:        conn,
-		logger:      logger,
-		broadcastIP: iface.Broadcast,
+		conn:   conn,
+		logger: logger,
 	}, nil
 }

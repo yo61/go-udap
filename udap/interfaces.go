@@ -10,9 +10,14 @@ import (
 // keeping Go-stdlib terminology out of the udap domain — a small
 // anti-corruption layer at the boundary.
 type NetInterface struct {
-	Name      string `json:"name"`
-	Index     int    `json:"index"`
-	Addr      net.IP `json:"addr"`
+	Name  string `json:"name"`
+	Index int    `json:"index"`
+	Addr  net.IP `json:"addr"`
+	// Broadcast is the subnet's directed-broadcast address (addr | ^mask),
+	// shown by `go-udap interfaces` for informational purposes. It is NOT
+	// used as a send destination — UDAP discovery sends to limited broadcast
+	// 255.255.255.255 because unconfigured devices (source IP 0.0.0.0) only
+	// process limited broadcasts.
 	Broadcast net.IP `json:"broadcast"`
 }
 

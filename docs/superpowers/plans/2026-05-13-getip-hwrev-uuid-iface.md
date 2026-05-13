@@ -3034,3 +3034,16 @@ listening on any, link-type PKTAP (Apple DLT_PKTAP), snapshot length 524288 byte
 14:40:33.160660 IP 0.0.0.0.17784 > 255.255.255.255.17784: UDP, length 61
 14:40:33.399624 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
 14:40:33.399626 IP 0.0.0.0.17784 > 255.255.255.255.17784: UDP, length 61
+
+### Post-implementation finding (Task 6.1 bug-fix)
+
+Real-hardware testing of `./go-udap discover --interface en7` after Task 6.3 (commit `7dd5d1e`) showed zero devices found, while plain `./go-udap discover` worked. Wire trace (tcpdump) revealed:
+
+- Squeezebox device source IP: `0.0.0.0` (factory/pre-DHCP state).
+- Squeezebox reply destination: `255.255.255.255` (limited broadcast).
+- Outbound discovery request when `--interface en7` was set: went to `192.168.1.255` (directed broadcast), as designed.
+- Device received the directed-broadcast request but did not respond — it doesn't know it's on the 192.168.1.0/24 subnet, so directed broadcasts addressed to that subnet's broadcast don't register as "for it".
+
+Conclusion: The original Task 6.1 design (bind to interface's unicast IP, send to interface's directed broadcast) is wrong for the discovery use case. UDAP discovery is specifically designed for unconfigured devices, which only respond to limited broadcasts.
+
+Fix shipped: `NewUDPTransportOnInterface` now binds to `0.0.0.0:port` (so it receives limited-broadcast replies) and uses `IP_BOUND_IF` (macOS) / `SO_BINDTODEVICE` (Linux) to constrain the egress interface. Send destination remains `255.255.255.255`. `NetInterface.Broadcast` field stays for the `interfaces` subcommand display but is no longer used as a send target.
