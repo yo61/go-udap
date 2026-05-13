@@ -55,7 +55,7 @@ func (c *Client) GetDeviceConfigWithContext(ctx context.Context, device *Device,
 	if err != nil {
 		return nil, fmt.Errorf("build GetData packet: %w", err)
 	}
-	if err := c.transport.Send(packet); err != nil {
+	if err := c.sendRetried(packet); err != nil {
 		return nil, fmt.Errorf("send GetData: %w", err)
 	}
 	c.logger.Info("Sent GetData request", "device_mac", device.MAC, "param_count", len(params))
@@ -133,7 +133,7 @@ func (c *Client) SetDeviceConfigWithContext(ctx context.Context, device *Device,
 	if err != nil {
 		return fmt.Errorf("build SetData packet: %w", err)
 	}
-	if err := c.transport.Send(packet); err != nil {
+	if err := c.sendRetried(packet); err != nil {
 		return fmt.Errorf("send SetData: %w", err)
 	}
 	c.logger.Info("Sent SetData request", "device_mac", device.MAC, "total_params", len(allParams))
@@ -178,7 +178,7 @@ func (c *Client) ResetDeviceWithContext(ctx context.Context, device *Device) err
 	if err != nil {
 		return fmt.Errorf("build Reset packet: %w", err)
 	}
-	if err := c.transport.Send(packet); err != nil {
+	if err := c.sendRetried(packet); err != nil {
 		return fmt.Errorf("send Reset: %w", err)
 	}
 	c.logger.Info("Sent Reset", "device_mac", device.MAC)

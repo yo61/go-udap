@@ -87,12 +87,19 @@ var newClient = func(verbose bool, stderr io.Writer) (*udap.Client, error) {
 		logger.SetLevel(udap.LogLevelWarn)
 	}
 	sel := currentInterfaceSelection
+	var c *udap.Client
+	var err error
 	switch {
 	case sel.name != "":
-		return udap.NewClientForInterface(sel.name, logger)
+		c, err = udap.NewClientForInterface(sel.name, logger)
 	case sel.all:
-		return udap.NewClientForAllInterfaces(logger)
+		c, err = udap.NewClientForAllInterfaces(logger)
 	default:
-		return udap.NewClientWithLogger(logger)
+		c, err = udap.NewClientWithLogger(logger)
 	}
+	if err != nil {
+		return nil, err
+	}
+	c.SetRetries(currentRetries)
+	return c, nil
 }

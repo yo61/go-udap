@@ -15,7 +15,7 @@ import (
 func (c *Client) DiscoverDevicesWithContext(ctx context.Context) error {
 	c.logger.Info("Starting UDAP discovery", "method", "0x0009")
 	packet := c.CreateAdvancedDiscoveryPacket()
-	if err := c.transport.Send(packet); err != nil {
+	if err := c.sendRetried(packet); err != nil {
 		return fmt.Errorf("send discovery: %w", err)
 	}
 	c.logger.Debug("Sent discovery packet", "size", len(packet))

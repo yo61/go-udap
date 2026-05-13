@@ -1,6 +1,8 @@
 package udap
 
 import (
+	"context"
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -314,4 +316,77 @@ func TestNewClientForAllInterfacesErrorsWhenNoUsableInterfaces(t *testing.T) {
 		return
 	}
 	c.Close()
+}
+
+// countingTransport counts Send() calls. Used to verify --retries
+// semantics. Satisfies the Transport interface minimally.
+type countingTransport struct {
+	sendCount int
+	sendErr   error
+}
+
+func (t *countingTransport) Send(packet []byte) error {
+	t.sendCount++
+	return t.sendErr
+}
+
+func (t *countingTransport) Recv(ctx context.Context) ([]byte, string, error) {
+	<-ctx.Done()
+	return nil, "", ctx.Err()
+}
+
+func (t *countingTransport) Close() error { return nil }
+
+func TestClientRetriesCallTransportSendNPlus1Times(t *testing.T) {
+	cases := []struct {
+		retries   int
+		wantSends int
+	}{
+		{0, 1},
+		{1, 2},
+		{2, 3},
+		{5, 6},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("retries=%d", tc.retries), func(t *testing.T) {
+			tr := &countingTransport{}
+			c := NewClientWithTransport(tr, NewNoOpLogger())
+			defer c.Close()
+			c.SetRetries(tc.retries)
+			if err := c.sendRetried([]byte{0xff}); err != nil {
+				t.Fatalf("sendRetried: %v", err)
+			}
+			if tr.sendCount != tc.wantSends {
+				t.Errorf("retries=%d: got %d Send calls, want %d", tc.retries, tr.sendCount, tc.wantSends)
+			}
+		})
+	}
+}
+
+func TestClientSetRetriesRejectsNegative(t *testing.T) {
+	tr := &countingTransport{}
+	c := NewClientWithTransport(tr, NewNoOpLogger())
+	defer c.Close()
+	c.SetRetries(-3)
+	if err := c.sendRetried([]byte{0xff}); err != nil {
+		t.Fatalf("sendRetried: %v", err)
+	}
+	if tr.sendCount != 1 {
+		t.Errorf("after SetRetries(-3): got %d Send calls, want 1 (negative clamped to 0)", tr.sendCount)
+	}
+}
+
+func TestClientSendRetriedAggregateSuccessSemantics(t *testing.T) {
+	// All sends fail → returns first error.
+	tr := &countingTransport{sendErr: fmt.Errorf("boom")}
+	c := NewClientWithTransport(tr, NewNoOpLogger())
+	defer c.Close()
+	c.SetRetries(2)
+	err := c.sendRetried([]byte{0xff})
+	if err == nil {
+		t.Error("expected error when all sends fail")
+	}
+	if tr.sendCount != 3 {
+		t.Errorf("got %d Send calls, want 3", tr.sendCount)
+	}
 }
