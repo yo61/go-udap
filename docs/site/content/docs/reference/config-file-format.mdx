@@ -1,0 +1,38 @@
+---
+title: Config file format
+description: INI syntax for go-udap set --config FILE
+---
+
+# Config file format
+
+`go-udap set --config FILE` reads INI-style configuration:
+
+- One `key=value` per line
+- Whitespace around `=` is allowed and stripped
+- Lines starting with `#` or `;` are comments
+- Blank lines are ignored
+- Keys must be canonical UDAP parameter names (e.g. `wireless_SSID`,
+  not `wireless-ssid`)
+
+The format matches the output of [`go-udap read`](./commands/read), so
+round-tripping through `read | tee backup.conf` then
+`set --config backup.conf` works without conversion.
+
+## Example
+
+```ini
+# Network
+interface=1
+lan_ip_mode=1
+
+# Wireless
+wireless_SSID=MyNet
+wireless_wpa_on=1
+wireless_wpa_psk=secret
+
+# Server
+server_address=192.168.1.250
+```
+
+See [NVRAM parameters](./nvram-parameters) for the full list of valid
+keys, their types, and their ranges.
