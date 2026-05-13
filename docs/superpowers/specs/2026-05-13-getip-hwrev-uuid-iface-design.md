@@ -115,8 +115,11 @@ operation runs.
   `0x05 IP_ADDR` (4 bytes), `0x06 SUBNET_MASK` (4 bytes),
   `0x07 GATEWAY_ADDR` (4 bytes). Devices may omit fields.
 - **Discovery TLVs added to recognition:** `0x0a HARDWARE_REV`
-  (already received, now surfaced as `uint32` big-endian) and `0x0d UUID`
-  (newly recognised, surfaced as lowercased hex string).
+  (already received, now surfaced as an opaque string — same shape as
+  `Firmware`; real captures and `mocksbr` use 4-ASCII-byte forms like
+  `"0005"`, and Net-UDAP doesn't fix a numeric wire format) and
+  `0x0d UUID` (newly recognised, surfaced as lowercased hex string of
+  the raw bytes).
 
 ## Components
 
@@ -143,11 +146,13 @@ operation runs.
   `NewUDPTransport` unchanged.
 - `udap/client.go` — add `NewClientForInterface` and
   `NewClientForAllInterfaces` constructors. `NewClient` unchanged.
-- `udap/protocol.go` — add `Device.HardwareRev uint32` and
-  `Device.UUID string` (JSON tags). Add `tlvUUID = 0x0d` constant.
+- `udap/protocol.go` — add `Device.HardwareRev string` and
+  `Device.UUID string` (JSON tags, both `,omitempty`). Add
+  `tlvUUID = 0x0d` constant.
 - `udap/discovery.go` — wire `tlvHardwareRev` (already received) and
-  `tlvUUID` (new) into `Device`. HW rev decoded as big-endian `uint32`;
-  UUID encoded as lowercase hex string.
+  `tlvUUID` (new) into `Device`. HW rev kept as the raw TLV bytes
+  interpreted as UTF-8 (same shape as `Firmware`); UUID encoded as
+  lowercase hex string of the raw bytes.
 
 ### `cli/` (CLI)
 
@@ -304,8 +309,9 @@ keeps observability without breaking scripts.
     lengths, empty payload. Never panics.
 - `udap/discovery_test.go` (extend): TLV stream containing
   `0x0a UCP_CODE_HARDWARE_REV` and `0x0d UCP_CODE_UUID`. Verify
-  `Device.HardwareRev` (uint32 BE) and `Device.UUID` (lowercase hex).
-  Missing-TLV cases produce zero values.
+  `Device.HardwareRev` (string passthrough) and `Device.UUID`
+  (lowercase hex of raw bytes). Missing-TLV cases produce empty
+  strings.
 - `udap/netconfig_test.go`: `String()` rendering, JSON roundtrip,
   equality.
 - `udap/interfaces_test.go`:
