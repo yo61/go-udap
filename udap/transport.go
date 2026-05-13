@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"syscall"
 	"time"
 )
 
@@ -146,4 +147,58 @@ func (t *UDPTransport) LocalAddr() net.Addr {
 // Close releases the underlying socket.
 func (t *UDPTransport) Close() error {
 	return t.conn.Close()
+}
+
+// NewUDPTransportOnInterface returns a UDPTransport bound to 0.0.0.0
+// (so it can receive limited broadcasts), with the kernel constrained
+// to send outbound packets through the given interface via a
+// platform-specific socket option (IP_BOUND_IF on macOS,
+// SO_BINDTODEVICE on Linux). The destination remains 255.255.255.255
+// because unconfigured Squeezebox devices (source IP 0.0.0.0) only
+// process limited broadcasts — directed-subnet broadcasts like
+// 192.168.1.255 don't reach them.
+//
+// Earlier design (bind-to-interface-IP + send-to-directed-broadcast)
+// was reverted after real-hardware testing showed pre-DHCP devices
+// never replied. See `docs/superpowers/plans/2026-05-13-getip-hwrev-uuid-iface.md`
+// "## Spike result" for the wire-trace evidence.
+func NewUDPTransportOnInterface(iface NetInterface, port int, logger Logger) (*UDPTransport, error) {
+	if iface.Addr == nil {
+		return nil, fmt.Errorf("interface %s has no IPv4 address", iface.Name)
+	}
+	// Set SO_REUSEADDR + SO_REUSEPORT pre-bind so that
+	// NewClientForAllInterfaces can stand up multiple sockets on the
+	// same 0.0.0.0:port (one per interface).
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var sockErr error
+			if cerr := c.Control(func(fd uintptr) {
+				sockErr = setReusePortPreBind(fd)
+			}); cerr != nil {
+				return cerr
+			}
+			return sockErr
+		},
+	}
+	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		return nil, fmt.Errorf("listen UDP: %w", err)
+	}
+	conn, ok := pc.(*net.UDPConn)
+	if !ok {
+		_ = pc.Close()
+		return nil, fmt.Errorf("listen UDP: unexpected conn type %T", pc)
+	}
+	enableBroadcast(conn, logger) // sets SO_BROADCAST post-bind
+	if err := bindToInterface(conn, iface, logger); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("bind to interface %s: %w", iface.Name, err)
+	}
+	logger.Debug("UDPTransport bound to interface",
+		"interface", iface.Name, "address", conn.LocalAddr().String(),
+		"egress_index", iface.Index)
+	return &UDPTransport{
+		conn:   conn,
+		logger: logger,
+	}, nil
 }

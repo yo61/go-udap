@@ -2,6 +2,7 @@ package udap
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -62,6 +63,7 @@ const (
 	tlvHardwareRev  = 0x0a
 	tlvDeviceID     = 0x0b
 	tlvDeviceStatus = 0x0c
+	tlvUUID         = 0x0d
 )
 
 // productNameByID maps a device_id (TLV 0x0b, sent as a 2-char ASCII
@@ -131,7 +133,9 @@ func (c *Client) parseDiscoveryResponse(data []byte, ip string, packet *Packet) 
 		case tlvDeviceStatus:
 			device.State = string(value)
 		case tlvHardwareRev:
-			// Not surfaced today; recorded for future use.
+			device.HardwareRev = string(value)
+		case tlvUUID:
+			device.UUID = hex.EncodeToString(value)
 		default:
 			c.logger.Debug("unknown discovery TLV", "tag", fmt.Sprintf("0x%02x", tagType), "len", length)
 		}

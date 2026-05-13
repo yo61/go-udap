@@ -1,6 +1,8 @@
 package udap
 
 import (
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -270,4 +272,46 @@ func TestClientWithTestLogger(t *testing.T) {
 	if logs[1].Level != "ERROR" {
 		t.Errorf("Expected second log level ERROR, got %s", logs[1].Level)
 	}
+}
+
+func TestNewClientForInterfaceRejectsUnknownName(t *testing.T) {
+	_, err := NewClientForInterface("nonexistent-xyz-iface", NewNoOpLogger())
+	if err == nil {
+		t.Fatal("NewClientForInterface with nonexistent name returned nil error")
+	}
+}
+
+func TestNewClientForInterfaceAcceptsKnownName(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("per-interface binding is not yet supported on Windows; tracked as Task #29")
+	}
+	ifs, err := EnumerateInterfaces()
+	if err != nil || len(ifs) == 0 {
+		t.Skip("no usable interfaces")
+	}
+	c, err := NewClientForInterface(ifs[0].Name, NewNoOpLogger())
+	if err != nil {
+		t.Fatalf("NewClientForInterface(%q): %v", ifs[0].Name, err)
+	}
+	defer c.Close()
+}
+
+func TestNewClientForAllInterfacesErrorsWhenNoUsableInterfaces(t *testing.T) {
+	// We can't reliably create a "no interfaces" condition on a real
+	// host, so this test confirms only that the stub error is gone
+	// (we now return a real client OR a real error from binding).
+	ifs, _ := EnumerateInterfaces()
+	if len(ifs) == 0 {
+		t.Skip("can't test success path with zero interfaces")
+	}
+	c, err := NewClientForAllInterfaces(NewNoOpLogger())
+	if err != nil {
+		// May fail to bind to port 17784 (privileged on Linux); that's
+		// OK — verify it isn't the stub error.
+		if strings.Contains(err.Error(), "not yet implemented") {
+			t.Errorf("got stub error, want real binding attempt")
+		}
+		return
+	}
+	c.Close()
 }

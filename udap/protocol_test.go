@@ -268,6 +268,25 @@ func TestDevice(t *testing.T) {
 	if len(device.Parameters) != 2 {
 		t.Errorf("Expected 2 parameters, got %d", len(device.Parameters))
 	}
+
+	if device.IP != "192.168.1.100" {
+		t.Errorf("IP = %q, want %q", device.IP, "192.168.1.100")
+	}
+	if device.Name != "Test Device" {
+		t.Errorf("Name = %q, want %q", device.Name, "Test Device")
+	}
+	if device.Model != "Squeezebox Receiver" {
+		t.Errorf("Model = %q, want %q", device.Model, "Squeezebox Receiver")
+	}
+	if device.Firmware != "77" {
+		t.Errorf("Firmware = %q, want %q", device.Firmware, "77")
+	}
+	if device.State != "init" {
+		t.Errorf("State = %q, want %q", device.State, "init")
+	}
+	if device.LastSeen.IsZero() {
+		t.Error("LastSeen should not be zero")
+	}
 }
 
 // TestDeviceJSONMACFieldShape pins the JSON wire format of Device.MAC.

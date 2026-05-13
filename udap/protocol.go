@@ -89,11 +89,13 @@ type Packet struct {
 // Device represents a discovered Squeezebox device. Fields are populated
 // from the discovery-response TLVs (per Net::UDAP Constant.pm code map):
 //
-//	Name      ← TLV 0x02 device_name (the configured hostname)
-//	Model     ← TLV 0x03 device_type + TLV 0x0b device_id, joined into a
-//	            human label (e.g. "Squeezebox Receiver")
-//	Firmware  ← TLV 0x09 firmware_rev (e.g. "77")
-//	State     ← TLV 0x0c device_status (init / wait_slimserver / connected)
+//	Name        ← TLV 0x02 device_name (the configured hostname)
+//	Model       ← TLV 0x03 device_type + TLV 0x0b device_id, joined into a
+//	              human label (e.g. "Squeezebox Receiver")
+//	Firmware    ← TLV 0x09 firmware_rev (e.g. "77")
+//	State       ← TLV 0x0c device_status (init / wait_slimserver / connected)
+//	HardwareRev ← TLV 0x0a hardware_rev (opaque string, e.g. "0005")
+//	UUID        ← TLV 0x0d uuid (hex-encoded, 16 bytes → 32 hex chars)
 //
 // MAC and IP come from the UDAP packet header / UDP source address.
 // MAC is the canonical value-object form: validated once at the point
@@ -101,14 +103,16 @@ type Packet struct {
 // then carried by the type system throughout. JSON wire format is
 // unchanged thanks to MAC.MarshalText / UnmarshalText.
 type Device struct {
-	MAC        MAC               `json:"mac"`
-	IP         string            `json:"ip"`
-	Name       string            `json:"name"`
-	Model      string            `json:"model"`
-	Firmware   string            `json:"firmware"`
-	State      string            `json:"state,omitempty"`
-	LastSeen   time.Time         `json:"last_seen"`
-	Parameters map[string]string `json:"parameters"` // Stores all device parameters
+	MAC         MAC               `json:"mac"`
+	IP          string            `json:"ip"`
+	Name        string            `json:"name"`
+	Model       string            `json:"model"`
+	Firmware    string            `json:"firmware"`
+	HardwareRev string            `json:"hardware_rev,omitempty"`
+	UUID        string            `json:"uuid,omitempty"`
+	State       string            `json:"state,omitempty"`
+	LastSeen    time.Time         `json:"last_seen"`
+	Parameters  map[string]string `json:"parameters"`
 }
 
 // TLVData represents a Type-Length-Value data structure

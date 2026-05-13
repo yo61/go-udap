@@ -3,6 +3,7 @@
 package mocksbr
 
 import (
+	"maps"
 	"sync"
 	"time"
 
@@ -32,6 +33,13 @@ type DeviceConfig struct {
 	Hardware string // hardware_rev TLV; defaults to "0005"
 	UUID     string // optional informational; defaults to "mock-sbr-<n>"
 
+	// Network configuration reported by the get_ip operation
+	// (UCP method 0x0002). All optional — empty values are emitted
+	// as zero IPs (0.0.0.0) in the wire response.
+	IP         string // e.g. "192.168.1.50"
+	SubnetMask string // e.g. "255.255.255.0"
+	Gateway    string // e.g. "192.168.1.1"
+
 	// Phase 2/3 fields are present in the type so its public surface is
 	// stable, but Phase 1 ignores them.
 	NVRAM       map[string]string
@@ -39,6 +47,10 @@ type DeviceConfig struct {
 	Slow        time.Duration
 	Unreachable bool
 	RebootDelay time.Duration
+
+	// DropGetIP makes the device silently ignore get_ip requests
+	// (for timeout testing).
+	DropGetIP bool
 
 	// Malformed selects a deliberately broken response shape used by
 	// tests that exercise the client's error-handling path.
@@ -74,6 +86,7 @@ const (
 	OpSet      Op = "set"
 	OpSave     Op = "save"
 	OpReset    Op = "reset"
+	OpGetIP    Op = "getip"
 )
 
 // defaultRebootDelay is the post-Reset window during which the device
@@ -129,9 +142,7 @@ func newDevice(cfg DeviceConfig) *device {
 func (d *device) applySet(params map[string]string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	for k, v := range params {
-		d.workingMemory[k] = v
-	}
+	maps.Copy(d.workingMemory, params)
 }
 
 // applySave copies working memory to NVRAM.
@@ -217,8 +228,6 @@ func (d *device) state() string {
 
 func cloneMap(m map[string]string) map[string]string {
 	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }

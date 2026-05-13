@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"net"
 	"sort"
 
 	"go-udap/udap"
@@ -55,7 +56,40 @@ func formatDeviceInfo(w io.Writer, d *udap.Device) {
 	if d.Firmware != "" {
 		fmt.Fprintf(w, "Firmware: %s\n", d.Firmware)
 	}
+	if d.HardwareRev != "" {
+		fmt.Fprintf(w, "HW Rev:   %s\n", d.HardwareRev)
+	}
+	if d.UUID != "" {
+		fmt.Fprintf(w, "UUID:     %s\n", d.UUID)
+	}
 	if d.State != "" {
 		fmt.Fprintf(w, "State:    %s\n", d.State)
+	}
+}
+
+// formatNetworkConfig writes IP / Subnet / Gateway lines, using "-"
+// for any empty field.
+func formatNetworkConfig(w io.Writer, nc udap.NetworkConfig) {
+	fmt.Fprintf(w, "IP:      %s\n", ipOrDashCLI(nc.IP))
+	fmt.Fprintf(w, "Subnet:  %s\n", ipOrDashCLI(nc.SubnetMask))
+	fmt.Fprintf(w, "Gateway: %s\n", ipOrDashCLI(nc.Gateway))
+}
+
+func ipOrDashCLI(ip net.IP) string {
+	if len(ip) == 0 || ip.IsUnspecified() {
+		return "-"
+	}
+	return ip.String()
+}
+
+// formatInterfacesTable writes a fixed-column table for NetInterfaces.
+// If the slice is empty, writes nothing.
+func formatInterfacesTable(w io.Writer, ifs []udap.NetInterface) {
+	if len(ifs) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "NAME            INDEX  ADDRESS            BROADCAST")
+	for _, ni := range ifs {
+		fmt.Fprintf(w, "%-15s %-5d  %-18s %s\n", ni.Name, ni.Index, ni.Addr, ni.Broadcast)
 	}
 }

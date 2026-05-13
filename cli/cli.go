@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
+
+	"go-udap/udap"
 )
 
 // Version is the binary version string, surfaced by --version.
@@ -30,6 +33,16 @@ func (e *ExitError) Error() string {
 }
 
 func (e *ExitError) Unwrap() error { return e.Err }
+
+// interfaceSelection captures the global --interface / --all-interfaces
+// flags. The chosen mode determines which Client constructor newClient
+// uses. Mutated only by Run before any subcommand executes.
+type interfaceSelection struct {
+	name string // empty unless --interface was set
+	all  bool   // true if --all-interfaces was set
+}
+
+var currentInterfaceSelection interfaceSelection
 
 // parseSubcommandFlags wraps fs.Parse and translates pflag.ErrHelp (the
 // signal pflag returns when --help is requested, after it has already
@@ -61,8 +74,8 @@ func ExitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	var ee *ExitError
-	if errors.As(err, &ee) {
+	ee, ok := errors.AsType[*ExitError](err)
+	if ok {
 		return ee.Code
 	}
 	return 2
@@ -84,6 +97,37 @@ type globalFlags struct {
 // FlagSet sees them in its expected position.
 func Run(args []string, stdout, stderr io.Writer) error {
 	args = moveGlobalFlagsAfterSubcommand(args)
+
+	// Extract --interface / --all-interfaces from the moved-into-place
+	// argv. moveGlobalFlagsAfterSubcommand has already validated the
+	// shape (i.e. global flags are now positioned after args[0]).
+	sel, remaining, ierr := extractInterfaceFlags(args)
+	if ierr != nil {
+		return ierr
+	}
+	if sel.name != "" && sel.all {
+		return &ExitError{Code: 1, Err: fmt.Errorf("--interface and --all-interfaces are mutually exclusive")}
+	}
+	if sel.name != "" {
+		ifs, err := udap.EnumerateInterfaces()
+		if err != nil {
+			return &ExitError{Code: 2, Err: fmt.Errorf("enumerate interfaces: %w", err)}
+		}
+		found := false
+		for _, iface := range ifs {
+			if iface.Name == sel.name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return &ExitError{Code: 1, Err: fmt.Errorf("--interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)", sel.name)}
+		}
+	}
+	prevSel := currentInterfaceSelection
+	currentInterfaceSelection = sel
+	defer func() { currentInterfaceSelection = prevSel }()
+	args = remaining
 
 	if len(args) == 0 {
 		printUsage(stdout)
@@ -129,6 +173,10 @@ func dispatch(cmd string, subArgs []string, stdout, syncErr io.Writer) error {
 		return runSet(subArgs, stdout, syncErr)
 	case "reboot":
 		return runReboot(subArgs, stdout, syncErr)
+	case "getip":
+		return runGetIP(subArgs, stdout, syncErr)
+	case "interfaces":
+		return runInterfaces(subArgs, stdout, syncErr)
 	default:
 		return &ExitError{Code: 1, Err: fmt.Errorf("unknown command: %s", cmd)}
 	}
@@ -139,11 +187,13 @@ func dispatch(cmd string, subArgs []string, stdout, syncErr io.Writer) error {
 // value flags take the next arg, or accept the --foo=bar form.
 var (
 	globalFlagsBoolean = map[string]bool{
-		"-v":        true,
-		"--verbose": true,
+		"-v":               true,
+		"--verbose":        true,
+		"--all-interfaces": true,
 	}
 	globalFlagsValue = map[string]bool{
-		"--timeout": true,
+		"--timeout":   true,
+		"--interface": true,
 	}
 )
 
@@ -228,10 +278,46 @@ Commands:
                                  immediately, but some changes only take
                                  effect after reboot).
   reboot <mac>                   Reboot the device
+  getip <mac>                    Query device IP / subnet / gateway via UCP get_ip
+  interfaces                     List network interfaces usable for discovery
 
 Global flags:
-  --timeout DURATION  Operation timeout (default 5s)
-  --verbose, -v       Debug logging to stderr
-  --version           Print version and exit
-  --help, -h          Print this help`)
+  --timeout DURATION      Operation timeout (default 5s)`)
+	// --interface and --all-interfaces depend on platform-specific socket
+	// options (IP_BOUND_IF on macOS, SO_BINDTODEVICE on Linux). Windows
+	// has no documented equivalent for broadcast traffic, so hiding the
+	// flags here avoids exposing options that would always error.
+	if runtime.GOOS != "windows" {
+		fmt.Fprintln(w, `  --interface NAME        Bind discovery to one network interface
+  --all-interfaces        Broadcast on every usable interface (fan-out)`)
+	}
+	fmt.Fprintln(w, `  --verbose, -v           Debug logging to stderr
+  --version               Print version and exit
+  --help, -h              Print this help`)
+}
+
+// extractInterfaceFlags scans args for --interface NAME and
+// --all-interfaces (in either --foo=bar or --foo bar form), removes
+// them, and returns the leftover argv plus the parsed selection.
+func extractInterfaceFlags(args []string) (interfaceSelection, []string, error) {
+	var sel interfaceSelection
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--all-interfaces":
+			sel.all = true
+		case strings.HasPrefix(a, "--interface="):
+			sel.name = strings.TrimPrefix(a, "--interface=")
+		case a == "--interface":
+			if i+1 >= len(args) {
+				return sel, nil, &ExitError{Code: 1, Err: fmt.Errorf("--interface requires a value")}
+			}
+			sel.name = args[i+1]
+			i++
+		default:
+			out = append(out, a)
+		}
+	}
+	return sel, out, nil
 }

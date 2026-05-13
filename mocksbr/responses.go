@@ -3,6 +3,7 @@ package mocksbr
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"net"
 	"strconv"
 
@@ -33,7 +34,7 @@ func buildHeader(req *udap.Packet, deviceMAC string, method uint16) udap.Packet 
 // produces all-zeros. validMAC must have been called by the caller.
 func parseMAC(s string) [6]byte {
 	var out [6]byte
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		hi := hexNibble(s[i*3])
 		lo := hexNibble(s[i*3+1])
 		out[i] = (hi << 4) | lo
@@ -61,10 +62,11 @@ func encodeHeader(pkt udap.Packet) []byte {
 }
 
 // buildDiscoveryResponse constructs the discovery response for one
-// device. Layout matches the captured discovery-factory.bin and
-// discovery-configured.bin fixtures: 27-byte header + ordered TLV
-// payload (state, device_id, hardware_rev, firmware_rev, device_type,
-// device_name).
+// device. Layout: 27-byte header + ordered TLV payload (state,
+// device_id, hardware_rev, firmware_rev, device_type, device_name,
+// and optionally uuid if configured). The captured fixtures
+// discovery-factory.bin and discovery-configured.bin predate UUID
+// support and therefore lack TLV 0x0d.
 func (d *device) buildDiscoveryResponse(req *udap.Packet) []byte {
 	hdr := buildHeader(req, d.cfg.MAC, req.UCPMethod)
 
@@ -80,6 +82,9 @@ func (d *device) buildDiscoveryResponse(req *udap.Packet) []byte {
 	writeTLV(buf, 0x09, []byte(d.cfg.Firmware))
 	writeTLV(buf, 0x03, []byte(d.cfg.Model))
 	writeTLV(buf, 0x02, []byte(hostname))
+	if d.cfg.UUID != "" {
+		writeTLV(buf, 0x0d, uuidWireBytes(d.cfg.UUID))
+	}
 
 	return buf.Bytes()
 }
@@ -94,6 +99,18 @@ func writeTLV(buf *bytes.Buffer, t byte, value []byte) {
 	buf.WriteByte(t)
 	buf.WriteByte(byte(len(value)))
 	buf.Write(value)
+}
+
+// uuidWireBytes converts a hex-string UUID config into wire bytes. If
+// the config isn't valid hex (e.g. "mock-sbr-001"), the bytes of the
+// string are used directly; the client's hex.EncodeToString will then
+// surface those bytes hex-encoded, which is harmless for tests.
+func uuidWireBytes(uuid string) []byte {
+	b, err := hex.DecodeString(uuid)
+	if err != nil {
+		return []byte(uuid)
+	}
+	return b
 }
 
 // buildGetDataResponse constructs a GetData response (UCPMethod=0x0005)
@@ -319,4 +336,34 @@ func decodeParamValue(value []byte) string {
 		}
 	}
 	return string(value[:end])
+}
+
+// buildGetIPResponse constructs a get_ip reply (UCPMethod=0x0002) with
+// TLV-encoded IP / SubnetMask / Gateway from DeviceConfig. Missing
+// fields are encoded as zero IPv4 (0.0.0.0). The wire TLV codes match
+// Net::UDAP: 0x05 IP_ADDR, 0x06 SUBNET_MASK, 0x07 GATEWAY_ADDR.
+func (d *device) buildGetIPResponse(req *udap.Packet) []byte {
+	hdr := buildHeader(req, d.cfg.MAC, udap.MethodGetIP)
+	buf := new(bytes.Buffer)
+	_ = binary.Write(buf, binary.BigEndian, hdr)
+	writeIPTLV(buf, 0x05, d.cfg.IP)
+	writeIPTLV(buf, 0x06, d.cfg.SubnetMask)
+	writeIPTLV(buf, 0x07, d.cfg.Gateway)
+	return buf.Bytes()
+}
+
+// writeIPTLV emits a 4-byte IPv4 TLV. Empty or unparseable inputs
+// produce a 0.0.0.0 value.
+func writeIPTLV(buf *bytes.Buffer, t byte, ipStr string) {
+	out := []byte{0, 0, 0, 0}
+	if ipStr != "" {
+		if ip := net.ParseIP(ipStr); ip != nil {
+			if ip4 := ip.To4(); ip4 != nil {
+				out = ip4
+			}
+		}
+	}
+	buf.WriteByte(t)
+	buf.WriteByte(0x04)
+	buf.Write(out)
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func runReboot(args []string, _, stderr io.Writer) error {
-	fs := pflag.NewFlagSet("reboot", pflag.ContinueOnError)
+func runGetIP(args []string, stdout, stderr io.Writer) error {
+	fs := pflag.NewFlagSet("getip", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
 	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
 	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
@@ -19,7 +19,7 @@ func runReboot(args []string, _, stderr io.Writer) error {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return &ExitError{Code: 1, Err: fmt.Errorf("reboot: expected exactly one MAC argument")}
+		return &ExitError{Code: 1, Err: fmt.Errorf("getip: expected exactly one MAC argument")}
 	}
 	mac, err := normalizeMAC(fs.Arg(0))
 	if err != nil {
@@ -34,14 +34,17 @@ func runReboot(args []string, _, stderr io.Writer) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
 	defer cancel()
-	stop := startProgress(stderr, "reboot", timeout.Value())
-	defer stop()
+	stop := startProgress(stderr, "getip", timeout.Value())
 	device, err := discoverAndFind(ctx, client, mac)
 	if err != nil {
+		stop()
 		return err
 	}
-	if err := client.ResetDeviceWithContext(ctx, device); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("reboot failed: %w", err)}
+	nc, err := client.GetDeviceNetworkConfigWithContext(ctx, device)
+	stop()
+	if err != nil {
+		return &ExitError{Code: 2, Err: fmt.Errorf("get_ip failed for %s: %w", mac, err)}
 	}
+	formatNetworkConfig(stdout, nc)
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -345,9 +346,7 @@ func (c *Client) GetDevices() map[string]*Device {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()
 	out := make(map[string]*Device, len(c.devices))
-	for k, v := range c.devices {
-		out[k] = v
-	}
+	maps.Copy(out, c.devices)
 	return out
 }
 
@@ -365,4 +364,53 @@ func (c *Client) recordDevice(d *Device) {
 	c.devicesMu.Lock()
 	c.devices[d.MAC.String()] = d
 	c.devicesMu.Unlock()
+}
+
+// NewClientForInterface constructs a Client whose UDP transport is
+// bound to the given interface name's IPv4 address. Used by the CLI's
+// --interface NAME flag. Errors if the interface does not exist, is
+// down, lacks an IPv4 address, or is not broadcast-capable.
+func NewClientForInterface(name string, logger Logger) (*Client, error) {
+	ifs, err := EnumerateInterfaces()
+	if err != nil {
+		return nil, fmt.Errorf("enumerate interfaces: %w", err)
+	}
+	for _, iface := range ifs {
+		if iface.Name == name {
+			tr, err := NewUDPTransportOnInterface(iface, Port, logger)
+			if err != nil {
+				return nil, err
+			}
+			return NewClientWithTransport(tr, logger), nil
+		}
+	}
+	return nil, fmt.Errorf("interface %q is not usable (must be up, broadcast-capable, with an IPv4 address)", name)
+}
+
+// NewClientForAllInterfaces constructs a Client whose UDP transport
+// fans out to every usable interface returned by EnumerateInterfaces.
+// Children that fail to bind are skipped with a Warn log; if no
+// children succeed, returns an error.
+func NewClientForAllInterfaces(logger Logger) (*Client, error) {
+	ifs, err := EnumerateInterfaces()
+	if err != nil {
+		return nil, fmt.Errorf("enumerate interfaces: %w", err)
+	}
+	if len(ifs) == 0 {
+		return nil, fmt.Errorf("no usable interfaces found")
+	}
+	children := make([]Transport, 0, len(ifs))
+	for _, iface := range ifs {
+		tr, err := NewUDPTransportOnInterface(iface, Port, logger)
+		if err != nil {
+			logger.Warn("skipping interface (bind failed)",
+				"interface", iface.Name, "error", err)
+			continue
+		}
+		children = append(children, tr)
+	}
+	if len(children) == 0 {
+		return nil, fmt.Errorf("failed to bind on any usable interface")
+	}
+	return NewClientWithTransport(NewMultiTransport(children, logger), logger), nil
 }

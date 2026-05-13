@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -70,5 +71,28 @@ func TestUDPTransportRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(got, payload) {
 		t.Errorf("got %v, want %v", got, payload)
+	}
+}
+
+func TestNewUDPTransportOnInterfaceConstructs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("per-interface binding is not yet supported on Windows; tracked as Task #29")
+	}
+	ifs, err := EnumerateInterfaces()
+	if err != nil || len(ifs) == 0 {
+		t.Skip("no usable interfaces")
+	}
+	iface := ifs[0]
+	tr, err := NewUDPTransportOnInterface(iface, 0, NewNoOpLogger())
+	if err != nil {
+		t.Fatalf("NewUDPTransportOnInterface(%s): %v", iface.Name, err)
+	}
+	defer tr.Close()
+	// Bound to 0.0.0.0:randomport so receive path works for limited
+	// broadcasts. The egress-interface binding (IP_BOUND_IF /
+	// SO_BINDTODEVICE) isn't visible via the public API; verification
+	// is real-hardware testing.
+	if tr.LocalAddr() == nil {
+		t.Error("LocalAddr is nil")
 	}
 }
