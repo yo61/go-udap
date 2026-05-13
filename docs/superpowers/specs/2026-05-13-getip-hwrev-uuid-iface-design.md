@@ -406,9 +406,23 @@ no checked-in artifact.
   `net.Interfaces()` covers it, but flag semantics may differ. Test on
   the first Windows build attempt.
 - **`--all-interfaces` on hosts with VPN/Docker/bridge interfaces.**
-  Fan-out will hit all of them. This is the intended behaviour —
-  user-opt-in flag, user owns the host topology — but worth noting in
-  the `--help` text.
+  Fan-out will hit all broadcast-capable interfaces. This is the
+  intended behaviour — user-opt-in flag, user owns the host topology —
+  but worth noting in the `--help` text.
+- **Discovery over Tailscale / WireGuard not supported by this design.**
+  WireGuard is a routed L3 VPN: the tunnel interface is point-to-point
+  (`FlagPointToPoint`, no `FlagBroadcast`) and WireGuard silently drops
+  packets destined for `255.255.255.255` because there's no peer
+  associated with the broadcast address. So the filter chosen here
+  (`FlagUp && FlagBroadcast` + IPv4) excludes Tailscale interfaces
+  automatically, and that's the correct behaviour — including them
+  would only contribute timeout latency for a fan-out branch that
+  never reaches anything. If discovery across a Tailscale Subnet
+  Router is wanted later, the right mechanism is a directed broadcast
+  to the remote LAN's broadcast address (e.g. `192.168.1.255`) routed
+  unicast through the tunnel, which is a separate feature with a
+  different CLI surface (something like `--broadcast-address IP`) and
+  no `MultiTransport` involvement.
 
 ## Implementation order
 
