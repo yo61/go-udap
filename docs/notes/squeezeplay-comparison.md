@@ -1,0 +1,344 @@
+# Squeezeplay UDAP cross-check note
+
+## Purpose
+
+This note records a comparison of `go-udap`'s UDAP implementation against the
+Lua reference implementation in [ralph-irving/squeezeplay](https://github.com/ralph-irving/squeezeplay).
+Squeezeplay is a software music player for Lyrion Music Server; it both
+*responds to* UDAP requests (acting as a device) and *issues* UDAP requests
+(during its own setup wizard).
+
+**Authority hierarchy:** [Net::UDAP](https://metacpan.org/dist/Net-UDAP)
+(Perl) remains the canonical protocol authority for `go-udap`. This
+comparison treats squeezeplay as a *cross-check* — divergences between
+squeezeplay and Net::UDAP are flagged below but Net::UDAP wins for
+canonical claims.
+
+**Two questions this note answers:**
+
+1. How does squeezeplay's UDAP wire protocol compare to ours? Where do we
+   diverge, intentionally or otherwise?
+2. Can devices other than the Squeezebox Receiver be configured via UDAP?
+
+## Methodology
+
+Files read (captured from `ralph-irving/squeezeplay@master`,
+2026-05-13):
+
+- `src/squeezeplay/share/jive/net/Udap.lua` — core protocol module (packet
+  framing, send/recv).
+- `src/squeezeplay/share/applets/UdapControl/UdapControlApplet.lua` — the
+  applet that responds to UDAP requests when squeezeplay is acting as a
+  device.
+- `src/squeezeplay/share/applets/SetupSqueezebox/SetupSqueezeboxApplet.lua` —
+  the setup wizard that *issues* UDAP requests to onboard hardware
+  Squeezeboxen.
+- `src/squeezeplay/share/applets/SlimDiscovery/SlimDiscoveryApplet.lua` —
+  periodic discovery driver.
+- `src/squeezeplay/share/applets/SelectPlayer/SelectPlayerApplet.lua`,
+  `src/squeezeplay/share/jive/slim/Player.lua`,
+  `src/squeezeplay/share/jive/net/SlimProto.lua` — adjacent files with
+  small UDAP touch points.
+
+Compared against `go-udap` at the merge of PR #43 (commit `3612854`).
+
+## 1. Packet framing and protocol primitives
+
+Header layout — mostly aligned, one cosmetic decomposition difference:
+
+| Field | Width | squeezeplay | go-udap |
+|---|---|---|---|
+| Dst broadcast + type | 2 bytes | `unpackNumber(recv, offset, 2)` then `& 0x00FF` (Udap.lua:313-315) | DstBroadcast (1) + DstType (1) (protocol.go:76-78) |
+| DstAddress | 6 bytes | matches | matches |
+| Src broadcast + type | 2 bytes | `unpackNumber(recv, offset, 2)` (Udap.lua:328) | SrcBroadcast (1) + SrcType (1) (protocol.go:79-81) |
+| SrcAddress | 6 bytes | matches | matches |
+| Sequence | 2 bytes | matches | matches |
+| UDAPType | 2 bytes | matches | matches |
+| UCPFlags | 1 byte | matches | matches |
+| UAPClass | 4 bytes | matches | matches |
+| UCPMethod | 2 bytes | matches | matches |
+
+Total: **27 bytes** — identical size and identical bytes on the wire.
+
+The structural divergence is purely in how each implementation decomposes
+the broadcast-flag-plus-type byte pair: squeezeplay reads it as one
+2-byte word and masks; go-udap uses two explicit 1-byte struct fields.
+Same bytes, cleaner read on our side.
+
+**UCP method enum (squeezeplay `ucpMethods`, Udap.lua:56-69):**
+
+| # | Name | go-udap |
+|---|---|---|
+| 1 | `discover` | `MethodDiscover` |
+| 2 | `get_ip` | `MethodGetIP` |
+| 3 | `set_ip` | not implemented (squeezeplay names it but doesn't implement either) |
+| 4 | `reset` | `MethodReset` |
+| 5 | `get_data` | `MethodGetData` |
+| 6 | `set_data` | `MethodSetData` |
+| 7 | `error` | `MethodError` |
+| 8 | `credentials_error` | `MethodCredentialsError` |
+| 9 | `adv_discover` | `MethodAdvDisc` |
+| 10 | (unused) | — |
+| 11 | `get_uuid` | **not implemented** |
+| 12 | `set_volume` | not implemented (player control, out of scope) |
+| 13 | `pause` | not implemented (player control, out of scope) |
+
+Of the three methods squeezeplay defines that `go-udap` doesn't:
+
+- **`get_uuid` (0x000b)** has real value as a *fallback* — see section 3.
+- **`set_volume` and `pause`** are inter-device player-control messages,
+  outside the NVRAM-configuration scope of `go-udap`.
+
+**TLV codec:** Both use 1-byte type, 1-byte length, N-byte value.
+Identical format. squeezeplay's `parseDiscover` (Udap.lua:191-202) and
+go-udap's `parseDiscoveryResponse` (discovery.go:114-149) are
+structurally equivalent.
+
+## 2. Discovery TLVs and decoding
+
+squeezeplay's `ucpCodes` (Udap.lua:73-86, 1-indexed) vs. go-udap's
+constants:
+
+| Code | squeezeplay name | go-udap const |
+|---|---|---|
+| 0x02 | `name` | `tlvDeviceName` (discovery.go:59) |
+| 0x03 | `type` | `tlvDeviceType` (discovery.go:60) |
+| 0x04 | `use_dhcp` | **not decoded** (silently ignored as unknown) |
+| 0x05 | `ip_addr` | `tlvIPAddr` (getip.go:122) |
+| 0x06 | `subnet_mask` | `tlvSubnetMask` (getip.go:123) |
+| 0x07 | `gateway_addr` | `tlvGatewayAddr` (getip.go:124) |
+| 0x09 | `firmware_rev` | `tlvFirmwareRev` (discovery.go:61) |
+| 0x0a | `hardware_rev` | `tlvHardwareRev` (discovery.go:62) |
+| 0x0b | `device_id` | `tlvDeviceID` (discovery.go:63) |
+| 0x0c | `device_status` | `tlvDeviceStatus` (discovery.go:64) |
+| 0x0d | `uuid` | `tlvUUID` (discovery.go:65) |
+
+**TLV 0x04 `use_dhcp`** appears in squeezeplay's name table but is never
+emitted by any squeezeplay `create*` function and is absent from
+`configSettings`. It may be a legacy code from older simple-`discover`
+responses. `go-udap` correctly ignores it (unknown TLVs fall through to
+the `default:` branch with a debug log).
+
+squeezeplay's `parseDiscover` is reused for three methods: `discover`,
+`get_ip`, AND `adv_discover` (`ucpMethodHandlers`, Udap.lua:289-298) —
+the same TLV decoder regardless of method. `go-udap` has separate
+`parseDiscoveryResponse` and `parseGetIPResponse` — functionally
+equivalent but more explicit.
+
+## 3. `get_ip` / network-config operation
+
+squeezeplay implements `get_ip` (method 0x0002) in both roles:
+
+- **Request sender**: `createGetIPAddr` (Udap.lua:428-432) — 27-byte
+  header only, no payload. Matches `go-udap`'s `CreateGetIPPacket`
+  (getip.go:18-33).
+- **Response producer** (squeezeplay acting as a device):
+  `createGetIpResponse` (Udap.lua:562-568) puts **only TLV 0x05
+  (`ip_addr`)** in the response. It does *not* include 0x06
+  (subnet_mask) or 0x07 (gateway_addr).
+
+`go-udap`'s `parseGetIPResponse` correctly handles all three codes
+(getip.go:98-110), soft-failing on missing ones. squeezeplay's omission
+of 0x06/0x07 is squeezeplay-as-server behaviour — a real Squeezebox
+hardware device returns all three. `go-udap`'s decoder is correct.
+
+`SetupSqueezeboxApplet` reads the `get_ip` response field
+`pkt.ucp["ip_addr"]` (TLV 0x05) to display the device's IP during
+setup (SetupSqueezeboxApplet.lua:1083-1098). Same field `go-udap`
+surfaces as `NetworkConfig.IP`.
+
+## 4. NVRAM parameter table (`configSettings`)
+
+squeezeplay's 22-parameter table (Udap.lua:22-45) vs. `go-udap`'s
+26-parameter `udap.Parameters`:
+
+| Offset | Length | squeezeplay name | go-udap name |
+|---|---|---|---|
+| 4 | 1 | `lan_ip_mode` | `lan_ip_mode` |
+| 5 | 4 | `lan_network_address` | `lan_network_address` |
+| 9 | 4 | `lan_subnet_mask` | `lan_subnet_mask` |
+| 13 | 4 | `lan_gateway` | `lan_gateway` |
+| 17 | 33 | `hostname` | `hostname` |
+| 50 | 1 | `bridging` | `bridging` |
+| 52 | 1 | `interface` | `interface` |
+| 59 | 4 | `primary_dns` | `primary_dns` |
+| 67 | 4 | `secondary_dns` | `secondary_dns` |
+| 71 | 4 | `server_address` | `server_address` |
+| 79 | 4 | `slimserver_address` | `lms_address` (alias `slimserver_address`) |
+| 83 | 33 | (absent) | `squeezecenter_name` |
+| 173 | 1 | `wireless_mode` | `wireless_mode` |
+| 183 | 33 | `SSID` | `wireless_SSID` |
+| 216 | 1 | `channel` | `wireless_channel` |
+| 218 | 1 | `region_id` | `wireless_region_id` |
+| 220 | 1 | `keylen` | `wireless_keylen` |
+| 222 | 13 | `wep_key` | `wireless_wep_key` |
+| 235 | 13 | (absent) | `wireless_wep_key_1` |
+| 248 | 13 | (absent) | `wireless_wep_key_2` |
+| 261 | 13 | (absent) | `wireless_wep_key_3` |
+| 274 | 1 | `wepon` | `wireless_wep_on` |
+| 275 | 1 | `wpa_cipher` | `wireless_wpa_cipher` |
+| 276 | 1 | `wpa_mode` | `wireless_wpa_mode` |
+| 277 | 1 | `wpa_enabled` | `wireless_wpa_on` |
+| 278 | 64 | `wpa_psk` | `wireless_wpa_psk` |
+
+**All offsets and lengths match exactly.** `go-udap` adds the
+`wireless_` prefix to wireless parameter names for clarity;
+squeezeplay uses short names.
+
+**`go-udap`'s four extra parameters** (`squeezecenter_name`,
+`wireless_wep_key_{1,2,3}`) are present in Net::UDAP. squeezeplay's
+setup flow simply doesn't write them. The WEP-1/2/3 slots are legitimate
+NVRAM positions for the secondary WEP key configurations; squeezeplay
+only writes the primary slot at offset 222.
+
+**Canonical-name divergence at offset 79:** squeezeplay's
+`slimserver_address` is `lms_address` in `go-udap`. The alias is
+registered in `parameterAliases`, so a config file produced by a
+squeezeplay-aware tool that uses `slimserver_address=...` will be
+accepted by `go-udap set --config FILE`. `go-udap read` emits the
+canonical `lms_address`.
+
+## 5. Broadcast and addressing
+
+`go-udap` always sends to **`255.255.255.255:17784`** (transport.go:60-67).
+Never directed-subnet broadcast, never unicast. This is intentional:
+unconfigured devices (source IP `0.0.0.0`) only respond to limited
+broadcasts. See the post-Phase-6 spike result in
+`docs/superpowers/plans/2026-05-13-getip-hwrev-uuid-iface.md`.
+
+squeezeplay does the same. Discovery, set_data, reset, get_uuid, and
+get_ip requests all go to `"255.255.255.255"` (default port = 17784).
+The `UdapControlApplet` *response* path (squeezeplay as a device replying
+to a remote configurator) unicasts the reply to the requester's source
+IP/port — standard UDAP device behaviour.
+
+**Multi-NIC awareness:** squeezeplay uses a single shared `SocketUdp`
+singleton (`_instance` enforced in `Udap.lua:__init`). It has no
+per-interface logic. `go-udap`'s `NewClientForInterface` and
+`NewClientForAllInterfaces` (with `IP_BOUND_IF` / `SO_BINDTODEVICE`
+plumbing) are go-udap enhancements beyond squeezeplay's scope, reflecting
+that `go-udap` runs on developer hosts that often have Wi-Fi + Ethernet
+both up.
+
+## 6. Retry and timeout strategy
+
+**squeezeplay** (`SetupSqueezeboxApplet`):
+
+- Every UDAP send transmits the **same packet three times** in immediate
+  succession (`t_udapSend`, SetupSqueezeboxApplet.lua:947-949). No delay
+  between sends. This is the explicit retry mechanism — squeezeplay
+  expects to operate over ad-hoc Wi-Fi during device setup, where packet
+  loss is high.
+- Task scheduler with `SETUP_TIMEOUT = 45s` for normal ops,
+  `SETUP_EXTENDED_TIMEOUT = 180s` for firmware operations.
+- Reset is special-cased: after 10 failed response polls, the applet
+  assumes the device has rebooted and proceeds
+  (SetupSqueezeboxApplet.lua:1004-1005).
+- Sequence numbers seeded with `math.random(65535)` and incremented per
+  send; stale-seqno replies are discarded.
+
+**`go-udap`:**
+
+- Sends once. No automatic retransmit.
+- Context-based timeout, default 5 seconds (`--timeout` configurable).
+- Reset treats `context.DeadlineExceeded` as success (config.go:188-190).
+
+The divergence is intentional: `go-udap`'s use case is wired/reliable
+LAN discovery, not ad-hoc Wi-Fi setup. Triple-send on every request
+would be noise. An optional retry flag could be added if `go-udap`
+ever needs to operate over a lossy link.
+
+## 7. Error handling
+
+squeezeplay's `parseUdap` (`ucpMethodHandlers`, Udap.lua:289-298) maps
+both `error` (method 7) and `credentials_error` (method 8) to `nil` —
+no handler runs. The calling applet (`t_udapSink`,
+SetupSqueezeboxApplet.lua:1036-1100) has no explicit branch for those
+methods either: error responses fall through silently, the task timer
+eventually expires, and setup fails with whatever `self.errorMsg` was
+last assigned.
+
+`go-udap` explicitly decodes `MethodError` (0x0007), extracts the TLV
+error-message string (`TLVTypeErrorMessage = 0x03`), and surfaces it
+to the caller. `MethodCredentialsError` (0x0008) returns a distinct
+`"rejected credentials"` error. This is more correct than squeezeplay's
+silent-drop pattern.
+
+## 8. Device-type coverage (the non-SBR question)
+
+**The UDAP wire protocol is device-agnostic.**
+
+`jive/net/Udap.lua` has zero device-type branching. The places
+squeezeplay filters by device type are setup-wizard UI constraints,
+not protocol constraints:
+
+- `SlimDiscoveryApplet.lua:154`: filters `adv_discover` responses to
+  `"squeezebox"`, `"fab4"`, or `"baby"`.
+- `SetupSqueezeboxApplet.lua:220`: filters to `"squeezebox"` only.
+
+These strings map to TLV 0x03 `device_type` values returned by the
+hardware:
+
+- `"squeezebox"` — the original Squeezebox hardware family (SB2, SB3,
+  Transporter, Receiver, Boom).
+- `"fab4"` — Squeezebox Touch (TLV 0x0b `device_id` = `08`).
+- `"baby"` — Squeezebox Radio (TLV 0x0b `device_id` = `09`).
+
+The filtering exists purely to drive the setup-wizard UI — "only show
+devices awaiting initial setup". Once a device has been onboarded, the
+protocol is uniform across types.
+
+`UdapControlApplet` (which handles inbound UDAP on a squeezeplay
+device) makes no device-type distinction at all.
+
+`go-udap`'s `productNameByID` map (discovery.go:74-85) lists Squeezebox
+2 (`02`), 3 (`03`), Transporter (`04`), SoftSqueeze (`05`), Boom (`06`),
+Receiver (`07`), Touch (`08`), Radio (`09`), Controller (`0a`),
+Squeezeslave (`0b`). The wire protocol and the NVRAM offsets are the
+same set across all of these.
+
+**Practical caveat:** `go-udap` has only been tested against a real
+Squeezebox Receiver. Behaviour against Boom, Touch, Radio, or
+Controller is theoretical until someone runs `go-udap discover --info`
+and `read --all` against one. NVRAM values may differ across models
+(different default firmwares, model-specific feature bits) but the
+wire framing and parameter offsets/lengths should hold.
+
+## 9. Findings that motivated new tracker items
+
+Captured separately as TaskCreate entries; cross-referenced here for the
+sake of the contributor reading this note in isolation:
+
+- **`get_uuid` (method 0x000b) as a fallback** when `adv_discover`'s
+  TLV 0x0d is missing or all-zeros. squeezeplay's `SlimDiscoveryApplet`
+  does this at line 162-165. Worth implementing in `go-udap` for the
+  benefit of older firmware that doesn't include UUID in the discovery
+  reply.
+- **Hardware verification against non-SBR devices** (Boom, Touch, Radio).
+  No code change anticipated; just a confidence check on the
+  device-agnostic claim.
+- **Optional `--retries N` flag** for lossy-link scenarios. Low
+  priority; only matters if `go-udap` is ever pointed at a device over
+  ad-hoc Wi-Fi.
+
+## 10. Squeezeplay designs intentionally NOT replicated
+
+- **Singleton `SocketUdp` instance.** Makes sense in an embedded
+  single-process runtime; `go-udap`'s instantiated `Client` per
+  invocation is the right model for a CLI.
+- **`pkt.sourceType == 0x0001` check** (vs. `& 0x00FF`). squeezeplay
+  rejects packets where the source-broadcast byte is non-zero. `go-udap`'s
+  explicit 1+1 struct split sidesteps the question.
+- **Triple-send on every request.** Reasonable for ad-hoc wireless;
+  noisy on wired LAN.
+- **Seqno-based response filtering**
+  (SetupSqueezeboxApplet.lua:1051-1053). squeezeplay discards replies
+  whose seqno doesn't match the last send. `go-udap` uses MAC+IP
+  matching (`waitForDeviceReply`), which correctly rejects stale replies
+  from previous invocations even if a seqno happens to collide.
+- **Setup-wizard device-type filter** (`pkt.ucp.type == "squeezebox"`).
+  Applet-level UI constraint, not a protocol requirement. `go-udap`
+  correctly operates on any device that responds.
+- **`set_volume` and `pause` methods** (0x000c, 0x000d). Inter-device
+  player control over UDAP, not NVRAM configuration. Out of scope for
+  `go-udap`.
