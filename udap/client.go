@@ -390,9 +390,28 @@ func NewClientForInterface(name string, logger Logger) (*Client, error) {
 
 // NewClientForAllInterfaces constructs a Client whose UDP transport
 // fans out to every usable interface returned by EnumerateInterfaces.
-// Implemented in Phase 7 — currently returns an error.
-//
-// TODO(getip-phase-7): real implementation.
+// Children that fail to bind are skipped with a Warn log; if no
+// children succeed, returns an error.
 func NewClientForAllInterfaces(logger Logger) (*Client, error) {
-	return nil, fmt.Errorf("--all-interfaces not yet implemented")
+	ifs, err := EnumerateInterfaces()
+	if err != nil {
+		return nil, fmt.Errorf("enumerate interfaces: %w", err)
+	}
+	if len(ifs) == 0 {
+		return nil, fmt.Errorf("no usable interfaces found")
+	}
+	children := make([]Transport, 0, len(ifs))
+	for _, iface := range ifs {
+		tr, err := NewUDPTransportOnInterface(iface, Port, logger)
+		if err != nil {
+			logger.Warn("skipping interface (bind failed)",
+				"interface", iface.Name, "error", err)
+			continue
+		}
+		children = append(children, tr)
+	}
+	if len(children) == 0 {
+		return nil, fmt.Errorf("failed to bind on any usable interface")
+	}
+	return NewClientWithTransport(NewMultiTransport(children, logger), logger), nil
 }

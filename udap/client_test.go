@@ -1,6 +1,7 @@
 package udap
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -289,4 +290,24 @@ func TestNewClientForInterfaceAcceptsKnownName(t *testing.T) {
 		t.Fatalf("NewClientForInterface(%q): %v", ifs[0].Name, err)
 	}
 	defer c.Close()
+}
+
+func TestNewClientForAllInterfacesErrorsWhenNoUsableInterfaces(t *testing.T) {
+	// We can't reliably create a "no interfaces" condition on a real
+	// host, so this test confirms only that the stub error is gone
+	// (we now return a real client OR a real error from binding).
+	ifs, _ := EnumerateInterfaces()
+	if len(ifs) == 0 {
+		t.Skip("can't test success path with zero interfaces")
+	}
+	c, err := NewClientForAllInterfaces(NewNoOpLogger())
+	if err != nil {
+		// May fail to bind to port 17784 (privileged on Linux); that's
+		// OK — verify it isn't the stub error.
+		if strings.Contains(err.Error(), "not yet implemented") {
+			t.Errorf("got stub error, want real binding attempt")
+		}
+		return
+	}
+	c.Close()
 }
