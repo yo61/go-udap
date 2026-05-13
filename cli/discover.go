@@ -52,6 +52,13 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 				fmt.Fprintln(stdout)
 			}
 			formatDeviceInfo(stdout, d)
+			nc, err := client.GetDeviceNetworkConfigWithContext(ctx, d)
+			if err != nil {
+				// Soft-fail: log and emit dashes so the table is consistent.
+				fmt.Fprintf(stderr, "warning: get_ip failed for %s: %v\n", d.MAC, err)
+				nc = udap.NetworkConfig{}
+			}
+			formatNetworkConfig(stdout, nc)
 		} else {
 			fmt.Fprintln(stdout, d.MAC)
 		}
