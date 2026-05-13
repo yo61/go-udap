@@ -1,54 +1,44 @@
 name: Release
 
-# Triggered by a successful CI run on main, not by the push itself, so
-# semantic-release can never cut a tag from a commit that fails go vet
-# or tests. The previous push-triggered config let v1.3.2 ship from a
-# vet-failing tree because the Release and CI workflows fired in
-# parallel: when CI failed on the merge result, semantic-release had
-# already finished tagging.
+# release-please opens / updates a Release PR on every push to main
+# that contains version-bumping commits (feat, fix, etc., per
+# conventional commits). Merging the Release PR cuts the actual
+# release — the tag, the GitHub release (created in draft state), and
+# the CHANGELOG update all land together. GoReleaser then fires on the
+# tag push, uploads binaries to the existing draft release, and
+# un-drafts it.
 #
-# CI runs on every push to main (no path filter), so this workflow
-# fires for every successful CI on main. Pushes that change only
-# non-Go files still trigger CI and therefore this workflow, but
-# semantic-release no-ops when there are no feat/fix commits since
-# the last tag — no spurious releases get cut.
+# Convention: use `docs:` (not `feat(docs):`) for documentation-only
+# changes so they don't trigger a version bump. Bump-triggering types:
+# feat (minor), fix (patch), perf (patch). BREAKING CHANGE in the
+# commit body bumps major.
+
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
 jobs:
-  release:
-    name: Release
+  release-please:
     runs-on: ubuntu-latest
-    if: >-
-      github.repository_owner == 'yo61' &&
-      (github.event_name == 'workflow_dispatch' ||
-       github.event.workflow_run.conclusion == 'success')
+    if: github.repository_owner == 'yo61'
     steps:
       - id: create_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
         with:
           client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: actions/checkout@v6
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - uses: cycjimmy/semantic-release-action@v6
-        with:
-          semantic_version: 25.0.3
-          extra_plugins: |
-            @semantic-release/changelog@6.0.3
-            @semantic-release/git@10.0.1
-            conventional-changelog-conventionalcommits@9.3.1
-        env:
-          GITHUB_TOKEN: ${{ steps.create_token.outputs.token }}
+          token: ${{ steps.create_token.outputs.token }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
