@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.0](https://github.com/yo61/go-udap/compare/v1.9.0...v1.10.0) (2026-05-14)
+
+
+### Features
+
+* **docs:** port existing docs into Diataxis quadrants (M2) ([#51](https://github.com/yo61/go-udap/issues/51)) ([3c7bce8](https://github.com/yo61/go-udap/commit/3c7bce8505b42e4bf74b87d2bbc455f59e64866c))
+
 ## [1.9.0](https://github.com/yo61/go-udap/compare/v1.8.0...v1.9.0) (2026-05-13)
 
 ### Features
