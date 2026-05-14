@@ -1,0 +1,104 @@
+---
+title: Setup mode vs. run mode
+description: Why most UDAP operations only work when the device is in setup mode
+---
+
+# Setup mode vs. run mode
+
+A Squeezebox has two operational states relevant to go-udap:
+
+- **Setup mode** — the device hasn't completed initial configuration,
+  or the user has short-pressed the front button to manually enter
+  setup. Front LED flashes red. The UDAP responder runs in this state.
+- **Run mode** — the device is configured, connected to its music
+  server, and (typically) serving audio. The UDAP responder is silent.
+
+This means most go-udap operations only work against devices in setup
+mode. A configured running device responds to ping but ignores UDAP
+traffic — even unicast, even with the correct destination MAC in the
+payload.
+
+## What was tested
+
+Single Squeezebox Receiver (SBR), firmware 77, observed 2026-05-14.
+
+Setup mode device (front LED flashing red): `getip`, `read`, `set`,
+and `reboot` all work as documented.
+
+Same device after configuration, in run mode (connected to LMS, IP
+`192.168.1.116`):
+
+```bash
+ping 192.168.1.116                              # OK — ICMP unicast
+                                                # handled by kernel
+go-udap -v getip 00:04:20:16:05:8f              # silent; no reply
+```
+
+The unicast UDAP request leaves the host correctly. tcpdump on the
+sending interface:
+
+```text
+10:12:01.809 IP 192.168.1.241.17784 > 192.168.1.116.17784: UDP, length 27
+```
+
+No reply from `192.168.1.116`. This is a firmware-level decision —
+the device is reachable on the IP layer (ping works, LMS streams
+audio) but UDP/17784 isn't being serviced. Nothing on the go-udap
+side can recover from this.
+
+## Why is the firmware silent post-configuration?
+
+Reasonable guesses from the squeezeplay reference implementation:
+
+- UDAP is documented as a *setup* protocol. The
+  [Net::UDAP](https://metacpan.org/dist/Net-UDAP) Perl reference and
+  the squeezeplay `SetupSqueezeboxApplet` both treat it that way.
+- The SBR firmware has finite resources; the UDAP listener probably
+  exits once the device transitions to `connected` state and the
+  audio decoder thread takes priority.
+- squeezeplay's `UdapControlApplet` *does* keep responding when
+  squeezeplay is itself acting as a device, but that's the
+  software-player code; the hardware SBR firmware is different.
+
+The exact reason isn't documented in any source we've found, but the
+observed behaviour is consistent.
+
+## The workaround
+
+To configure a running device, short-press the front button (LED
+goes to slow red blink). The device drops to setup mode without
+wiping NVRAM. UDAP responds again. Apply the configuration. The
+device reboots back to run mode automatically.
+
+For initial onboarding of a factory-state device, the device is
+already in setup mode — see
+[the tutorial](/docs/tutorials/configure-your-first-squeezebox).
+
+## Caveat: model coverage
+
+The finding is confirmed against the **Squeezebox Receiver (SBR)
+firmware 77** only. Behaviour on other Squeezebox models (Boom,
+Touch, Radio, Controller, Transporter) is currently untested — the
+firmware on those devices may or may not behave the same way.
+Task #31 in the project tracker covers cross-model verification.
+
+## What go-udap does about this
+
+Several improvements landed alongside this finding even though they
+don't fix the underlying constraint:
+
+- Device-targeted ops (`getip`, `read`, `get`, `set`, `reboot`) skip
+  the redundant discover-broadcast they previously fired — one fewer
+  roundtrip per invocation.
+- The host ARP cache is consulted for the device's IP before sending;
+  when found, the operation goes out as UDP unicast rather than
+  broadcast. This bypasses Wi-Fi AP broadcast suppression on networks
+  where that's the failure mode (the SBR-run-mode case is *not* one
+  of them, but for non-SBR devices and other vendors the path now
+  exists).
+- Timeout errors are now `getip: no reply from <mac> within 5s`
+  instead of the previous `recv reply for <mac>: context deadline
+  exceeded` wrapping chain.
+
+See [How UDAP discovery works](./how-udap-discovery-works) for the
+discovery-specific mechanics.
