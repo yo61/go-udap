@@ -102,6 +102,42 @@ func (c *Client) sendRetried(packet []byte) error {
 	return nil
 }
 
+// sendRetriedTo is the unicast counterpart of sendRetried: each
+// attempt addresses dst directly instead of broadcasting. Same
+// retry-and-aggregate semantics.
+func (c *Client) sendRetriedTo(dst string, packet []byte) error {
+	attempts := c.retries + 1
+	var firstErr error
+	successCount := 0
+	for range attempts {
+		if err := c.transport.SendUnicast(dst, packet); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else {
+			successCount++
+		}
+	}
+	if successCount == 0 {
+		return firstErr
+	}
+	return nil
+}
+
+// sendForDevice picks unicast over broadcast when the device's IP is
+// known (e.g. populated from the host ARP cache before the operation).
+// Unicast bypasses Wi-Fi AP broadcast suppression that silently drops
+// UDP broadcasts to associated clients on many residential APs. Falls
+// back to broadcast when device.IP is empty, preserving the historical
+// behaviour for unconfigured devices and ARP-cache-miss cases.
+func (c *Client) sendForDevice(device *Device, packet []byte) error {
+	if device.IP != "" {
+		c.logger.Debug("Sending via unicast", "dst", device.IP, "mac", device.MAC)
+		return c.sendRetriedTo(device.IP, packet)
+	}
+	return c.sendRetried(packet)
+}
+
 // createUdapPacket creates the common UDAP packet header structure
 // All UDAP messages share the same initial format up to UCPMethod.
 // The sequence number is bumped atomically so concurrent Create*

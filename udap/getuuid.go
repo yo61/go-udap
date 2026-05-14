@@ -46,7 +46,7 @@ func (c *Client) GetDeviceUUIDWithContext(ctx context.Context, device *Device) (
 	if err != nil {
 		return "", fmt.Errorf("build GetUUID packet: %w", err)
 	}
-	if err := c.sendRetried(packet); err != nil {
+	if err := c.sendForDevice(device, packet); err != nil {
 		return "", fmt.Errorf("send GetUUID: %w", err)
 	}
 	c.logger.Info("Sent GetUUID request", "device_mac", device.MAC)

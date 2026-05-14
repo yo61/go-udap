@@ -51,6 +51,11 @@ func (t *countingMockTransport) Send(packet []byte) error {
 	return t.inner.Send(packet)
 }
 
+func (t *countingMockTransport) SendUnicast(dst string, packet []byte) error {
+	t.count.Add(1)
+	return t.inner.SendUnicast(dst, packet)
+}
+
 func (t *countingMockTransport) Recv(ctx context.Context) ([]byte, string, error) {
 	return t.inner.Recv(ctx)
 }

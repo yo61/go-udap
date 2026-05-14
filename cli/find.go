@@ -96,10 +96,15 @@ func isLowerHexByte(c byte) bool {
 
 // deviceFromMAC synthesizes a *udap.Device from a user-supplied MAC
 // for operations that target a known device and don't need discovery
-// metadata (name, firmware, etc.). Device.IP is left empty;
-// waitForDeviceReply falls back to MAC-only reply matching. Used by
-// getip / read / get / set / reboot, which previously broadcast a
-// discovery they didn't need just to construct a Device object.
+// metadata (name, firmware, etc.). Best-effort ARP lookup populates
+// Device.IP when the OS already knows the address, which lets the
+// udap.Client switch from broadcast to unicast — necessary on Wi-Fi
+// networks where APs silently drop UDP broadcasts to associated
+// clients (the configured-and-running Squeezebox failure mode).
+//
+// Empty IP (cache miss) falls back to the broadcast code path, so
+// nothing breaks if the user hasn't talked to the device recently or
+// is on a network where broadcasts work fine.
 //
 // info still uses discoverAndFind because its purpose is to display
 // the metadata that only discovery's TLVs carry.
@@ -108,7 +113,10 @@ func deviceFromMAC(mac string) (*udap.Device, error) {
 	if err != nil {
 		return nil, &ExitError{Code: 1, Err: err}
 	}
-	return &udap.Device{MAC: parsed}, nil
+	return &udap.Device{
+		MAC: parsed,
+		IP:  lookupIP(mac),
+	}, nil
 }
 
 // findPollInterval is how often discoverAndFind checks for the target MAC

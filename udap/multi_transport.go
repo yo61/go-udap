@@ -67,6 +67,30 @@ func (m *MultiTransport) Send(packet []byte) error {
 	return nil
 }
 
+// SendUnicast fans the unicast packet out on every child; the kernel
+// only routes it through the interface whose subnet matches dst. Same
+// aggregate-success semantics as Send: nil if any child accepted the
+// write. Wasteful on multi-NIC hosts (most children write to a black
+// hole) but correct and far simpler than choosing the right child
+// based on routing tables.
+func (m *MultiTransport) SendUnicast(dst string, packet []byte) error {
+	var failures []string
+	successes := 0
+	for i, c := range m.children {
+		if err := c.SendUnicast(dst, packet); err != nil {
+			m.logger.Warn("MultiTransport child SendUnicast failed",
+				"child", i, "dst", dst, "error", err)
+			failures = append(failures, err.Error())
+			continue
+		}
+		successes++
+	}
+	if successes == 0 {
+		return fmt.Errorf("all children failed: %v", failures)
+	}
+	return nil
+}
+
 // Recv returns the next packet from any child, or the context error if
 // ctx is cancelled. Lazily starts one goroutine per child on first
 // call.
