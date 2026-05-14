@@ -1,0 +1,29 @@
+---
+title: Onboard a Squeezebox over Wi-Fi (ad-hoc)
+description: Configure a factory-state device without plugging in Ethernet
+---
+
+# Onboard a Squeezebox over Wi-Fi (ad-hoc)
+
+> **This page is a placeholder.** The procedure for onboarding a
+> factory-state Squeezebox over its built-in ad-hoc Wi-Fi is being
+> investigated as
+> [Task #34](https://github.com/yo61/go-udap/issues?q=is%3Aopen+ad-hoc+wifi)
+> in the project tracker. Real content will appear here once the
+> investigation completes.
+
+## What we know so far
+
+Squeezebox firmware exposes an ad-hoc Wi-Fi network when in factory
+state. Squeezeplay's reference setup applet associates with that
+network and runs UDAP discovery over Wi-Fi without needing Ethernet
+first. We expect go-udap to be able to do the same with `--retries 2`
+(matching squeezeplay's hardcoded triple-send) once we've verified
+the ad-hoc SSID pattern, security model, and modern OS support.
+
+## In the meantime
+
+Use wired Ethernet for initial onboarding —
+[Configure a Squeezebox for DHCP](./configure-for-dhcp) then switch
+to Wi-Fi with
+[Configure a Squeezebox for Wi-Fi with WPA2](./configure-wifi-wpa2).

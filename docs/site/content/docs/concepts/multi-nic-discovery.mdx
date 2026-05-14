@@ -1,0 +1,88 @@
+---
+title: Multi-NIC discovery
+description: How --interface and --all-interfaces work under the hood
+---
+
+# Multi-NIC discovery
+
+A laptop with Wi-Fi + Ethernet both up has more than one path to
+broadcast on. The kernel's default-route NIC wins by default — every
+other interface stays silent unless you explicitly tell go-udap
+otherwise. This page explains the wire-level details.
+
+## The problem
+
+Default `go-udap discover` binds `0.0.0.0:17784` and writes to
+`255.255.255.255:17784`. The kernel chooses which interface to emit
+the packet on based on its routing table — typically the
+default-route NIC.
+
+If the device is on the *other* NIC's subnet (say, a Squeezebox on
+your wired LAN while your Wi-Fi default route points at a tethered
+phone), the broadcast never reaches it.
+
+## `--interface NAME`
+
+Forces a specific egress interface. The mechanism is platform-specific:
+
+- **macOS:** `IP_BOUND_IF` socket option (IPPROTO_IP option 25). Takes
+  the interface index from `EnumerateInterfaces()`. The kernel routes
+  all output through that NIC regardless of route-table preference.
+- **Linux:** `SO_BINDTODEVICE` socket option (SOL_SOCKET). Takes the
+  interface name string. Same effect as `IP_BOUND_IF`. Requires
+  `CAP_NET_RAW` on most distros — usually granted to the binary or
+  the user.
+- **Windows:** Not yet supported. `IP_UNICAST_IF` exists on Windows
+  but its broadcast semantics are undocumented; investigation is
+  [tracked as Task #29](https://github.com/yo61/go-udap/issues?q=is%3Aopen+windows+interface).
+  Until then, the flag is hidden from `--help` on Windows.
+
+The local socket is bound to `0.0.0.0:17784` regardless of the egress
+interface — *not* to the interface's specific IP. Binding to the
+specific IP would prevent the socket from receiving limited-broadcast
+replies (those only reach `0.0.0.0`-bound sockets). This was a real
+bug caught by Phase 6 hardware testing.
+
+## `--all-interfaces`
+
+Fans out across every usable interface. Implementation: one
+`UDPTransport` per interface, composed into a `MultiTransport`.
+
+The catch: multiple sockets all binding to `0.0.0.0:17784`
+simultaneously requires `SO_REUSEPORT` (in addition to
+`SO_REUSEADDR`), set **before** `bind()`. go-udap uses
+`net.ListenConfig.Control` to set both options pre-bind via a
+platform-specific helper (`setReusePortPreBind`).
+
+On Windows, `SO_REUSEPORT` doesn't exist; `--all-interfaces` is
+therefore not supported there.
+
+## What you'd see in tcpdump
+
+`./go-udap --all-interfaces discover` on a Mac with en0 (Wi-Fi,
+`192.168.1.118`) and en7 (Ethernet, `192.168.1.226`) both on the
+same subnet:
+
+```text
+16:58:38.746037 IP 192.168.1.118.17784 > 255.255.255.255.17784: UDP, length 27
+16:58:38.746183 IP 192.168.1.226.17784 > 255.255.255.255.17784: UDP, length 27
+16:58:38.746539 IP   0.0.0.0.17784 > 255.255.255.255.17784: UDP, length 61
+```
+
+Two source IPs on the outbound — confirming fan-out really did go out
+both NICs. The third line is the device reply.
+
+## Why not just set IP_MULTICAST_IF?
+
+UDAP discovery uses broadcast, not multicast. The
+`IP_MULTICAST_IF` socket option doesn't affect broadcast routing on
+any of the three target platforms.
+
+## See also
+
+- [How UDAP discovery works](./how-udap-discovery-works) — the
+  broader discovery story
+- [How to discover on a multi-NIC laptop](/docs/how-to/discover-on-multi-nic-laptop) —
+  the practical recipe
+- [Global flags reference](/docs/reference/global-flags) — flag
+  documentation

@@ -1,0 +1,63 @@
+---
+title: Why 26 NVRAM parameters?
+description: How go-udap's parameter table relates to the UDAP protocol
+---
+
+# Why 26 NVRAM parameters?
+
+The protocol-level NVRAM region on a Squeezebox is much larger than
+the 26 entries go-udap recognises. Why these 26 and not more?
+
+## Net::UDAP is the authority
+
+`go-udap` treats the Perl
+[Net::UDAP](https://metacpan.org/dist/Net-UDAP) reference
+implementation as the canonical source of truth for the protocol.
+Net::UDAP defines a constant table listing each NVRAM offset, its
+length, and its canonical name. go-udap's `udap.Parameters` slice
+mirrors that table exactly.
+
+The 26 entries cover everything the protocol officially exposes:
+
+- Network configuration (IP mode, IP, subnet, gateway, DNS, hostname)
+- Wireless config (SSID, region, WEP/WPA settings)
+- Server pointer (LMS address)
+- A few miscellany (bridging, interface select, server display name)
+
+The full table is in
+[reference: NVRAM parameters](/docs/reference/nvram-parameters).
+
+## Aliases
+
+A small number of parameters have aliases (e.g.
+`squeezecenter_address` and `slimserver_address` both refer to the
+same NVRAM offset as `lms_address`). Aliases are accepted on input
+(in `set --config` or `--<param>` flags) but `read` always emits the
+canonical name.
+
+## What about parameters NOT in the table?
+
+A Squeezebox's NVRAM has hundreds of bytes go-udap doesn't recognise
+as "parameters." These show up in `go-udap read --all` as
+`offset_NNN` entries (where NNN is the byte offset). They're shown
+for completeness but you can't `set` them — go-udap will refuse
+unknown parameter names.
+
+If you need to write a custom offset, you'd extend
+`udap.Parameters` and rebuild the binary. The cross-platform
+[Squeezeplay UDAP cross-check](./squeezeplay-comparison) inventoried
+squeezeplay's own table and confirmed it's a strict subset of ours,
+so we're unlikely to be missing anything the reference Lua
+implementation uses.
+
+## Adding a new parameter
+
+If you're working on go-udap itself and want to add a new
+NVRAM-parameter:
+
+1. Add an entry to `udap/parameters.go`'s `Parameters` slice
+2. Verify the offset against a wire capture from a real device
+3. Add it to the
+   [NVRAM parameters reference](/docs/reference/nvram-parameters)
+4. If the parameter has any aliases (other names that point at the
+   same offset), add them to `parameterAliases`

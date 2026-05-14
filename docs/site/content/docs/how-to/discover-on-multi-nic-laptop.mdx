@@ -1,0 +1,44 @@
+---
+title: Discover on a multi-NIC laptop
+description: Use --interface or --all-interfaces when your dev machine has multiple network interfaces
+---
+
+# Discover on a multi-NIC laptop
+
+If your laptop has Wi-Fi + wired Ethernet both up, default
+`go-udap discover` only emits broadcasts on the kernel's
+default-route NIC. If your Squeezebox is on the *other* interface's
+subnet, you'll see zero devices.
+
+<HowTo
+  goal="Make go-udap discover find a Squeezebox that's reachable only via a non-default NIC"
+  prerequisites={[
+    "go-udap installed and on PATH",
+    "Multi-NIC dev machine (Wi-Fi + Ethernet, or multiple Ethernet)",
+    "macOS or Linux — Windows multi-NIC discovery is not yet supported (tracked as Task #29)"
+  ]}
+  steps={[
+    <>List your usable interfaces: <code>go-udap interfaces</code></>,
+    <>Either pick one explicitly: <code>go-udap --interface en7 discover</code></>,
+    <>Or fan out across all of them: <code>go-udap --all-interfaces discover</code></>,
+  ]}
+  verification={
+    <>You should now see the device's MAC in the output. Run <code>tcpdump -i any 'udp port 17784'</code> in another terminal to confirm the broadcast went out the NIC you expected.</>
+  }
+/>
+
+## Which one should I use?
+
+- **`--interface NAME`** — when you know exactly which NIC reaches
+  the device. Faster (one socket), simpler.
+- **`--all-interfaces`** — when you're unsure. Sends concurrently on
+  every interface; the device replies via whichever one reaches it.
+
+The two flags are mutually exclusive. Combining them is a usage error
+(exit code 1).
+
+## What's actually happening on the wire?
+
+See [Multi-NIC discovery](/docs/concepts/multi-nic-discovery) for the
+underlying mechanics (`IP_BOUND_IF`, `SO_BINDTODEVICE`,
+`SO_REUSEPORT`).

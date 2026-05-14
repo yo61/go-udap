@@ -1,0 +1,125 @@
+---
+title: Configure your first Squeezebox in 5 minutes
+description: A complete walkthrough from factory state to a working device
+---
+
+# Configure your first Squeezebox in 5 minutes
+
+This tutorial walks you through configuring a brand-new (or
+factory-reset) Squeezebox from the command line. By the end, you'll
+have a device with a hostname you chose, on DHCP, pointed at your
+Lyrion Music Server.
+
+## What you need
+
+- A Squeezebox device (Receiver, Boom, Touch, Radio — any model works)
+- An Ethernet cable connecting the device to the same LAN as your
+  computer (Wi-Fi setup is a separate how-to; for first onboarding,
+  wired is much simpler)
+- `go-udap` [installed](/docs/how-to/install-go-udap)
+- A Lyrion Music Server running somewhere on your LAN (note its IP
+  address)
+
+## Step 1 — Put the device in setup mode
+
+If the device is brand-new out of the box, it's already in setup mode
+— skip to Step 2.
+
+If you're configuring an already-configured device, hold the front
+button for 3-6 seconds until the light flashes red. (Holding for 6+
+seconds triggers a full factory reset; you don't need that for
+just-reconfigure.)
+
+## Step 2 — Discover the device
+
+```bash
+go-udap discover
+```
+
+Expected output (one MAC, your device's):
+
+```text
+00:04:20:16:06:02
+```
+
+If you see nothing, see
+[Troubleshoot "no devices found"](/docs/how-to/no-devices-found).
+
+## Step 3 — Look at what it currently reports
+
+```bash
+go-udap info 00:04:20:16:06:02
+```
+
+Replace the MAC with what `discover` showed you. Expected:
+
+```text
+MAC:      00:04:20:16:06:02
+IP:       0.0.0.0
+Name:     Squeezebox Device
+Model:    Squeezebox Receiver
+Firmware: 77
+HW Rev:   0005
+State:    init
+```
+
+The `0.0.0.0` IP and `init` state confirm the device is unconfigured.
+
+## Step 4 — Apply your configuration and reboot
+
+Choose a hostname for your device (e.g. `living-room`) and find the
+IP of your Lyrion Music Server (e.g. `192.168.1.250`).
+
+```bash
+go-udap set 00:04:20:16:06:02 \
+  --hostname living-room \
+  --lan-ip-mode 1 \
+  --server-address 192.168.1.250 \
+  --reboot
+```
+
+- `--lan-ip-mode 1` = DHCP
+- `--server-address` points the device at your music server
+- `--reboot` reboots after writing — necessary for the new config to
+  take effect
+
+Expected: command returns within a couple of seconds. The device
+reboots and is unreachable for ~10 seconds.
+
+## Step 5 — Verify
+
+Wait ~15 seconds for the device to come back up, then:
+
+```bash
+go-udap discover --info
+```
+
+Expected: the device now reports its DHCP-assigned IP, its new
+hostname, and `State: connected`.
+
+```text
+MAC:      00:04:20:16:06:02
+IP:       192.168.1.78
+Name:     living-room
+Model:    Squeezebox Receiver
+Firmware: 77
+HW Rev:   0005
+State:    connected
+IP:      192.168.1.78
+Subnet:  255.255.255.0
+Gateway: 192.168.1.1
+```
+
+The `IP:` / `Subnet:` / `Gateway:` lines come from a `get_ip` query
+that `--info` fires per device — they confirm the device's own view
+of its network state.
+
+## What's next?
+
+- Want to configure over Wi-Fi instead of Ethernet? See
+  [Configure a Squeezebox for Wi-Fi with WPA2](/docs/how-to/configure-wifi-wpa2).
+- Want to back up the config? See
+  [Back up and restore a device config](/docs/how-to/install-go-udap)
+  (uses `read` and `set --config`).
+- Want to understand what's happening on the wire? See
+  [How UDAP discovery works](/docs/concepts/how-udap-discovery-works).

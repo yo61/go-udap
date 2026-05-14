@@ -1,0 +1,70 @@
+---
+title: How UDAP discovery works
+description: The wire-level mechanics of finding devices
+---
+
+# How UDAP discovery works
+
+## The discovery exchange
+
+When you run `go-udap discover`, three things happen:
+
+1. **Outbound request.** go-udap binds a UDP socket to
+   `0.0.0.0:17784` (or to a specific interface if `--interface` is set)
+   and sends a 27-byte UDAP advanced-discovery packet (UCP method
+   `0x0009`) to **`255.255.255.255:17784`**. The destination is
+   limited broadcast — see "Why limited broadcast?" below.
+
+2. **Device replies.** Every Squeezebox on the same Layer-2 segment
+   that has UDAP enabled responds with its own UDAP packet containing
+   metadata TLVs (name, model, firmware, hardware revision, device
+   status, UUID).
+
+3. **Listener loops.** go-udap reads from the same socket until the
+   timeout expires (default 5s), collecting reply packets and parsing
+   them into the device list.
+
+## Why limited broadcast (`255.255.255.255`)?
+
+A *factory-state* Squeezebox has no IP address. Its source IP in any
+discovery reply is `0.0.0.0`. Because it doesn't know its own
+subnet, it can't recognise a directed broadcast like
+`192.168.1.255` as "for it" — those are subnet-scoped, and the
+device hasn't joined a subnet yet.
+
+Limited broadcast `255.255.255.255` is the only address an
+un-numbered device will process as "me." So go-udap always sends to
+`255.255.255.255`, even when it knows the LAN's directed broadcast
+address (you'll see the directed one in `go-udap interfaces`'
+`BROADCAST` column — informational only).
+
+This was discovered the hard way during Phase 6 hardware testing
+(see
+[Squeezeplay UDAP cross-check](./squeezeplay-comparison)
+for the post-mortem).
+
+## The UUID fallback
+
+Modern firmware includes a UUID TLV (`0x0d`) in the discovery reply.
+Older firmware doesn't. When the discovery reply omits UUID, go-udap
+falls back to a separate `get_uuid` (UCP method `0x000b`) query to
+populate the field. Visible in `info` and `discover --info` output.
+
+The fallback is silent — if it fails (device doesn't respond to
+`get_uuid` either), the UUID line is just omitted. Pass `--verbose`
+to see the diagnostic.
+
+## The retry knob
+
+For wired LAN, a single broadcast send is reliable. For ad-hoc Wi-Fi
+during initial onboarding (very lossy), the squeezeplay reference
+implementation hardcodes a triple-send pattern. go-udap exposes this
+as `--retries N`: N additional re-transmits after the initial send,
+no inter-send delay. `--retries 2` matches squeezeplay's behaviour.
+
+## See also
+
+- [Multi-NIC discovery](./multi-nic-discovery) — why a multi-homed
+  dev box behaves the way it does
+- [Squeezeplay UDAP cross-check](./squeezeplay-comparison) — how
+  go-udap's protocol handling compares to the Lua reference
