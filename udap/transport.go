@@ -23,6 +23,14 @@ type Transport interface {
 	// MockTransport feeds the packet directly to its connected mock devices.
 	Send(packet []byte) error
 
+	// SendUnicast dispatches a packet to a specific IPv4 destination on
+	// the UDAP port instead of broadcasting. Used when the device's IP
+	// is already known (e.g. learned from the host ARP cache) so we can
+	// bypass Wi-Fi broadcast suppression that drops broadcasts to
+	// associated clients. UDPTransport sends to dst:Port; MockTransport
+	// ignores dst (in-process routing is by packet contents).
+	SendUnicast(dst string, packet []byte) error
+
 	// Recv blocks until a packet arrives or ctx is cancelled. Returns the
 	// raw packet bytes and an informational source identifier (an IP
 	// string for UDPTransport; a MAC for MockTransport). The src is for
@@ -64,6 +72,20 @@ func (t *UDPTransport) Send(packet []byte) error {
 	}
 	if _, err := t.conn.WriteToUDP(packet, dst); err != nil {
 		return fmt.Errorf("UDP send: %w", err)
+	}
+	return nil
+}
+
+// SendUnicast sends the packet to dst:Port. Used when the device's
+// IP is known (typically from the host ARP cache). Reaches devices on
+// networks where the AP suppresses UDP broadcasts.
+func (t *UDPTransport) SendUnicast(dst string, packet []byte) error {
+	addr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%d", dst, Port))
+	if err != nil {
+		return fmt.Errorf("resolve unicast addr %s: %w", dst, err)
+	}
+	if _, err := t.conn.WriteToUDP(packet, addr); err != nil {
+		return fmt.Errorf("UDP send to %s: %w", dst, err)
 	}
 	return nil
 }

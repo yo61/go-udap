@@ -48,6 +48,14 @@ func (t *MockTransport) Send(packet []byte) error {
 	return nil
 }
 
+// SendUnicast is identical to Send for the mock transport — in-process
+// routing dispatches packets by their UDAP payload (the destination
+// MAC), not by the UDP envelope's destination IP. The dst is accepted
+// to satisfy the Transport interface and ignored.
+func (t *MockTransport) SendUnicast(_ string, packet []byte) error {
+	return t.Send(packet)
+}
+
 // scheduleReply queues a reply for retrieval by Recv. Zero-delay replies
 // are queued synchronously; non-zero delays go via time.AfterFunc. The
 // surface source identifier is extracted from the reply packet itself

@@ -42,7 +42,7 @@ func (c *Client) GetDeviceNetworkConfigWithContext(ctx context.Context, device *
 	if err != nil {
 		return NetworkConfig{}, fmt.Errorf("build GetIP packet: %w", err)
 	}
-	if err := c.sendRetried(packet); err != nil {
+	if err := c.sendForDevice(device, packet); err != nil {
 		return NetworkConfig{}, fmt.Errorf("send GetIP: %w", err)
 	}
 	c.logger.Info("Sent GetIP request", "device_mac", device.MAC)

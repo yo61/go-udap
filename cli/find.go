@@ -2,12 +2,28 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"go-udap/udap"
 )
+
+// opError formats a user-facing error for a device-targeted operation.
+// Recognises context.DeadlineExceeded specifically and emits a concise
+// "no reply" message in plain English; passes other errors through
+// with `<op> <mac>:` prefix so the user sees which operation failed
+// against which device. Always returns exit code 2 (operation failure).
+//
+// Centralised here so getip / read / get / set / reboot don't each
+// hand-roll the timeout-detection branch.
+func opError(op, mac string, timeout time.Duration, err error) *ExitError {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &ExitError{Code: 2, Err: fmt.Errorf("%s: no reply from %s within %s", op, mac, timeout)}
+	}
+	return &ExitError{Code: 2, Err: fmt.Errorf("%s %s: %w", op, mac, err)}
+}
 
 // normalizeMAC accepts MAC addresses written with colons, hyphens, or
 // no separators (any case) and returns lowercase colon-separated form.
@@ -76,6 +92,31 @@ func isLowerHex12(s string) bool {
 
 func isLowerHexByte(c byte) bool {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+}
+
+// deviceFromMAC synthesizes a *udap.Device from a user-supplied MAC
+// for operations that target a known device and don't need discovery
+// metadata (name, firmware, etc.). Best-effort ARP lookup populates
+// Device.IP when the OS already knows the address, which lets the
+// udap.Client switch from broadcast to unicast — necessary on Wi-Fi
+// networks where APs silently drop UDP broadcasts to associated
+// clients (the configured-and-running Squeezebox failure mode).
+//
+// Empty IP (cache miss) falls back to the broadcast code path, so
+// nothing breaks if the user hasn't talked to the device recently or
+// is on a network where broadcasts work fine.
+//
+// info still uses discoverAndFind because its purpose is to display
+// the metadata that only discovery's TLVs carry.
+func deviceFromMAC(mac string) (*udap.Device, error) {
+	parsed, err := udap.ParseMAC(mac)
+	if err != nil {
+		return nil, &ExitError{Code: 1, Err: err}
+	}
+	return &udap.Device{
+		MAC: parsed,
+		IP:  lookupIP(mac),
+	}, nil
 }
 
 // findPollInterval is how often discoverAndFind checks for the target MAC

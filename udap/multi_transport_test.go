@@ -33,6 +33,10 @@ func (f *fakeTransport) Send(p []byte) error {
 	return nil
 }
 
+func (f *fakeTransport) SendUnicast(_ string, p []byte) error {
+	return f.Send(p)
+}
+
 func (f *fakeTransport) Recv(ctx context.Context) ([]byte, string, error) {
 	select {
 	case <-ctx.Done():

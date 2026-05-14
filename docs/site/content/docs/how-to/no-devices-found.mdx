@@ -45,3 +45,16 @@ emits on the kernel's default-route NIC. If the device is on the
 *other* NIC's subnet, you'll see zero devices.
 
 See [How to discover on a multi-NIC laptop](./discover-on-multi-nic-laptop).
+
+## Step 5: Is the device in run mode?
+
+A configured Squeezebox in run mode (front LED steady, connected to
+its music server) does not respond to UDAP queries — the firmware's
+UDAP listener exits once the device transitions to `connected`
+state. Ping works; `discover`, `getip`, `read`, `set`, `reboot` all
+time out.
+
+Short-press the front button to drop the device into setup mode (LED
+flashes red); UDAP starts responding again. See
+[Setup mode vs. run mode](/docs/concepts/setup-vs-run-mode) for the
+underlying behaviour and the evidence.

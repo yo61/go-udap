@@ -40,17 +40,17 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	device, err := deviceFromMAC(mac)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
 	defer cancel()
 	stop := startProgress(stderr, "get", timeout.Value())
 	defer stop()
-	device, err := discoverAndFind(ctx, client, mac)
-	if err != nil {
-		return err
-	}
 	values, err := client.GetDeviceConfigWithContext(ctx, device, params)
 	if err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("get failed: %w", err)}
+		return opError("get", mac, timeout.Value(), err)
 	}
 	stop()
 	if err := formatGetResult(stdout, params, values); err != nil {

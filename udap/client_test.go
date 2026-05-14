@@ -330,6 +330,10 @@ func (t *countingTransport) Send(packet []byte) error {
 	return t.sendErr
 }
 
+func (t *countingTransport) SendUnicast(_ string, packet []byte) error {
+	return t.Send(packet)
+}
+
 func (t *countingTransport) Recv(ctx context.Context) ([]byte, string, error) {
 	<-ctx.Done()
 	return nil, "", ctx.Err()
