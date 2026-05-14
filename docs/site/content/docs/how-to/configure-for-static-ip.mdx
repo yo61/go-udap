@@ -1,0 +1,37 @@
+---
+title: Configure a Squeezebox for static IP
+description: Wired Ethernet with a fixed IP address
+---
+
+# Configure a Squeezebox for static IP
+
+<HowTo
+  goal="Configure a Squeezebox to use a fixed IP address on wired Ethernet"
+  prerequisites={[
+    "Device connected by Ethernet to the same subnet as the dev machine",
+    "Device in setup or init mode",
+    "go-udap installed and on PATH",
+    "Static IP details known: target IP, subnet mask, gateway, DNS",
+    "Your Lyrion Music Server's IP address known"
+  ]}
+  steps={[
+    <>Download the <a href="/go-udap/examples/static-ip.conf">example config</a> and edit the IP / subnet / gateway / DNS / LMS values to match your network.</>,
+    <>Discover the device: <code>go-udap discover</code></>,
+    <>Apply: <code>go-udap set &lt;mac&gt; --config static-ip.conf --reboot</code></>,
+  ]}
+  verification={
+    <>After ~15 seconds, run <code>go-udap getip &lt;mac&gt;</code>. The IP / Subnet / Gateway should match exactly what you put in the config.</>
+  }
+  exampleFile="/go-udap/examples/static-ip.conf"
+/>
+
+## Notes
+
+- `lan_ip_mode=0` selects static IP. The four fields
+  (`lan_network_address`, `lan_subnet_mask`, `lan_gateway`,
+  `primary_dns`) become authoritative.
+- Test the chosen IP isn't already in use on your network first
+  (otherwise the device will appear to work but cause arp conflicts).
+- If the device doesn't come back after reboot, the IP you chose
+  isn't reachable. Factory-reset by holding the front button for 6+
+  seconds and try again with a different IP.
