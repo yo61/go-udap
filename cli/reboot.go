@@ -32,14 +32,14 @@ func runReboot(args []string, _, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	device, err := deviceFromMAC(mac)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
 	defer cancel()
 	stop := startProgress(stderr, "reboot", timeout.Value())
 	defer stop()
-	device, err := discoverAndFind(ctx, client, mac)
-	if err != nil {
-		return err
-	}
 	if err := client.ResetDeviceWithContext(ctx, device); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("reboot failed: %w", err)}
 	}

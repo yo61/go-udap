@@ -78,6 +78,23 @@ func isLowerHexByte(c byte) bool {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
 }
 
+// deviceFromMAC synthesizes a *udap.Device from a user-supplied MAC
+// for operations that target a known device and don't need discovery
+// metadata (name, firmware, etc.). Device.IP is left empty;
+// waitForDeviceReply falls back to MAC-only reply matching. Used by
+// getip / read / get / set / reboot, which previously broadcast a
+// discovery they didn't need just to construct a Device object.
+//
+// info still uses discoverAndFind because its purpose is to display
+// the metadata that only discovery's TLVs carry.
+func deviceFromMAC(mac string) (*udap.Device, error) {
+	parsed, err := udap.ParseMAC(mac)
+	if err != nil {
+		return nil, &ExitError{Code: 1, Err: err}
+	}
+	return &udap.Device{MAC: parsed}, nil
+}
+
 // findPollInterval is how often discoverAndFind checks for the target MAC
 // while discovery runs. Small enough to feel instant, large enough to
 // avoid pointless CPU on the device map.

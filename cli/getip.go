@@ -32,14 +32,13 @@ func runGetIP(args []string, stdout, stderr io.Writer) error {
 	}
 	defer client.Close()
 
+	device, err := deviceFromMAC(mac)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
 	defer cancel()
 	stop := startProgress(stderr, "getip", timeout.Value())
-	device, err := discoverAndFind(ctx, client, mac)
-	if err != nil {
-		stop()
-		return err
-	}
 	nc, err := client.GetDeviceNetworkConfigWithContext(ctx, device)
 	stop()
 	if err != nil {
