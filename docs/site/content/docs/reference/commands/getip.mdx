@@ -1,0 +1,43 @@
+---
+title: getip
+description: Query the device's IP / subnet / gateway
+---
+
+# `getip`
+
+```text
+go-udap getip <mac> [--timeout DURATION]
+```
+
+## What it does
+
+Sends `UCP_METHOD_GET_IP` (`0x0002`) to the device and prints the
+device's current IP, subnet mask, and gateway as three labelled lines.
+
+Distinct from discovery: discovery passively observes (the source IP
+of the device's discovery reply); `getip` actively asks the device
+for its own view of its network state. Useful after a `set` to verify
+the new config took effect.
+
+## Output
+
+```text
+IP:      192.168.1.50
+Subnet:  255.255.255.0
+Gateway: 192.168.1.1
+```
+
+If the device doesn't have a network config yet (factory state),
+each line shows `-`.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--timeout DURATION` | `5s` | Operation timeout |
+
+## Exit codes
+
+- `0` — success
+- `1` — invalid MAC
+- `2` — device not found, or transport error

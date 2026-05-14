@@ -1,0 +1,50 @@
+---
+title: Library API
+description: Using go-udap as a Go library
+---
+
+# Library API
+
+go-udap is primarily a CLI but the underlying packages are usable as a
+Go library. The authoritative API reference is auto-generated and
+hosted on **pkg.go.dev**:
+
+[**→ pkg.go.dev/go-udap**](https://pkg.go.dev/go-udap)
+
+## Packages
+
+| Package | Purpose |
+|---|---|
+| [`udap`](https://pkg.go.dev/go-udap/udap) | Core client, packet types, parameter table, transports. The main public API |
+| [`mocksbr`](https://pkg.go.dev/go-udap/mocksbr) | In-process Squeezebox mock for testing. Implements the same wire protocol as a real device |
+
+## Quick example
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go-udap/udap"
+)
+
+func main() {
+	client, _ := udap.NewClient()
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = client.DiscoverDevicesWithContext(ctx)
+
+	for _, d := range client.ListDevices() {
+		fmt.Printf("%s  %s\n", d.MAC, d.Name)
+	}
+}
+```
+
+All operations take a `context.Context`. There are no
+timeout-parameter-based legacy shims; cancellation and deadlines are
+the only way to bound an operation.

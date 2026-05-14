@@ -1,0 +1,65 @@
+---
+title: discover
+description: Discover Squeezebox devices on the network
+---
+
+# `discover`
+
+```text
+go-udap discover [--info] [--timeout DURATION]
+```
+
+## What it does
+
+Broadcasts a UDAP advanced-discovery request (UCP method `0x0009`) to
+`255.255.255.255:17784` and prints the MAC address of every device
+that replies within the timeout window.
+
+With `--info`, prints a multi-line metadata block per device
+(MAC / IP / Name / Model / Firmware / HW Rev / UUID / State) and
+fires a per-device `get_ip` to show the device's current network
+config (IP / Subnet / Gateway). Per-device `get_ip` failures are
+soft — the table shows dashes, and a `--verbose` warning is logged
+to stderr.
+
+## Output
+
+- Without `--info`: one MAC per line, sorted by MAC string.
+- With `--info`: per-device metadata block, blank line between
+  devices.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--info` | off | Print full metadata per device including `get_ip` results |
+| `--timeout DURATION` | `5s` | How long to wait for device replies |
+
+## Exit codes
+
+- `0` — success (even if zero devices found)
+- `2` — discovery failed (transport error)
+
+## Examples
+
+Quick scan:
+
+```bash
+go-udap discover
+# 00:04:20:16:06:02
+```
+
+Full metadata:
+
+```bash
+go-udap discover --info
+```
+
+On a multi-NIC host, scope discovery to one interface:
+
+```bash
+go-udap --interface en7 discover
+```
+
+See [How to discover on a multi-NIC laptop](/docs/how-to/discover-on-multi-nic-laptop)
+for the longer story.

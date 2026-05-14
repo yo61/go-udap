@@ -1,0 +1,15 @@
+---
+title: Exit codes
+description: What go-udap's exit codes mean
+---
+
+# Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Usage error — bad MAC, unknown parameter name, conflicting flags, missing required argument, unknown interface name |
+| `2` | Operation failure — device not found, transport error, timeout, MethodError reply |
+
+Each subcommand's reference page lists the specific conditions that
+produce code `1` vs `2` for that command.

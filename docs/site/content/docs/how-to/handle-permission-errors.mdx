@@ -1,0 +1,36 @@
+---
+title: Handle permission errors
+description: When binding UDP port 17784 needs elevated privileges
+---
+
+# Permission errors
+
+UDP port 17784 is above 1024, so binding it typically does NOT need
+root. On some platforms (rare), the port may be reserved or
+otherwise restricted, in which case you'll see an error like:
+
+```text
+listen UDP: listen udp4 0.0.0.0:17784: bind: permission denied
+```
+
+If that happens:
+
+- On macOS: usually a corporate-MDM or LittleSnitch-style rule. Check
+  your firewall config.
+- On Linux: rare but possible. Try `sudo go-udap discover` once to
+  confirm; if that works, find what restricts unprivileged 17784.
+- On Windows: check Windows Defender Firewall for go-udap.exe.
+
+If `sudo` does NOT fix it, the next thing to check is whether some
+other process is already bound to 17784:
+
+```bash
+# Linux
+sudo ss -ulnp | grep :17784
+
+# macOS
+sudo lsof -iUDP:17784
+```
+
+If `mocksbr` (the test mock) is running on the same host, that
+explains it — stop the mock.

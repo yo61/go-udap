@@ -1,0 +1,31 @@
+---
+title: Contributing
+description: Building, testing, and developing go-udap
+---
+
+# Contributing
+
+If you're working ON go-udap (rather than WITH it), start here.
+
+## Workflow
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `task test`
+5. Format code: `task fmt`
+6. Submit a pull request
+
+See:
+
+- [Building from source](./building-from-source) — prerequisites, build, test, lint
+- [Cross-compilation](./cross-compilation) — targets and UPX packing
+- [Release process](./release-process) — how releases are cut and published
+
+## Acknowledgments
+
+- UDAP protocol based on [LMS-Community/squeezeplay](https://github.com/LMS-Community/squeezeplay)
+- Wire format and constant tables verified against the Perl
+  [Net::UDAP](https://github.com/robinbowes/net-udap) reference
+  implementation (the `Constant.pm`, `Client.pm`, and `Shell.pm`
+  sources in particular).

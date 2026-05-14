@@ -1,0 +1,14 @@
+{
+  "title": "Commands",
+  "pages": [
+    "index",
+    "discover",
+    "info",
+    "read",
+    "get",
+    "set",
+    "reboot",
+    "getip",
+    "interfaces"
+  ]
+}

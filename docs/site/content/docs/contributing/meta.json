@@ -1,0 +1,9 @@
+{
+  "title": "Contributing",
+  "pages": [
+    "index",
+    "building-from-source",
+    "cross-compilation",
+    "release-process"
+  ]
+}

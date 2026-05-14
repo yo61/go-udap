@@ -1,0 +1,40 @@
+---
+title: get
+description: Read specific parameters from a device
+---
+
+# `get`
+
+```text
+go-udap get <mac> <param> [<param> ...] [--timeout DURATION]
+```
+
+## What it does
+
+Reads one or more named NVRAM parameters from the device.
+
+- Single parameter: prints the bare value (no key=).
+- Multiple parameters: prints `param=value` lines in request order.
+
+Useful for scripting where you want a single value:
+
+```bash
+ip=$(go-udap get 00:04:20:16:06:02 lan_network_address)
+```
+
+## Output
+
+- One value, no label, on single-param queries.
+- `param=value` lines on multi-param queries.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--timeout DURATION` | `5s` | Operation timeout |
+
+## Exit codes
+
+- `0` — success
+- `1` — invalid MAC argument or unknown parameter name
+- `2` — device not found, or transport error

@@ -1,0 +1,11 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "tutorials",
+    "how-to",
+    "reference",
+    "concepts",
+    "contributing"
+  ]
+}

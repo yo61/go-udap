@@ -1,0 +1,79 @@
+---
+title: Release process
+description: How releases are cut and published
+---
+
+# Release process
+
+Releases are automated via
+[release-please](https://github.com/googleapis/release-please): every
+push to `main` opens or updates a Release PR proposing the next
+version, derived from conventional-commits since the last tag.
+Merging the Release PR creates the tag and a draft GitHub release;
+`.github/workflows/goreleaser.yaml` then fires on the tag push,
+cross-compiles, uploads release artifacts, and un-drafts the release.
+
+Binary `--version` output is stamped from the release tag, so a binary
+downloaded from a GitHub release always self-identifies as the version
+of that release.
+
+## One-time setup
+
+Two secrets and one app must be configured on the repository before the
+first release can run:
+
+1. **GitHub App** — create a GitHub App scoped to this repo with
+   permissions:
+   - `Contents: Read & write`
+   - `Pull requests: Read & write`
+   - `Metadata: Read`
+
+   Install the App on the `go-udap` repository and generate a private
+   key.
+
+2. **Repository secrets** — add under Settings → Secrets and variables
+   → Actions:
+   - `SEMANTIC_RELEASE_APP_CLIENT_ID` — the App's client ID
+   - `SEMANTIC_RELEASE_APP_PRIVATE_KEY` — the full PEM contents of the
+     private key
+
+3. **Branch protection on `main`** — require CI to pass before merge,
+   and add the GitHub App to the bypass list so release-please can
+   land Release-PR commits.
+
+## Local version checks
+
+`task build` stamps the binary using `git describe --tags --always
+--dirty`. Output examples:
+
+| Build state                      | `go-udap --version`              |
+| -------------------------------- | -------------------------------- |
+| On a tagged commit `v0.3.0`      | `go-udap 0.3.0`                  |
+| 2 commits past v0.3.0            | `go-udap 0.3.0-2-gabc1234`       |
+| Same with uncommitted changes    | `go-udap 0.3.0-2-gabc1234-dirty` |
+| `go install` / no Taskfile build | `go-udap dev`                    |
+
+## Smoke-testing the release pipeline locally
+
+```bash
+# Validates .goreleaser.yaml without uploading
+goreleaser check
+
+# Builds all 5 targets locally and writes them to dist/
+goreleaser release --snapshot --clean
+```
+
+## Conventional commits drive versioning
+
+- `fix:` → patch bump (0.3.0 → 0.3.1)
+- `feat:` → minor bump (0.3.0 → 0.4.0)
+- `feat!:` or `BREAKING CHANGE:` footer → major bump (0.3.0 → 1.0.0)
+- `Release-As: 2.0.0-rc.1` in a commit footer forces a specific
+  version (useful for pre-releases)
+
+`chore:`, `docs:`, `refactor:`, `test:`, `build:`, and `ci:` do not
+trigger releases — release-please opens no Release PR when there are
+no version-bumping commits since the last tag.
+
+Use `docs:` (not `feat(docs):`) for documentation-only changes;
+release-please follows the conventional-commits *type*, not the scope.

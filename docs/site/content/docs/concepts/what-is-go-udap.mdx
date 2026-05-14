@@ -1,0 +1,31 @@
+---
+title: What is go-udap?
+description: The tool, the protocol, and what they do
+---
+
+# What is go-udap?
+
+go-udap is a command-line tool for discovering and configuring
+Squeezebox devices over the [Universal Device Access Protocol
+(UDAP)](https://wiki.lyrion.org/index.php/UDAP) on UDP port 17784.
+
+It lets you:
+
+- Discover Squeezebox devices on your local network
+- Read and write NVRAM parameters (network config, wireless, server
+  address, hostname, and 20+ others)
+- Trigger a device reboot to apply configuration changes
+- Query a device's network configuration directly
+
+The tool is single-shot CLI: every operation is one invocation. There
+is no daemon, no persistent state, no interactive shell. Subcommands
+correspond to UDAP wire methods (`discover`, `get_ip`, `get_data`,
+`set_data`, `reset`).
+
+## Why does go-udap exist?
+
+The reference Squeezebox configuration tool, Logitech's
+`SetupSqueezeboxApplet`, was a desktop app whose dependencies have
+bit-rotted. The Net::UDAP Perl reference implementation still works
+but pulls a heavy Perl runtime. go-udap is a single static binary
+(~2.8 MB) you can drop on macOS, Linux, or Windows.

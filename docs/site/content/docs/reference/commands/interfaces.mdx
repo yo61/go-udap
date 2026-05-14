@@ -1,0 +1,37 @@
+---
+title: interfaces
+description: List network interfaces usable for discovery
+---
+
+# `interfaces`
+
+```text
+go-udap interfaces
+```
+
+## What it does
+
+Lists every local network interface that's usable for UDAP discovery.
+Filter applied: `Up + Broadcast + !Loopback + has IPv4 address`. The
+output gives you the `NAME` values you can pass to `--interface`.
+
+## Output
+
+Fixed-column table:
+
+```text
+NAME            INDEX  ADDRESS            BROADCAST
+en0             14     192.168.1.118      192.168.1.255
+en7             31     192.168.1.226      192.168.1.255
+```
+
+The `BROADCAST` column is the subnet's directed-broadcast address.
+It's informational only — UDAP discovery sends to limited broadcast
+`255.255.255.255` regardless (see
+[How UDAP discovery works](/docs/concepts/how-udap-discovery-works)
+for the why).
+
+## Exit codes
+
+- `0` — success (even if zero interfaces qualify)
+- `2` — OS enumeration error
