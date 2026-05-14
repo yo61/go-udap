@@ -1,0 +1,33 @@
+---
+title: Configure a Squeezebox for DHCP
+description: Wired Ethernet, DHCP-assigned IP
+---
+
+# Configure a Squeezebox for DHCP
+
+<HowTo
+  goal="Configure a Squeezebox to use DHCP on wired Ethernet, pointed at your Lyrion Music Server"
+  prerequisites={[
+    "Device connected by Ethernet to the same subnet as the dev machine",
+    "Device in setup or init mode (front-button hold 3-6s if needed; new devices are already in setup mode)",
+    "go-udap installed and on PATH",
+    "Your Lyrion Music Server's IP address known (e.g. 192.168.1.250)"
+  ]}
+  steps={[
+    <>Download the <a href="/go-udap/examples/dhcp.conf">example config</a> and edit <code>server_address</code> to your LMS IP.</>,
+    <>Discover the device: <code>go-udap discover</code></>,
+    <>Apply the config and reboot: <code>go-udap set &lt;mac&gt; --config dhcp.conf --reboot</code></>,
+  ]}
+  verification={
+    <>After ~15 seconds, run <code>go-udap getip &lt;mac&gt;</code>. You should see a DHCP-assigned IP from your network's subnet.</>
+  }
+  exampleFile="/go-udap/examples/dhcp.conf"
+/>
+
+## Notes
+
+- `lan_ip_mode=1` is DHCP; `lan_ip_mode=0` is static (see the static IP
+  how-to for that).
+- `interface=1` selects wired Ethernet. `interface=0` selects wireless.
+- The `--reboot` flag is necessary; network config changes don't take
+  effect until the device reboots.
