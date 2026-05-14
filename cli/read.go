@@ -46,7 +46,7 @@ func runRead(args []string, stdout, stderr io.Writer) error {
 	stop := startProgress(stderr, "read", timeout.Value())
 	defer stop()
 	if err := client.GetAllDeviceConfigWithContext(ctx, device); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("read failed: %w", err)}
+		return opError("read", mac, timeout.Value(), err)
 	}
 	stop()
 

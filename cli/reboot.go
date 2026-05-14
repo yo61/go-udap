@@ -41,7 +41,7 @@ func runReboot(args []string, _, stderr io.Writer) error {
 	stop := startProgress(stderr, "reboot", timeout.Value())
 	defer stop()
 	if err := client.ResetDeviceWithContext(ctx, device); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("reboot failed: %w", err)}
+		return opError("reboot", mac, timeout.Value(), err)
 	}
 	return nil
 }

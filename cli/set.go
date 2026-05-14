@@ -111,11 +111,11 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	defer stop()
 
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
+		return opError("set", mac, timeout.Value(), err)
 	}
 	if *reboot {
 		if err := client.ResetDeviceWithContext(ctx, device); err != nil {
-			return &ExitError{Code: 2, Err: fmt.Errorf("set --reboot failed during reset: %w", err)}
+			return opError("set --reboot", mac, timeout.Value(), err)
 		}
 	}
 	stop()

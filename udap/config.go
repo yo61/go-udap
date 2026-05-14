@@ -26,7 +26,9 @@ func (c *Client) waitForDeviceReply(ctx context.Context, device *Device) (*Packe
 	for {
 		reply, src, err := c.transport.Recv(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("recv reply for %s: %w", want, err)
+			// Caller (CLI layer) adds device + operation context;
+			// no point repeating the MAC here.
+			return nil, nil, err
 		}
 		packet, data, perr := ParsePacket(reply)
 		if perr != nil {

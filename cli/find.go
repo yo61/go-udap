@@ -2,12 +2,28 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"go-udap/udap"
 )
+
+// opError formats a user-facing error for a device-targeted operation.
+// Recognises context.DeadlineExceeded specifically and emits a concise
+// "no reply" message in plain English; passes other errors through
+// with `<op> <mac>:` prefix so the user sees which operation failed
+// against which device. Always returns exit code 2 (operation failure).
+//
+// Centralised here so getip / read / get / set / reboot don't each
+// hand-roll the timeout-detection branch.
+func opError(op, mac string, timeout time.Duration, err error) *ExitError {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &ExitError{Code: 2, Err: fmt.Errorf("%s: no reply from %s within %s", op, mac, timeout)}
+	}
+	return &ExitError{Code: 2, Err: fmt.Errorf("%s %s: %w", op, mac, err)}
+}
 
 // normalizeMAC accepts MAC addresses written with colons, hyphens, or
 // no separators (any case) and returns lowercase colon-separated form.

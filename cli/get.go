@@ -50,7 +50,7 @@ func runGet(args []string, stdout, stderr io.Writer) error {
 	defer stop()
 	values, err := client.GetDeviceConfigWithContext(ctx, device, params)
 	if err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("get failed: %w", err)}
+		return opError("get", mac, timeout.Value(), err)
 	}
 	stop()
 	if err := formatGetResult(stdout, params, values); err != nil {
