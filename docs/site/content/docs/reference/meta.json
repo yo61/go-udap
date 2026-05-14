@@ -1,7 +1,6 @@
 {
   "title": "Reference",
   "pages": [
-    "index",
     "commands",
     "global-flags",
     "config-file-format",
