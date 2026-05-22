@@ -2,17 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.10.0](https://github.com/yo61/go-udap/compare/v1.9.0...v1.10.0) (2026-05-22)
+## [1.10.1](https://github.com/yo61/go-udap/compare/v1.9.0...v1.10.1) (2026-05-22)
+
+> **Note:** 1.10.0 was never published. The GoReleaser run for that tag failed
+> to upload assets with `422 Cannot upload assets to an immutable release`, the
+> draft release and tag were withdrawn, and the same changes ship here as
+> 1.10.1.
 
 
 ### Features
 
 * **docs:** port existing docs into Diataxis quadrants (M2) ([#51](https://github.com/yo61/go-udap/issues/51)) ([3c7bce8](https://github.com/yo61/go-udap/commit/3c7bce8505b42e4bf74b87d2bbc455f59e64866c))
-
-
-### Reverts
-
-* release 1.10.0 ([2a7b51d](https://github.com/yo61/go-udap/commit/2a7b51dc0ae2d6689632ed75cf58649e671e5d2f))
 
 
 ### Documentation
