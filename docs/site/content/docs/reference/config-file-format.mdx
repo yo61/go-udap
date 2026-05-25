@@ -14,7 +14,7 @@ description: INI syntax for go-udap set --config FILE
 - Keys must be canonical UDAP parameter names (e.g. `wireless_SSID`,
   not `wireless-ssid`)
 
-The format matches the output of [`go-udap read`](./commands/read), so
+The format matches the output of [`go-udap read`](./commands/read.mdx), so
 round-tripping through `read | tee backup.conf` then
 `set --config backup.conf` works without conversion.
 
@@ -34,5 +34,5 @@ wireless_wpa_psk=secret
 server_address=192.168.1.250
 ```
 
-See [NVRAM parameters](./nvram-parameters) for the full list of valid
+See [NVRAM parameters](./nvram-parameters.mdx) for the full list of valid
 keys, their types, and their ranges.

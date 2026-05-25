@@ -32,7 +32,7 @@ changes (e.g. network config) only take effect after reboot.
 | `--config FILE` | — | INI-format config file. Use `-` to read from stdin |
 | `--reboot`, `-r` | off | Also reboot the device after writing |
 | `--timeout DURATION` | `5s` | Operation timeout |
-| `--<param> VALUE` | — | One flag per parameter you want to set (see [NVRAM parameters](../nvram-parameters) for the canonical list) |
+| `--<param> VALUE` | — | One flag per parameter you want to set (see [NVRAM parameters](../nvram-parameters.mdx) for the canonical list) |
 
 ## Examples
 
@@ -71,4 +71,4 @@ EOF
 - `1` — invalid MAC, unknown parameter, or malformed config
 - `2` — device not found, or transport error
 
-See [Config file format](../config-file-format) for the `.conf` syntax.
+See [Config file format](../config-file-format.mdx) for the `.conf` syntax.
