@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.0](https://github.com/yo61/go-udap/compare/v1.10.1...v2.0.0) (2026-05-25)
+## [2.0.1](https://github.com/yo61/go-udap/compare/v1.10.1...v2.0.1) (2026-05-25)
+
+> **Note:** 2.0.0 was never published. GoReleaser created a duplicate
+> draft release alongside release-please's draft, then the workflow's
+> un-draft step published the empty release-please draft instead of
+> GoReleaser's assets-laden one. Repository immutability then locked
+> the `v2.0.0` tag name against republishing. See issues
+> [#70](https://github.com/yo61/go-udap/issues/70) and
+> [#71](https://github.com/yo61/go-udap/issues/71) for the underlying
+> release-pipeline bugs; the same changes ship here as 2.0.1.
 
 
 ### ⚠ BREAKING CHANGES
