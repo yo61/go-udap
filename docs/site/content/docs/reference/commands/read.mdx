@@ -12,11 +12,11 @@ go-udap read <mac> [--all|-a] [--timeout DURATION]
 ## What it does
 
 Reads every recognised NVRAM parameter (the 26 in
-[`udap.Parameters`](../nvram-parameters)) from the device and prints
+[`udap.Parameters`](../nvram-parameters.mdx)) from the device and prints
 them as `param=value` lines, sorted by parameter name.
 
 By default, factory-default values are filtered out so the output
-round-trips cleanly through [`set --config FILE`](./set). Pass
+round-trips cleanly through [`set --config FILE`](./set.mdx). Pass
 `--all` (or `-a`) to include factory defaults *and* unrecognised
 `offset_NNN` entries.
 
