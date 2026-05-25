@@ -39,6 +39,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # GoReleaser reuses release-please's existing draft (see
+      # .goreleaser.yaml: use_existing_draft) and publishes it in a
+      # single EditRelease call by setting draft=false. No separate
+      # un-draft step needed; that pattern (issue #71) caused us to
+      # publish the wrong release object when two drafts coexisted.
       - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
@@ -47,12 +52,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap_token.outputs.token }}
-
-      # Publish the draft release only after all assets are uploaded
-      # successfully. Repository immutability locks at publish time, so
-      # publishing happens last to capture the release with its full
-      # asset set intact.
-      - name: Publish release (un-draft)
-        run: gh release edit "${GITHUB_REF#refs/tags/}" --draft=false
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
