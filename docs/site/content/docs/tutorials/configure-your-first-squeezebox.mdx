@@ -75,15 +75,12 @@ go-udap set 00:04:20:16:06:02 \
   --reboot
 ```
 
-- A factory-fresh device already has DHCP set as its NVRAM default
-  (`lan_ip_mode=1`), so we don't pass `--lan-ip-mode`. (For a static
+- `--lan-ip-mode` is omitted — devices default to DHCP. (For a static
   IP instead, see [Configure a Squeezebox for static
   IP](/how-to/configure-for-static-ip).)
-- We don't pass `--interface` either: when the device reports its
-  factory-default interface sentinel and you omit `--interface`,
-  `go-udap set` substitutes wired (and prints a stderr notice).
-  Requires go-udap v2.1.0+; on earlier versions, add `--interface 1`
-  explicitly.
+- `--interface` is omitted — `go-udap set` defaults to wired Ethernet
+  on factory-fresh devices (go-udap v2.1.0+; earlier versions need
+  `--interface 1`).
 - `--server-address` points the device at your music server.
 - `--reboot` reboots after writing — necessary for the new config to
   take effect.
