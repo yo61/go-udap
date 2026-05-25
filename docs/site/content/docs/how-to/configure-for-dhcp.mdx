@@ -3,9 +3,11 @@ title: Configure a Squeezebox for DHCP
 description: Wired Ethernet, DHCP-assigned IP
 ---
 
-A factory-fresh Squeezebox already defaults to DHCP on wired Ethernet,
-so the minimal config only needs to point the device at your Lyrion
-Music Server.
+A factory-fresh Squeezebox already has DHCP as its NVRAM default
+(`lan_ip_mode=1`), and `go-udap set` substitutes wired (`interface=1`)
+when the NVRAM interface byte is at its factory sentinel and you don't
+pass `--interface`. So the minimal config only needs to point the
+device at your Lyrion Music Server.
 
 ## Example config
 
@@ -34,10 +36,17 @@ server_address=192.168.1.250
 
 ## Notes
 
-- `interface=1` (wired) and `lan_ip_mode=1` (DHCP) are the factory
-  defaults, so the config above omits them. To configure wireless or
-  static IP instead, see [Configure a Squeezebox for Wi-Fi with
-  WPA2](/how-to/configure-wifi-wpa2) or [Configure a Squeezebox for
-  static IP](/how-to/configure-for-static-ip).
+- `lan_ip_mode=1` (DHCP) is the NVRAM factory default, so the config
+  above omits it.
+- `interface` is NOT a NVRAM default — its factory value is a sentinel
+  (`128`) meaning "unset". When the device reports the sentinel and
+  you don't pass `--interface`, `go-udap set` substitutes wired (`1`)
+  by default (or wireless (`0`) if you also pass `--wireless-ssid`),
+  and prints a one-line notice on stderr. This auto-default requires
+  go-udap v2.1.0 or later; earlier versions need `--interface 1`
+  explicitly.
+- To configure wireless or static IP instead, see [Configure a
+  Squeezebox for Wi-Fi with WPA2](/how-to/configure-wifi-wpa2) or
+  [Configure a Squeezebox for static IP](/how-to/configure-for-static-ip).
 - The `--reboot` flag is necessary; network config changes don't take
   effect until the device reboots.
