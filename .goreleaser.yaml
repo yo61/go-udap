@@ -48,13 +48,19 @@ checksum:
   name_template: 'SHA256SUMS'
   algorithm: sha256
 
-# Create the GitHub release as a draft so we can upload assets to it.
-# Repository immutability locks releases at publish time, which would block
-# asset uploads if the release were created already-published. The
-# goreleaser.yaml workflow runs `gh release edit --draft=false` after this
-# step to publish (and lock immutability) only once all assets are in place.
+# release-please creates an empty draft release for the tag (see
+# .release-please-config.json: "draft": true). Reuse that existing
+# draft instead of creating a second one: GoReleaser otherwise creates
+# its own draft, uploads assets there, and the workflow's un-draft
+# step publishes the wrong (empty) release (see issue #71).
+#
+# Uploading to a draft sidesteps repo immutability, which locks at
+# publish time. draft: false then publishes the same release object
+# in a single EditRelease call once all assets are uploaded — no
+# second release object, no ambiguity, no manual un-draft step.
 release:
-  draft: true
+  draft: false
+  use_existing_draft: true
 
 homebrew_casks:
   - name: go-udap

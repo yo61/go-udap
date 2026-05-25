@@ -2,11 +2,17 @@ name: Release
 
 # release-please opens / updates a Release PR on every push to main
 # that contains version-bumping commits (feat, fix, etc., per
-# conventional commits). Merging the Release PR cuts the actual
-# release — the tag, the GitHub release (created in draft state), and
-# the CHANGELOG update all land together. GoReleaser then fires on the
-# tag push, uploads binaries to the existing draft release, and
-# un-drafts it.
+# conventional commits). Merging the Release PR cuts the release: the
+# GitHub release is created in draft state, the manifest is bumped,
+# and the CHANGELOG is updated. This workflow then pushes the git tag
+# refs/tags/vX.Y.Z, which triggers GoReleaser to upload binaries to
+# the existing draft and publish it.
+#
+# Why push the tag here: a GitHub draft release stores tag_name as
+# metadata only — it does NOT create refs/tags/vX.Y.Z. Without an
+# explicit ref creation, GoReleaser (triggered by on: push: tags) never
+# fires and the release sits in draft forever, while release-please's
+# next scan opens a phantom next-version PR.
 #
 # Convention: use `docs:` (not `feat(docs):`) for documentation-only
 # changes so they don't trigger a version bump. Bump-triggering types:
@@ -37,8 +43,26 @@ jobs:
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
           token: ${{ steps.create_token.outputs.token }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # release-please-action does not push refs/tags/<tag> when the
+      # release is created as a draft (GitHub's data model: draft
+      # releases store tag_name as metadata only). The App token is
+      # used so the tag push event re-triggers downstream workflows;
+      # pushes authored by the default GITHUB_TOKEN do not.
+      - name: Push git tag for draft release
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.create_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          gh api -X POST "repos/${REPO}/git/refs" \
+            -f "ref=refs/tags/${TAG}" \
+            -f "sha=${SHA}"
