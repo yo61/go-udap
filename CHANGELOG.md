@@ -16,9 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Documentation
 
-* fix broken in-content links ([3bb215c](https://github.com/yo61/go-udap/commit/3bb215c8c64dcdbf9deb05be457020a90751aeed))
 * fix broken in-content links ([162d19f](https://github.com/yo61/go-udap/commit/162d19f6e464e47340664e44fecce5338155c49f))
-* serve site content at root instead of /docs/ ([d59ba41](https://github.com/yo61/go-udap/commit/d59ba41a2270fe712a3cc0af5c7c8a49782d8cf6))
 * serve site content at root instead of /docs/ ([8a6ec1c](https://github.com/yo61/go-udap/commit/8a6ec1c79c69eca946cb29b68df6d4ba0e759d6b))
 
 ## [1.10.1](https://github.com/yo61/go-udap/compare/v1.9.0...v1.10.1) (2026-05-22)
