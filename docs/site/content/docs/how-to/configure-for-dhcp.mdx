@@ -29,5 +29,7 @@ description: Wired Ethernet, DHCP-assigned IP
 - `lan_ip_mode=1` is DHCP; `lan_ip_mode=0` is static (see the static IP
   how-to for that).
 - `interface=1` selects wired Ethernet. `interface=0` selects wireless.
+  On factory-fresh devices `go-udap set` defaults to wired if you omit
+  this (and reports the substitution on stderr).
 - The `--reboot` flag is necessary; network config changes don't take
   effect until the device reboots.

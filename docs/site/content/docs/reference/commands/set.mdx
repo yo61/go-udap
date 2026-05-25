@@ -25,6 +25,12 @@ priority (later wins):
 Pass `--reboot`/`-r` to also reboot the device afterwards. Some
 changes (e.g. network config) only take effect after reboot.
 
+On factory-fresh devices the NVRAM `interface` byte holds an "unset"
+sentinel that firmware refuses to act on. If you omit `--interface`,
+`set` substitutes wired by default — or wireless when `wireless_SSID`
+is supplied — and prints the substitution on stderr. Pass `--interface`
+explicitly to suppress the notice.
+
 ## Flags
 
 | Flag | Default | Description |
