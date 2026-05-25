@@ -28,8 +28,11 @@ description: Wireless networking with WPA2-PSK authentication
 
 ## Notes
 
-- `interface=0` selects wireless. Without this, the device stays on
-  Ethernet regardless of any wireless settings.
+- `interface=0` selects wireless. The example config sets this
+  explicitly. On factory-fresh devices `go-udap set` will also infer
+  `interface=0` from `wireless_SSID` if you omit it (and report the
+  inference on stderr), but pinning it in the config removes any
+  ambiguity.
 - `wireless_wpa_mode=2` is WPA2; `wireless_wpa_mode=1` is WPA;
   `wireless_wpa_mode=0` is WPA-mixed-mode.
 - WEP is also supported (`wireless_wep_on=1`, `wireless_wep_key=...`)

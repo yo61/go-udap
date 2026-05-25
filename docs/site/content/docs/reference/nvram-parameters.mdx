@@ -23,7 +23,7 @@ by the device appear as `offset_NNN` entries (visible with
 | `secondary_dns` | IPv4 | Secondary DNS |
 | `hostname` | String (max 33) | Device hostname |
 | `bridging` | Integer (0-1) | Enable/disable bridging |
-| `interface` | Integer (0-1) | 0 = Wireless, 1 = Wired |
+| `interface` | Integer (0-1) | 0 = Wireless, 1 = Wired. Factory-fresh devices report an "unset" sentinel that firmware refuses to act on; `go-udap set` substitutes wired by default (or wireless if `wireless_SSID` is supplied) and reports the choice on stderr. Pass `--interface` explicitly to suppress the notice. |
 
 ## Server
 

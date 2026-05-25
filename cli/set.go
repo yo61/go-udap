@@ -110,6 +110,16 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
+	// Pre-populate device.Parameters via an explicit read so we can
+	// inspect the device's current interface byte before the merge
+	// goes onto the wire. SetDeviceConfigWithContext's own RMW skips
+	// its prelude read when device.Parameters is already populated
+	// (config.go:121), so this is one read, not two.
+	if err := client.GetAllDeviceConfigWithContext(ctx, device); err != nil {
+		return &ExitError{Code: 2, Err: fmt.Errorf("read current parameters: %w", err)}
+	}
+	applyInterfaceDefault(merged, device, stderr)
+
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
 	}
