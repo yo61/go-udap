@@ -3,7 +3,16 @@ title: Configure a Squeezebox for DHCP
 description: Wired Ethernet, DHCP-assigned IP
 ---
 
-# Configure a Squeezebox for DHCP
+A factory-fresh Squeezebox already defaults to DHCP on wired Ethernet,
+so the minimal config only needs to point the device at your Lyrion
+Music Server.
+
+## Example config
+
+```ini title="dhcp.conf"
+# Set your music server's IP:
+server_address=192.168.1.250
+```
 
 <HowTo
   goal="Configure a Squeezebox to use DHCP on wired Ethernet, pointed at your Lyrion Music Server"
@@ -14,22 +23,21 @@ description: Wired Ethernet, DHCP-assigned IP
     "Your Lyrion Music Server's IP address known (e.g. 192.168.1.250)"
   ]}
   steps={[
-    <>Download the <a href="/examples/dhcp.conf">example config</a> and edit <code>server_address</code> to your LMS IP.</>,
+    <>Save the example config above as <code>dhcp.conf</code> (or <a href="/examples/dhcp.conf">download it</a>) and edit <code>server_address</code> to your LMS IP.</>,
     <>Discover the device: <code>go-udap discover</code></>,
     <>Apply the config and reboot: <code>go-udap set &lt;mac&gt; --config dhcp.conf --reboot</code></>,
   ]}
   verification={
     <>After ~15 seconds, run <code>go-udap getip &lt;mac&gt;</code>. You should see a DHCP-assigned IP from your network's subnet.</>
   }
-  exampleFile="/go-udap/examples/dhcp.conf"
 />
 
 ## Notes
 
-- `lan_ip_mode=1` is DHCP; `lan_ip_mode=0` is static (see the static IP
-  how-to for that).
-- `interface=1` selects wired Ethernet. `interface=0` selects wireless.
-  On factory-fresh devices `go-udap set` defaults to wired if you omit
-  this (and reports the substitution on stderr).
+- `interface=1` (wired) and `lan_ip_mode=1` (DHCP) are the factory
+  defaults, so the config above omits them. To configure wireless or
+  static IP instead, see [Configure a Squeezebox for Wi-Fi with
+  WPA2](/how-to/configure-wifi-wpa2) or [Configure a Squeezebox for
+  static IP](/how-to/configure-for-static-ip).
 - The `--reboot` flag is necessary; network config changes don't take
   effect until the device reboots.

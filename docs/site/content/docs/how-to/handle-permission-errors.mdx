@@ -3,8 +3,6 @@ title: Handle permission errors
 description: When binding UDP port 17784 needs elevated privileges
 ---
 
-# Permission errors
-
 UDP port 17784 is above 1024, so binding it typically does NOT need
 root. On some platforms (rare), the port may be reserved or
 otherwise restricted, in which case you'll see an error like:

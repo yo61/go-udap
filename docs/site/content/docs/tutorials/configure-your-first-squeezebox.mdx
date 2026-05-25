@@ -3,8 +3,6 @@ title: Configure your first Squeezebox in 5 minutes
 description: A complete walkthrough from factory state to a working device
 ---
 
-# Configure your first Squeezebox in 5 minutes
-
 This tutorial walks you through configuring a brand-new (or
 factory-reset) Squeezebox from the command line. By the end, you'll
 have a device with a hostname you chose, on DHCP, pointed at your
@@ -73,15 +71,17 @@ IP of your Lyrion Music Server (e.g. `192.168.1.250`).
 ```bash
 go-udap set 00:04:20:16:06:02 \
   --hostname living-room \
-  --lan-ip-mode 1 \
   --server-address 192.168.1.250 \
   --reboot
 ```
 
-- `--lan-ip-mode 1` = DHCP
-- `--server-address` points the device at your music server
+- A factory-fresh device defaults to DHCP on wired Ethernet, so we
+  don't need to set `--lan-ip-mode` or `--interface` here. (For a
+  static IP instead, see
+  [Configure a Squeezebox for static IP](/how-to/configure-for-static-ip).)
+- `--server-address` points the device at your music server.
 - `--reboot` reboots after writing — necessary for the new config to
-  take effect
+  take effect.
 
 Expected: command returns within a couple of seconds. The device
 reboots and is unreachable for ~10 seconds.
