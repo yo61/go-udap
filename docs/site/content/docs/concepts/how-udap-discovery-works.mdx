@@ -10,7 +10,7 @@ description: The wire-level mechanics of finding devices
 When you run `go-udap discover`, three things happen:
 
 1. **Outbound request.** go-udap binds a UDP socket to
-   `0.0.0.0:17784` (or to a specific interface if `--interface` is set)
+   `0.0.0.0:17784` (or to a specific interface if `--bind-interface` is set)
    and sends a 27-byte UDAP advanced-discovery packet (UCP method
    `0x0009`) to **`255.255.255.255:17784`**. The destination is
    limited broadcast — see "Why limited broadcast?" below.

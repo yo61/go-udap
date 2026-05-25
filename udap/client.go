@@ -405,8 +405,8 @@ func (c *Client) recordDevice(d *Device) {
 
 // NewClientForInterface constructs a Client whose UDP transport is
 // bound to the given interface name's IPv4 address. Used by the CLI's
-// --interface NAME flag. Errors if the interface does not exist, is
-// down, lacks an IPv4 address, or is not broadcast-capable.
+// --bind-interface NAME flag. Errors if the interface does not exist,
+// is down, lacks an IPv4 address, or is not broadcast-capable.
 func NewClientForInterface(name string, logger Logger) (*Client, error) {
 	ifs, err := EnumerateInterfaces()
 	if err != nil {

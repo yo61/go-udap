@@ -1,6 +1,6 @@
 ---
 title: Multi-NIC discovery
-description: How --interface and --all-interfaces work under the hood
+description: How --bind-interface and --all-interfaces work under the hood
 ---
 
 # Multi-NIC discovery
@@ -21,7 +21,7 @@ If the device is on the *other* NIC's subnet (say, a Squeezebox on
 your wired LAN while your Wi-Fi default route points at a tethered
 phone), the broadcast never reaches it.
 
-## `--interface NAME`
+## `--bind-interface NAME`
 
 Forces a specific egress interface. The mechanism is platform-specific:
 

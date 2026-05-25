@@ -1,6 +1,6 @@
 ---
 title: Discover on a multi-NIC laptop
-description: Use --interface or --all-interfaces when your dev machine has multiple network interfaces
+description: Use --bind-interface or --all-interfaces when your dev machine has multiple network interfaces
 ---
 
 # Discover on a multi-NIC laptop
@@ -19,7 +19,7 @@ subnet, you'll see zero devices.
   ]}
   steps={[
     <>List your usable interfaces: <code>go-udap interfaces</code></>,
-    <>Either pick one explicitly: <code>go-udap --interface en7 discover</code></>,
+    <>Either pick one explicitly: <code>go-udap --bind-interface en7 discover</code></>,
     <>Or fan out across all of them: <code>go-udap --all-interfaces discover</code></>,
   ]}
   verification={
@@ -29,7 +29,7 @@ subnet, you'll see zero devices.
 
 ## Which one should I use?
 
-- **`--interface NAME`** — when you know exactly which NIC reaches
+- **`--bind-interface NAME`** — when you know exactly which NIC reaches
   the device. Faster (one socket), simpler.
 - **`--all-interfaces`** — when you're unsure. Sends concurrently on
   every interface; the device replies via whichever one reaches it.

@@ -35,15 +35,22 @@ func (e *ExitError) Error() string {
 
 func (e *ExitError) Unwrap() error { return e.Err }
 
-// interfaceSelection captures the global --interface / --all-interfaces
-// flags. The chosen mode determines which Client constructor newClient
-// uses. Mutated only by Run before any subcommand executes.
-type interfaceSelection struct {
-	name string // empty unless --interface was set
+// bindInterfaceSelection captures the global --bind-interface /
+// --all-interfaces flags. The chosen mode determines which Client
+// constructor newClient uses. Mutated only by Run before any subcommand
+// executes.
+//
+// The flag is named --bind-interface (not --interface) so it doesn't
+// collide with the per-param --interface 0|1 flag used by `set` to
+// configure the device's wireless/wired NVRAM byte. Two unrelated
+// concepts share the word "interface"; the local-NIC binding flag gets
+// the more specific name.
+type bindInterfaceSelection struct {
+	name string // empty unless --bind-interface was set
 	all  bool   // true if --all-interfaces was set
 }
 
-var currentInterfaceSelection interfaceSelection
+var currentBindInterface bindInterfaceSelection
 
 // currentRetries holds the --retries N flag value. Defaults to 0 (no retries,
 // just one send). Used by newClient in discover.go to configure the UDP client.
@@ -103,15 +110,15 @@ type globalFlags struct {
 func Run(args []string, stdout, stderr io.Writer) error {
 	args = moveGlobalFlagsAfterSubcommand(args)
 
-	// Extract --interface / --all-interfaces from the moved-into-place
+	// Extract --bind-interface / --all-interfaces from the moved-into-place
 	// argv. moveGlobalFlagsAfterSubcommand has already validated the
 	// shape (i.e. global flags are now positioned after args[0]).
-	sel, remaining, ierr := extractInterfaceFlags(args)
+	sel, remaining, ierr := extractBindInterfaceFlags(args)
 	if ierr != nil {
 		return ierr
 	}
 	if sel.name != "" && sel.all {
-		return &ExitError{Code: 1, Err: fmt.Errorf("--interface and --all-interfaces are mutually exclusive")}
+		return &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface and --all-interfaces are mutually exclusive")}
 	}
 	if sel.name != "" {
 		ifs, err := udap.EnumerateInterfaces()
@@ -126,12 +133,12 @@ func Run(args []string, stdout, stderr io.Writer) error {
 			}
 		}
 		if !found {
-			return &ExitError{Code: 1, Err: fmt.Errorf("--interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)", sel.name)}
+			return &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)", sel.name)}
 		}
 	}
-	prevSel := currentInterfaceSelection
-	currentInterfaceSelection = sel
-	defer func() { currentInterfaceSelection = prevSel }()
+	prevSel := currentBindInterface
+	currentBindInterface = sel
+	defer func() { currentBindInterface = prevSel }()
 	args = remaining
 
 	{
@@ -208,9 +215,9 @@ var (
 		"--all-interfaces": true,
 	}
 	globalFlagsValue = map[string]bool{
-		"--timeout":   true,
-		"--interface": true,
-		"--retries":   true,
+		"--timeout":        true,
+		"--bind-interface": true,
+		"--retries":        true,
 	}
 )
 
@@ -335,12 +342,12 @@ Commands:
 
 Global flags:
   --timeout DURATION      Operation timeout (default 5s)`)
-	// --interface and --all-interfaces depend on platform-specific socket
-	// options (IP_BOUND_IF on macOS, SO_BINDTODEVICE on Linux). Windows
-	// has no documented equivalent for broadcast traffic, so hiding the
-	// flags here avoids exposing options that would always error.
+	// --bind-interface and --all-interfaces depend on platform-specific
+	// socket options (IP_BOUND_IF on macOS, SO_BINDTODEVICE on Linux).
+	// Windows has no documented equivalent for broadcast traffic, so
+	// hiding the flags here avoids exposing options that would always error.
 	if runtime.GOOS != "windows" {
-		fmt.Fprintln(w, `  --interface NAME        Bind discovery to one network interface
+		fmt.Fprintln(w, `  --bind-interface NAME   Bind discovery to one network interface
   --all-interfaces        Broadcast on every usable interface (fan-out)`)
 	}
 	fmt.Fprintln(w, `  --retries N             Re-transmit each UDAP send N additional times (default 0; useful on lossy links)
@@ -349,22 +356,27 @@ Global flags:
   --help, -h              Print this help`)
 }
 
-// extractInterfaceFlags scans args for --interface NAME and
+// extractBindInterfaceFlags scans args for --bind-interface NAME and
 // --all-interfaces (in either --foo=bar or --foo bar form), removes
 // them, and returns the leftover argv plus the parsed selection.
-func extractInterfaceFlags(args []string) (interfaceSelection, []string, error) {
-	var sel interfaceSelection
+//
+// The singular flag is --bind-interface (not --interface) to keep clear
+// of the per-param --interface 0|1 flag exposed by `set` from the NVRAM
+// "interface" parameter (offset 52: 0=wireless, 1=wired). Both names
+// once collided and the global parser would swallow the per-param form.
+func extractBindInterfaceFlags(args []string) (bindInterfaceSelection, []string, error) {
+	var sel bindInterfaceSelection
 	out := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "--all-interfaces":
 			sel.all = true
-		case strings.HasPrefix(a, "--interface="):
-			sel.name = strings.TrimPrefix(a, "--interface=")
-		case a == "--interface":
+		case strings.HasPrefix(a, "--bind-interface="):
+			sel.name = strings.TrimPrefix(a, "--bind-interface=")
+		case a == "--bind-interface":
 			if i+1 >= len(args) {
-				return sel, nil, &ExitError{Code: 1, Err: fmt.Errorf("--interface requires a value")}
+				return sel, nil, &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface requires a value")}
 			}
 			sel.name = args[i+1]
 			i++
