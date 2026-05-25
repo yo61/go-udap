@@ -1,13 +1,47 @@
 ---
-title: go-udap docs
-description: Squeezebox UDAP configuration tool documentation
+title: go-udap
+description: Discover and configure Squeezebox devices from the command line
 ---
 
-# go-udap documentation
+import { Cards, Card } from 'fumadocs-ui/components/card';
 
-This site is under construction. The first usable content lands in M2;
-net-new tutorials and how-to guides land in M3.
+A single static binary that discovers Squeezebox devices on the network
+and writes their NVRAM configuration over the UDAP protocol. No daemon,
+no GUI, no Lyrion Music Server dependency for setup.
 
-For now, the source repo is at
-[github.com/yo61/go-udap](https://github.com/yo61/go-udap) and the
-README contains the canonical user-facing docs.
+<Cards>
+  <Card
+    title="Tutorial — 5-minute setup"
+    href="/tutorials/configure-your-first-squeezebox"
+    description="Walk a brand-new (or factory-reset) Squeezebox from setup mode to a working device pointed at your music server."
+  />
+  <Card
+    title="How-to guides"
+    href="/how-to"
+    description="Task-oriented recipes: DHCP, static IP, Wi-Fi WPA2, multi-NIC discovery, recovery from init mode."
+  />
+  <Card
+    title="Reference"
+    href="/reference"
+    description="Every subcommand, every flag, every NVRAM parameter, every exit code. Authoritative lookup."
+  />
+  <Card
+    title="Concepts"
+    href="/concepts"
+    description="How UDAP discovery works on the wire, what the 26 NVRAM parameters mean, why discovery uses limited broadcast."
+  />
+</Cards>
+
+## Install
+
+```bash
+brew install yo61/tap/go-udap
+```
+
+Or download a release binary from
+[GitHub releases](https://github.com/yo61/go-udap/releases/latest) —
+macOS, Linux, and Windows builds for amd64 and arm64.
+
+## Source
+
+[github.com/yo61/go-udap](https://github.com/yo61/go-udap)
