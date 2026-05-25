@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0](https://github.com/yo61/go-udap/compare/v2.0.1...v2.1.0) (2026-05-25)
+
+
+### Features
+
+* **cli:** default interface on factory-fresh devices in set ([2a72528](https://github.com/yo61/go-udap/commit/2a72528533b6b318eae702ced82710e21b7e593f))
+
 ## [2.0.1](https://github.com/yo61/go-udap/compare/v1.10.1...v2.0.1) (2026-05-25)
 
 > **Note:** 2.0.0 was never published. GoReleaser created a duplicate
