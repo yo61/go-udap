@@ -86,7 +86,7 @@ var newClient = func(verbose bool, stderr io.Writer) (*udap.Client, error) {
 	} else {
 		logger.SetLevel(udap.LogLevelWarn)
 	}
-	sel := currentInterfaceSelection
+	sel := currentBindInterface
 	var c *udap.Client
 	var err error
 	switch {

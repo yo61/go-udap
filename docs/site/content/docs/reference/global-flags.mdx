@@ -12,21 +12,27 @@ Every flag below can appear before OR after the subcommand —
 |---|---|---|
 | `--timeout DURATION` | `5s` | Operation timeout, e.g. `5s`, `30s`, `2m` |
 | `--verbose`, `-v` | off | Debug logging to stderr. Also surfaces soft-fail warnings (e.g. `get_ip` timeout in `discover --info`) that are silent by default |
-| `--interface NAME` | — | Bind discovery (and all subsequent operations) to one named network interface. See [`interfaces`](./commands/interfaces.mdx) for valid names. Mutually exclusive with `--all-interfaces`. **Not supported on Windows** — the flag is hidden from `--help` there |
-| `--all-interfaces` | off | Fan out discovery across every usable network interface. Useful on multi-homed hosts. Mutually exclusive with `--interface`. **Not supported on Windows** |
+| `--bind-interface NAME` | — | Bind discovery (and all subsequent operations) to one named network interface. See [`interfaces`](./commands/interfaces.mdx) for valid names. Mutually exclusive with `--all-interfaces`. **Not supported on Windows** — the flag is hidden from `--help` there |
+| `--all-interfaces` | off | Fan out discovery across every usable network interface. Useful on multi-homed hosts. Mutually exclusive with `--bind-interface`. **Not supported on Windows** |
 | `--retries N` | `0` | Re-transmit each UDAP send `N` additional times back-to-back. Useful on lossy links (ad-hoc Wi-Fi). `--retries 2` matches the squeezeplay reference triple-send |
 | `--version` | — | Print version and exit |
 | `--help`, `-h` | — | Print help |
 
-## Multi-interface behaviour (`--interface` / `--all-interfaces`)
+## Multi-interface behaviour (`--bind-interface` / `--all-interfaces`)
 
 Discovery only emits broadcasts on the kernel's default-route NIC by
 default. On a multi-homed laptop (Wi-Fi + Ethernet both up), if the
 Squeezebox is on the non-default subnet you'll see zero devices.
 
-`--interface NAME` forces UDAP traffic out a specific NIC via
+`--bind-interface NAME` forces UDAP traffic out a specific NIC via
 `IP_BOUND_IF` (macOS) / `SO_BINDTODEVICE` (Linux). `--all-interfaces`
 sends concurrently on every NIC.
+
+The singular form is spelled `--bind-interface` (not `--interface`)
+because `--interface 0|1` is also a per-parameter flag on `set` —
+it configures the device's NVRAM `interface` byte (0 = wireless,
+1 = wired). Two unrelated concepts share the word, so the local-NIC
+binding flag gets the more specific name.
 
 See [How to discover on a multi-NIC laptop](/how-to/discover-on-multi-nic-laptop)
 for usage, and [Multi-NIC discovery](/concepts/multi-nic-discovery)

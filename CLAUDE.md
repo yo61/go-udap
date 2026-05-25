@@ -148,15 +148,15 @@ interactive shell.
 - `go-udap set <mac> [--reboot/-r] [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win). The wire op writes NVRAM directly (every UCP_METHOD_SET_DATA writes — there is no separate save_data wire method per the Net::UDAP reference). Pass `--reboot/-r` to also reboot after writing.
 - `go-udap reboot <mac>` — Reboot the device
 - `go-udap getip <mac>` — Query the device's current IP / subnet / gateway via UCP_METHOD_GET_IP (0x0002). Distinct from discovery: discover passively observes; getip actively asks
-- `go-udap interfaces` — List local network interfaces usable for UDAP discovery (Up + Broadcast + has IPv4 + not loopback). Useful for picking a value for `--interface NAME`
+- `go-udap interfaces` — List local network interfaces usable for UDAP discovery (Up + Broadcast + has IPv4 + not loopback). Useful for picking a value for `--bind-interface NAME`
 
-Global flags: `--timeout DURATION` (default 5s), `--retries N` (default 0), `--verbose`/`-v`, `--version`, `--help`/`-h`, `--interface NAME`, `--all-interfaces`.
+Global flags: `--timeout DURATION` (default 5s), `--retries N` (default 0), `--verbose`/`-v`, `--version`, `--help`/`-h`, `--bind-interface NAME`, `--all-interfaces`.
 Global flags are accepted before OR after the subcommand
 (`go-udap -v read <mac>` and `go-udap read -v <mac>` are equivalent).
 
 `--retries N` configures send-side retransmission: N is the number of **re-transmissions** beyond the initial send, so `--retries 2` results in 3 total sends (matches squeezeplay's hardcoded triple-send). Useful on lossy links; default 0 (one send, current behavior).
 
-`--interface NAME` binds discovery and all subsequent operations to a single named interface, validated pre-dispatch (unknown name → exit 1). `--all-interfaces` fans out across every usable interface via MultiTransport. The two flags are mutually exclusive (combining them → exit 1). On Windows both flags surface "not supported" since the platform-specific output-NIC binding isn't implemented there.
+`--bind-interface NAME` binds discovery and all subsequent operations to a single named interface, validated pre-dispatch (unknown name → exit 1). `--all-interfaces` fans out across every usable interface via MultiTransport. The two flags are mutually exclusive (combining them → exit 1). On Windows both flags surface "not supported" since the platform-specific output-NIC binding isn't implemented there. The singular flag is `--bind-interface` (not `--interface`) so it doesn't collide with `set`'s per-param `--interface 0|1` flag (NVRAM byte at offset 52: 0=wireless, 1=wired).
 
 Output is on stdout; logs and warnings on stderr. Exit codes: 0 success,
 1 usage error, 2 operation failure.
