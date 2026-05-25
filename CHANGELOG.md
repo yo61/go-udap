@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0](https://github.com/yo61/go-udap/compare/v1.10.1...v2.0.0) (2026-05-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** --interface NAME is renamed to --bind-interface NAME. Scripts and CI using the global form must be updated. The per-param --interface 0|1 (set command, NVRAM offset 52) is unaffected.
+
+### Features
+
+* **cli:** rename global --interface to --bind-interface ([7ef6add](https://github.com/yo61/go-udap/commit/7ef6addd45acc06ce945159f326b12be8d85f345))
+
+
+### Documentation
+
+* fix broken in-content links ([162d19f](https://github.com/yo61/go-udap/commit/162d19f6e464e47340664e44fecce5338155c49f))
+* serve site content at root instead of /docs/ ([8a6ec1c](https://github.com/yo61/go-udap/commit/8a6ec1c79c69eca946cb29b68df6d4ba0e759d6b))
+
 ## [1.10.1](https://github.com/yo61/go-udap/compare/v1.9.0...v1.10.1) (2026-05-22)
 
 > **Note:** 1.10.0 was never published. The GoReleaser run for that tag failed
