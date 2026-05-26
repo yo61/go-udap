@@ -13,10 +13,11 @@ import (
 var readAll bool
 
 var readCmd = &cobra.Command{
-	Use:   "read <mac>",
-	Short: "Read all parameters from a device",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runRead,
+	Use:               "read <mac>",
+	Short:             "Read all parameters from a device",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeMACs,
+	RunE:              runRead,
 }
 
 func init() {

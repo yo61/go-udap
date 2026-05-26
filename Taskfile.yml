@@ -120,6 +120,13 @@ tasks:
     cmds:
       - go mod tidy
 
+  completions:
+    desc: Generate shell completion scripts into ./completions
+    cmds:
+      - mkdir -p ./completions
+      - go run . __dump-completions ./completions
+      - echo "Wrote ./completions/{go-udap.bash,_go-udap,go-udap.fish}"
+
   clean:
     desc: Remove build artifacts
     cmds:

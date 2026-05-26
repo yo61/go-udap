@@ -31,6 +31,30 @@ brew install yo61/tap/go-udap
 See [installation guide](https://yo61.github.io/go-udap/docs/how-to/install-go-udap)
 for all options.
 
+## Shell completions
+
+`brew install yo61/tap/go-udap` installs bash, zsh, and fish completions
+automatically. `brew upgrade` keeps them in sync.
+
+For installations outside Homebrew, write the script for your shell to
+the path it autoloads from:
+
+```bash
+# Bash (Linux):
+go-udap completion bash > ~/.local/share/bash-completion/completions/go-udap
+
+# Zsh (anywhere on your $fpath):
+go-udap completion zsh > ~/.zsh/completions/_go-udap
+
+# Fish:
+go-udap completion fish > ~/.config/fish/completions/go-udap.fish
+```
+
+Completions cover subcommand names, flag names, the 26 NVRAM parameter
+names on `get`/`set`, MAC addresses (via short-timeout UDAP discovery
+that escalates if the first tab returns nothing), and `--bind-interface`
+values from the local interface list.
+
 ## Quick start
 
 ```bash

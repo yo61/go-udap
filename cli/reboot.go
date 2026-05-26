@@ -8,10 +8,11 @@ import (
 )
 
 var rebootCmd = &cobra.Command{
-	Use:   "reboot <mac>",
-	Short: "Reboot the device",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runReboot,
+	Use:               "reboot <mac>",
+	Short:             "Reboot the device",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeMACs,
+	RunE:              runReboot,
 }
 
 func init() {

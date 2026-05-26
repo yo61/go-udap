@@ -3,6 +3,8 @@ version: 2
 before:
   hooks:
     - go mod tidy
+    - mkdir -p ./completions
+    - go run . __dump-completions ./completions
 
 builds:
   - id: go-udap
@@ -39,6 +41,12 @@ archives:
     files:
       - LICENSE
       - README.md
+      - src: completions/go-udap.bash
+        dst: completions/go-udap.bash
+      - src: completions/_go-udap
+        dst: completions/_go-udap
+      - src: completions/go-udap.fish
+        dst: completions/go-udap.fish
     format_overrides:
       - goos: windows
         formats:
@@ -74,6 +82,10 @@ homebrew_casks:
     license: MIT
     url:
       verified: github.com/yo61/go-udap
+    completions:
+      bash: completions/go-udap.bash
+      zsh: completions/_go-udap
+      fish: completions/go-udap.fish
     hooks:
       post:
         install: |

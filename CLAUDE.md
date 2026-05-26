@@ -150,7 +150,7 @@ interactive shell.
 - `go-udap getip <mac>` — Query the device's current IP / subnet / gateway via UCP_METHOD_GET_IP (0x0002). Distinct from discovery: discover passively observes; getip actively asks
 - `go-udap interfaces` — List local network interfaces usable for UDAP discovery (Up + Broadcast + has IPv4 + not loopback). Useful for picking a value for `--bind-interface NAME`
 
-Global flags: `--timeout DURATION` (default 5s), `--retries N` (default 0), `--verbose`/`-v`, `--version`, `--help`/`-h`, `--bind-interface NAME`, `--all-interfaces`.
+Global flags: `--timeout DURATION` (default 2s), `--retries N` (default 0), `--verbose`/`-v`, `--version`, `--help`/`-h`, `--bind-interface NAME`, `--all-interfaces`.
 Global flags are accepted before OR after the subcommand
 (`go-udap -v read <mac>` and `go-udap read -v <mac>` are equivalent).
 
@@ -164,7 +164,7 @@ Output is on stdout; logs and warnings on stderr. Exit codes: 0 success,
 ## Development Notes
 
 - Each invocation is independent; no persistent state between runs
-- Network timeouts default to 5 seconds (configurable via `--timeout`)
+- Network timeouts default to 2 seconds (configurable via `--timeout`)
 - Discovery uses broadcast UDP with configurable timeout
 - All UDAP packets use big-endian byte order for network transmission
 

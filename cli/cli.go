@@ -21,7 +21,7 @@ var Version = "dev"
 // defaultTimeout is the default value for --timeout. Single source of
 // truth; consumed by every subcommand via flagTimeout.Value(). PR 2 of
 // the shell-completions feature drops this to 2*time.Second.
-const defaultTimeout = 5 * time.Second
+const defaultTimeout = 2 * time.Second
 
 // ExitError carries a process exit code alongside a message.
 // Use it from subcommand handlers to control go-udap's exit status.
@@ -121,7 +121,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	f := rootCmd.PersistentFlags()
-	f.Var(flagTimeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
+	f.Var(flagTimeout, "timeout", "Operation timeout, e.g. 2s, 30s, 2m")
 	f.BoolVarP(&flagVerbose, "verbose", "v", false, "Debug logging to stderr")
 	f.Var(newIntWithPlaceholder("N", 0, &flagRetries), "retries", "Re-transmit each UDAP send N additional times (default 0; useful on lossy links)")
 	// --bind-interface and --all-interfaces are accepted on all platforms.
@@ -132,6 +132,9 @@ func init() {
 	f.StringVar(&flagBindInterface, "bind-interface", "", "Bind discovery to one network interface")
 	f.BoolVar(&flagAllInterfaces, "all-interfaces", false, "Broadcast on every usable interface (fan-out)")
 	rootCmd.MarkFlagsMutuallyExclusive("bind-interface", "all-interfaces")
+	if err := rootCmd.RegisterFlagCompletionFunc("bind-interface", completeInterfaces); err != nil {
+		panic(fmt.Sprintf("register bind-interface completion: %v", err))
+	}
 	rootCmd.Version = Version
 	// Cobra default --version output is "go-udap version X.Y.Z";
 	// override to match the existing "go-udap X.Y.Z" format.
