@@ -8,10 +8,11 @@ import (
 )
 
 var getipCmd = &cobra.Command{
-	Use:   "getip <mac>",
-	Short: "Query device IP / subnet / gateway via UCP get_ip",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runGetIP,
+	Use:               "getip <mac>",
+	Short:             "Query device IP / subnet / gateway via UCP get_ip",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeMACs,
+	RunE:              runGetIP,
 }
 
 func init() {

@@ -132,6 +132,9 @@ func init() {
 	f.StringVar(&flagBindInterface, "bind-interface", "", "Bind discovery to one network interface")
 	f.BoolVar(&flagAllInterfaces, "all-interfaces", false, "Broadcast on every usable interface (fan-out)")
 	rootCmd.MarkFlagsMutuallyExclusive("bind-interface", "all-interfaces")
+	if err := rootCmd.RegisterFlagCompletionFunc("bind-interface", completeInterfaces); err != nil {
+		panic(fmt.Sprintf("register bind-interface completion: %v", err))
+	}
 	rootCmd.Version = Version
 	// Cobra default --version output is "go-udap version X.Y.Z";
 	// override to match the existing "go-udap X.Y.Z" format.

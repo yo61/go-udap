@@ -7,10 +7,11 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info <mac>",
-	Short: "Show metadata for one device",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runInfo,
+	Use:               "info <mac>",
+	Short:             "Show metadata for one device",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeMACs,
+	RunE:              runInfo,
 }
 
 func init() {

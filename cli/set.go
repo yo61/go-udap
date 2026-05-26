@@ -21,10 +21,11 @@ var (
 )
 
 var setCmd = &cobra.Command{
-	Use:   "set <mac>",
-	Short: "Set parameters from any combination of --config FILE, piped stdin, and per-param --flags",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runSet,
+	Use:               "set <mac>",
+	Short:             "Set parameters from any combination of --config FILE, piped stdin, and per-param --flags",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeMACs,
+	RunE:              runSet,
 }
 
 func init() {

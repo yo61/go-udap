@@ -10,10 +10,11 @@ import (
 )
 
 var getCmd = &cobra.Command{
-	Use:   "get <mac> <param> [<param>...]",
-	Short: "Read specific parameters",
-	Args:  cobra.MinimumNArgs(2),
-	RunE:  runGet,
+	Use:               "get <mac> <param> [<param>...]",
+	Short:             "Read specific parameters",
+	Args:              cobra.MinimumNArgs(2),
+	ValidArgsFunction: completeParameterNames,
+	RunE:              runGet,
 }
 
 func init() {
