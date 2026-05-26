@@ -1,0 +1,103 @@
+name: Security
+
+# Three-layer supply-chain scanning per
+# docs/superpowers/specs/2026-05-26-sbom-vuln-scanning-design.md.
+#
+# govulncheck job: Go-native, reachability-aware. A finding means the
+# CVE is in a code path the binary actually calls. Fails the job on
+# any finding.
+#
+# sbom-scan job: syft produces a CycloneDX SBOM (also a workflow
+# artifact), grype scans it. Fails the job on severity >= HIGH.
+#
+# Both jobs upload SARIF to the GitHub Security tab so findings
+# surface alongside CodeQL-style results.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Daily ~06:17 UTC — off the hour to dodge runner congestion.
+    # Catches newly-disclosed CVEs against existing deps.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload to Security tab
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck (SARIF)
+        id: govulncheck
+        # govulncheck exits non-zero on findings; we still want SARIF
+        # uploaded in that case. `continue-on-error` lets us upload,
+        # then re-fail the job in the final step.
+        continue-on-error: true
+        run: govulncheck -format sarif ./... > govulncheck.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57  # v3.36.0
+        with:
+          sarif_file: govulncheck.sarif
+          category: govulncheck
+
+      - name: Fail job if govulncheck found something
+        if: steps.govulncheck.outcome == 'failure'
+        run: |
+          echo "::error::govulncheck reported one or more vulnerabilities. See SARIF upload above and the Security tab for details."
+          exit 1
+
+  sbom-scan:
+    name: sbom-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Generate SBOM (syft)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          upload-artifact: true
+          upload-artifact-retention: 30
+
+      - name: Scan SBOM (Grype)
+        id: grype
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2  # v7.4.0
+        with:
+          sbom: sbom.cdx.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload SARIF
+        if: always() && steps.grype.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57  # v3.36.0
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+          category: grype
