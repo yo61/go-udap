@@ -31,10 +31,11 @@ func TestE2EInfoFallsBackToGetUUID(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"info", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"info", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	if !strings.Contains(outBuf.String(), "deadbeefcafebabe1122334455667788") {
 		t.Errorf("stdout missing UUID from get_uuid fallback; got:\n%s", outBuf.String())
@@ -67,10 +68,11 @@ func TestE2EInfoFallbackFailureLeavesUUIDEmpty(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"info", "00:04:20:00:00:01", "--timeout", "300ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"info", "00:04:20:00:00:01", "--timeout", "300ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	// UUID line must be absent (formatDeviceInfo skips empty UUID).
 	if strings.Contains(outBuf.String(), "UUID:") {
@@ -102,10 +104,11 @@ func TestE2EInfoFallbackFailureVerboseShowsWarning(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"-v", "info", "00:04:20:00:00:01", "--timeout", "300ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"-v", "info", "00:04:20:00:00:01", "--timeout", "300ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	if !strings.Contains(errBuf.String(), "warning: get_uuid fallback failed for 00:04:20:00:00:01") {
 		t.Errorf("stderr missing fallback warning under --verbose; got:\n%s", errBuf.String())

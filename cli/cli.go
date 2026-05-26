@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"go-udap/udap"
 )
@@ -167,5 +168,27 @@ func resetFlagsForTesting() {
 	// holds a pointer, so they don't need re-registration.)
 	if f := rootCmd.PersistentFlags().Lookup("timeout"); f != nil {
 		f.Value = flagTimeout
+	}
+	// Reset pflag's Changed tracking across the entire command tree so
+	// mutual-exclusion checks and "was this flag set?" logic don't bleed
+	// between calls on the rootCmd singleton.
+	resetChangedInTree(rootCmd)
+	// Also reset per-subcommand vars that Cobra doesn't manage through
+	// pflag's Changed field. These are the underlying Go vars that flag
+	// callbacks write to; resetting them prevents bleed across Execute calls.
+	discoverInfo = false
+	readAll = false
+	setReboot = false
+	setConfigPath = ""
+}
+
+// resetChangedInTree recursively clears the Changed flag on every pflag
+// flag in a cobra command and all its subcommands.
+func resetChangedInTree(cmd *cobra.Command) {
+	clearChanged := func(f *pflag.Flag) { f.Changed = false }
+	cmd.PersistentFlags().VisitAll(clearChanged)
+	cmd.Flags().VisitAll(clearChanged)
+	for _, sub := range cmd.Commands() {
+		resetChangedInTree(sub)
 	}
 }
