@@ -1,5 +1,6 @@
 version: 2
 updates:
+  # Pre-existing: pre-commit hook updates (don't remove)
   - package-ecosystem: "pre-commit"
     directory: "/"
     schedule:
@@ -9,3 +10,36 @@ updates:
     groups:
       hooks:
         patterns: ["*"]
+
+  # Go module updates
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      gomod-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # GitHub Actions updates (SHA-pinned actions get tag-tracking PRs)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # docs/site is pnpm-managed; Dependabot auto-detects pnpm-lock.yaml
+  - package-ecosystem: "npm"
+    directory: "/docs/site"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      docs-site-minor-patch:
+        update-types: ["minor", "patch"]
