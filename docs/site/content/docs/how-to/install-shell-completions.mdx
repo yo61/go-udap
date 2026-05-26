@@ -1,0 +1,120 @@
+---
+title: Install shell completions
+description: Tab-completion for bash, zsh, and fish
+---
+
+`go-udap` provides tab-completion scripts that complete subcommand
+names, flag names, the 26 NVRAM parameter names on `get` / `set`,
+MAC addresses (via short-timeout UDAP discovery), and
+`--bind-interface` values.
+
+## Homebrew installs them automatically
+
+```bash
+brew install yo61/tap/go-udap
+```
+
+The cask drops symlinks into:
+
+- `$(brew --prefix)/etc/bash_completion.d/go-udap`
+- `$(brew --prefix)/share/zsh/site-functions/_go-udap`
+- `$(brew --prefix)/share/fish/vendor_completions.d/go-udap.fish`
+
+`brew upgrade` keeps them in sync with the binary. **No action
+needed if you installed via Homebrew.**
+
+## Manual install (non-brew)
+
+Generate the script for your shell and write it where the shell
+auto-loads from:
+
+### bash
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+go-udap completion bash > ~/.local/share/bash-completion/completions/go-udap
+```
+
+Requires the `bash-completion` package (macOS: `brew install
+bash-completion@2`; Debian/Ubuntu: `apt install bash-completion`).
+Open a new shell or `source` your `~/.bashrc`.
+
+### zsh
+
+```bash
+mkdir -p ~/.zsh/completions
+go-udap completion zsh > ~/.zsh/completions/_go-udap
+```
+
+If `~/.zsh/completions` isn't already on your `$fpath`, add this
+to `~/.zshrc` once:
+
+```bash
+fpath=(~/.zsh/completions $fpath)
+autoload -Uz compinit && compinit
+```
+
+### fish
+
+```bash
+mkdir -p ~/.config/fish/completions
+go-udap completion fish > ~/.config/fish/completions/go-udap.fish
+```
+
+Fish auto-discovers completions from this directory — no further
+setup.
+
+## Verify
+
+Open a fresh shell, then:
+
+```bash
+go-udap <TAB>
+```
+
+You should see the eight subcommands listed (`discover`, `info`,
+`read`, `get`, `set`, `reboot`, `getip`, `interfaces`).
+
+A more interesting test — parameter-name completion after a MAC:
+
+```bash
+go-udap set 00:04:20:16:05:8f --<TAB>
+```
+
+You should see the 26 `--<param>` flags from
+[NVRAM parameters](../reference/nvram-parameters.mdx) plus
+`--config`, `--reboot`, and the inherited global flags.
+
+## Tip: arrow-key menus
+
+By default, completions render as a flat list. Each shell exposes
+an opt-in menu that lets you arrow-key between candidates and hit
+Enter to select:
+
+- **fish** — menu is the default. Tab brings up an inline list,
+  arrow keys navigate, Enter selects.
+- **zsh** — add one line to `~/.zshrc`:
+
+  ```bash
+  zstyle ':completion:*' menu select
+  ```
+
+  This makes *all* zsh completions arrow-navigable, not just
+  go-udap's.
+- **bash** — bash's standard completion shows a list and re-cycles
+  with repeated Tab; there's no native arrow-key menu. If you want
+  fish-style menus on bash, a third-party tool like
+  [fzf-tab-completion](https://github.com/lincheney/fzf-tab-completion)
+  can provide it (outside the scope of this guide).
+
+## MAC completion: progressive timeout
+
+When you tab on a `<mac>` argument, `go-udap` runs UDAP discovery
+with a 500 ms budget — fast enough that the prompt doesn't feel
+stuck. If the first tab returns no devices (slow network, sleepy
+device), tab again within ~10 seconds and the second attempt uses
+the default timeout (`2s`), giving devices more time to respond.
+
+The state lives in `$TMPDIR/go-udap-complete-<PPID>` so the
+progressive behaviour is per-shell-session — opening a new terminal
+resets the cold tier.
