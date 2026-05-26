@@ -17,8 +17,9 @@ func TestE2EInterfacesSubcommandSmoke(t *testing.T) {
 		t.Skipf("EnumerateInterfaces error: %v", err)
 	}
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	rerr := Run([]string{"interfaces"}, &outBuf, &errBuf)
+	rerr := Execute([]string{"interfaces"}, &outBuf, &errBuf)
 	if ExitCode(rerr) != 0 {
 		t.Errorf("exit code %d, want 0", ExitCode(rerr))
 	}

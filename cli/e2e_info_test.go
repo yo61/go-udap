@@ -54,10 +54,11 @@ func TestE2EInfoPrintsHardwareRevAndUUID(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err = Run([]string{"info", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err = Execute([]string{"info", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	for _, want := range []string{"HW Rev:", "0005", "UUID:", "deadbeefcafebabe1122334455667788"} {
 		if !strings.Contains(outBuf.String(), want) {

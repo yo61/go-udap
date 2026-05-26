@@ -30,10 +30,11 @@ func TestE2EDiscoverInfoIncludesNetworkConfig(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	for _, want := range []string{"192.168.1.50", "255.255.255.0", "192.168.1.1", "Subnet:", "Gateway:"} {
 		if !strings.Contains(outBuf.String(), want) {
@@ -67,8 +68,9 @@ func TestE2EDiscoverInfoPartialFailureRendersDashes(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if ExitCode(err) != 0 {
 		t.Errorf("exit code %d, want 0 (partial failures are soft)", ExitCode(err))
 	}
@@ -106,8 +108,9 @@ func TestE2EDiscoverInfoVerboseShowsGetIPWarning(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"-v", "discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"-v", "discover", "--info", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if ExitCode(err) != 0 {
 		t.Errorf("exit code %d, want 0", ExitCode(err))
 	}

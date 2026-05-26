@@ -40,14 +40,15 @@ func startMockEnv(t *testing.T, n int) *e2eEnv {
 	return &e2eEnv{network: network}
 }
 
-// runCLI invokes Run with the given argv. Stdout, stderr, and the exit
-// code are returned. Errors that Run propagates are appended to stderr
+// runCLI invokes Execute with the given argv. Stdout, stderr, and the exit
+// code are returned. Errors that Execute propagates are appended to stderr
 // in the same "error: <msg>" form main.go prints, so tests see what
 // the real binary would have shown the user.
 func (e *e2eEnv) runCLI(t *testing.T, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run(args, &outBuf, &errBuf)
+	err := Execute(args, &outBuf, &errBuf)
 	if err != nil {
 		fmt.Fprintln(&errBuf, "error:", err)
 	}

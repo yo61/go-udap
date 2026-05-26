@@ -30,10 +30,11 @@ func TestE2ERetriesFlagSendsNPlus1Times(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"--retries", "2", "discover", "--timeout", "300ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"--retries", "2", "discover", "--timeout", "300ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	if got := sendCount.Load(); got != 3 {
 		t.Errorf("got %d Send calls into transport, want 3 (--retries 2 = 1 initial + 2 retries)", got)

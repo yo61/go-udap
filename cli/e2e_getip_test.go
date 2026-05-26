@@ -30,10 +30,11 @@ func TestE2EGetIPHappyPath(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"getip", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"getip", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if err != nil {
-		t.Fatalf("Run returned %v; stderr=%s", err, errBuf.String())
+		t.Fatalf("Execute returned %v; stderr=%s", err, errBuf.String())
 	}
 	for _, want := range []string{"192.168.1.50", "255.255.255.0", "192.168.1.1"} {
 		if !strings.Contains(outBuf.String(), want) {
@@ -54,8 +55,9 @@ func TestE2EGetIPMissingMACIsExitCodeTwo(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"getip", "aa:bb:cc:dd:ee:ff", "--timeout", "200ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"getip", "aa:bb:cc:dd:ee:ff", "--timeout", "200ms"}, &outBuf, &errBuf)
 	if ExitCode(err) != 2 {
 		t.Errorf("exit code %d, want 2 (device not found)", ExitCode(err))
 	}
@@ -79,8 +81,9 @@ func TestE2EGetIPTimeoutWhenDeviceDropsRequest(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"getip", "00:04:20:00:00:01", "--timeout", "200ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"getip", "00:04:20:00:00:01", "--timeout", "200ms"}, &outBuf, &errBuf)
 	if ExitCode(err) != 2 {
 		t.Errorf("exit code %d, want 2 (timeout)", ExitCode(err))
 	}
@@ -104,8 +107,9 @@ func TestE2EGetIPMethodErrorPropagatesMessage(t *testing.T) {
 	}
 	t.Cleanup(func() { newClient = prev })
 
+	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
-	err := Run([]string{"getip", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
+	err := Execute([]string{"getip", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
 	if ExitCode(err) != 2 {
 		t.Errorf("exit code %d, want 2", ExitCode(err))
 	}

@@ -2,22 +2,27 @@ package cli
 
 import (
 	"fmt"
-	"io"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 
 	"go-udap/udap"
 )
 
-func runInterfaces(args []string, stdout, stderr io.Writer) error {
-	fs := pflag.NewFlagSet("interfaces", pflag.ContinueOnError)
-	fs.SetOutput(stderr)
-	if err := parseSubcommandFlags(fs, args); err != nil {
-		return err
-	}
-	if fs.NArg() != 0 {
-		return &ExitError{Code: 1, Err: fmt.Errorf("interfaces: takes no arguments")}
-	}
+var interfacesCmd = &cobra.Command{
+	Use:   "interfaces",
+	Short: "List network interfaces usable for discovery",
+	Args:  cobra.NoArgs,
+	RunE:  runInterfaces,
+}
+
+func init() {
+	rootCmd.AddCommand(interfacesCmd)
+}
+
+func runInterfaces(cmd *cobra.Command, _ []string) error {
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
+
 	ifs, err := udap.EnumerateInterfaces()
 	if err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("enumerate interfaces: %w", err)}
