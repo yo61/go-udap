@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0](https://github.com/yo61/go-udap/compare/v2.1.0...v2.2.0) (2026-05-26)
+
+
+### Features
+
+* shell completions (bash/zsh/fish) via Homebrew Cask ([#85](https://github.com/yo61/go-udap/issues/85)) ([70b3a2c](https://github.com/yo61/go-udap/commit/70b3a2cfaac8d0e98e15586740b5b992b8b91c96))
+
+
+### Bug Fixes
+
+* **cli:** drop trailer hint from interface-default notice ([#86](https://github.com/yo61/go-udap/issues/86)) ([fdd563e](https://github.com/yo61/go-udap/commit/fdd563ef8d545e2f1197864e42b3d85e94b72586))
+
+
+### Documentation
+
+* clean up landing, tutorial, DHCP how-to, double titles, broken links ([#80](https://github.com/yo61/go-udap/issues/80)) ([80db218](https://github.com/yo61/go-udap/commit/80db218021a3a6011d822eda50b3d45b31299b9d))
+* **plan:** shell completions implementation plan (PR 2) ([#84](https://github.com/yo61/go-udap/issues/84)) ([a892225](https://github.com/yo61/go-udap/commit/a892225842f97e7f2c7ba136eb58e02dec977168))
+* shell completions design + cobra refactor plan ([#82](https://github.com/yo61/go-udap/issues/82)) ([16d6f5d](https://github.com/yo61/go-udap/commit/16d6f5d3f00ede4490d1c2991574027f7254250a))
+
+
+### Code Refactoring
+
+* **cli:** replace hand-rolled dispatch with spf13/cobra ([#83](https://github.com/yo61/go-udap/issues/83)) ([0472fc8](https://github.com/yo61/go-udap/commit/0472fc8d3d4c66ecef5f946b90f41f646a20d1f3))
+
 ## [2.1.0](https://github.com/yo61/go-udap/compare/v2.0.1...v2.1.0) (2026-05-25)
 
 
