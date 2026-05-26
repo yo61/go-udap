@@ -41,3 +41,29 @@ jobs:
       - uses: j178/prek-action@v2
         with:
           prek-version: 0.3.13
+
+  # Syntax-check the generated bash/zsh/fish completion scripts so a
+  # malformed script can't ride out in a release.
+  completion-smoke:
+    name: completion-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install zsh and fish
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zsh fish
+      - name: Generate completion scripts
+        run: |
+          mkdir -p ./completions
+          go run . __dump-completions ./completions
+          ls -la ./completions
+      - name: Bash syntax check
+        run: bash -n ./completions/go-udap.bash
+      - name: Zsh syntax check
+        run: zsh -n ./completions/_go-udap
+      - name: Fish syntax check
+        run: fish -c 'source ./completions/go-udap.fish'
