@@ -243,7 +243,7 @@ both up.
 **`go-udap`:**
 
 - Sends once. No automatic retransmit.
-- Context-based timeout, default 5 seconds (`--timeout` configurable).
+- Context-based timeout, default 2 seconds (`--timeout` configurable).
 - Reset treats `context.DeadlineExceeded` as success (config.go:188-190).
 
 The divergence is intentional: `go-udap`'s use case is wired/reliable
