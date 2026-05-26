@@ -19,7 +19,7 @@ When you run `go-udap discover`, three things happen:
    status, UUID).
 
 3. **Listener loops.** go-udap reads from the same socket until the
-   timeout expires (default 5s), collecting reply packets and parsing
+   timeout expires (default 2s), collecting reply packets and parsing
    them into the device list.
 
 ## Why limited broadcast (`255.255.255.255`)?
