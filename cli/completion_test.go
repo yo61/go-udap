@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"go-udap/udap"
 )
 
 func TestCompletionStatePath_ScopedByPPID(t *testing.T) {
@@ -151,9 +154,19 @@ func TestCompleteParameterNames_FiltersAlreadyListed(t *testing.T) {
 }
 
 func TestCompleteParameterNames_EmptyArgsDelegatesToMACs(t *testing.T) {
+	// Substitute newClientForCompletion so this test doesn't bind a
+	// real UDP socket on 0.0.0.0:17784. Without this, go test ./...
+	// runs the cli and udap package test binaries in parallel and on
+	// Windows (no SO_REUSEPORT semantics) both bind attempts fail.
+	prev := newClientForCompletion
+	newClientForCompletion = func(_ *cobra.Command) (*udap.Client, error) {
+		return nil, errors.New("stub: no client in test")
+	}
+	t.Cleanup(func() { newClientForCompletion = prev })
+
 	cmd := &cobra.Command{Use: "get"}
 	_, directive := completeParameterNames(cmd, nil, "")
-	if directive != cobra.ShellCompDirectiveNoFileComp && directive != cobra.ShellCompDirectiveError {
-		t.Errorf("directive = %v, want NoFileComp or Error", directive)
+	if directive != cobra.ShellCompDirectiveError {
+		t.Errorf("directive = %v, want Error (stub forces error path)", directive)
 	}
 }
