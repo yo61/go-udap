@@ -160,3 +160,17 @@ tasks:
     cmds:
       - command -v go-mutesting >/dev/null || { echo "go-mutesting not in PATH; run 'go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest'"; exit 1; }
       - go-mutesting udap/getdata_response.go
+
+  security:
+    desc: 'Run govulncheck + grype locally (matches CI). govulncheck is
+      Go-native and reachability-aware; grype scans an in-process SBOM
+      for broader CVE coverage. Both are advisory locally — CI is
+      authoritative. grype is optional (install with `brew install grype`).'
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - |
+        if command -v grype >/dev/null 2>&1; then
+          grype dir:.
+        else
+          echo "grype not installed; skipping (brew install grype)" >&2
+        fi
