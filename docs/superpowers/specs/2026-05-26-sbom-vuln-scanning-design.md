@@ -129,7 +129,7 @@ Four components, each isolated and independently maintainable:
 |---|---|---|
 | Release SBOM | `.goreleaser.yaml` | Existing release pipeline |
 | Active scanning | `.github/workflows/security.yaml` (new) | New workflow |
-| Background patching | `.github/dependabot.yml` (new) | GitHub-scheduled |
+| Background patching | `.github/dependabot.yml` (modify; pre-existing pre-commit block stays) | GitHub-scheduled |
 | Local repro | `Taskfile.yml` + `CLAUDE.md` | Contributors |
 
 ### Component 1 — Release-attached SBOMs
@@ -262,11 +262,23 @@ issue-on-failure later via `peter-evans/create-issue-from-file` or similar.
 
 ### Component 3 — Dependabot
 
-New `.github/dependabot.yml`:
+Modify the existing `.github/dependabot.yml` (which today only covers the
+`pre-commit` ecosystem) to add three more:
 
 ```yaml
 version: 2
 updates:
+  # Pre-existing block — unchanged
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      hooks:
+        patterns: ["*"]
+
   - package-ecosystem: gomod
     directory: /
     schedule:
@@ -286,17 +298,28 @@ updates:
     groups:
       actions-minor-patch:
         update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /docs/site
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      docs-site-minor-patch:
+        update-types: [minor, patch]
 ```
 
 Major-version bumps remain individual PRs (Dependabot's default when a major
 update isn't covered by a group). The 7-day cooldown matches the project's
-existing `prek auto-update --cooldown-days 7` configuration — same
-posture, different package manager.
+existing `prek auto-update --cooldown-days 7` configuration and the existing
+`pre-commit` block's own cooldown — same posture, different package
+managers.
 
-The `docs-site/` subdirectory has its own `package.json` and is already
-covered by separate tooling — confirmed during exploration that no
-additional `npm` ecosystem entry is needed here. (Verify in implementation
-plan: if `docs-site` deps need scanning, add a third ecosystem entry.)
+The `docs/site/` subdirectory has its own pnpm-managed `package.json` (the
+Astro docs site). The `npm` ecosystem covers it; Dependabot reads both
+`package-lock.json` and `pnpm-lock.yaml`. Major Astro/framework bumps will
+land as individual PRs that may need manual review.
 
 ### Component 4 — Local developer story
 
@@ -393,6 +416,3 @@ No data migrations, no state changes outside CI metadata.
 - **Confirm `checksum.extra_files` behaviour** — does GoReleaser v2's
   default `checksum:` block include SBOM artifacts? Verify via `--snapshot`
   before merging the GoReleaser change.
-- **`docs-site/` Dependabot coverage** — confirm whether the npm
-  `docs-site/package.json` needs its own Dependabot ecosystem entry, or
-  whether existing tooling handles it.
