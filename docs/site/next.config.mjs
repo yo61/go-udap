@@ -3,18 +3,25 @@ import { createMDX } from 'fumadocs-mdx/next';
 const withMDX = createMDX();
 
 const basePath = process.env.BASE_PATH ?? '/go-udap';
+const siteUrl = process.env.SITE_URL ?? 'https://yo61.github.io';
 
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
   output: 'export',
   basePath,
-  // Expose basePath to client bundles so the static search client can
-  // prefix its fetch URL (`<basePath>/api/search`). Without this the
-  // default `/api/search` 404s on the basePath-mounted site, the search
-  // dialog opens but never returns results, and Enter does nothing.
+  // Expose basePath + siteUrl to client AND server bundles. Used by:
+  //   - components/search.tsx: prefix the static-search fetch URL
+  //     (`<basePath>/api/search`) so it doesn't 404 on a basePath-
+  //     mounted site.
+  //   - lib/shared.ts: build basePath-prefixed URLs for the OG image
+  //     and llms.mdx routes so meta tags resolve correctly.
+  //   - app/layout.tsx: set metadataBase so relative URLs in
+  //     openGraph.images become absolute production URLs in the
+  //     emitted <meta property="og:image"> tag.
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_SITE_URL: siteUrl,
   },
   images: {
     unoptimized: true,
