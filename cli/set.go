@@ -5,55 +5,64 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 
 	"go-udap/udap"
 )
 
-func runSet(args []string, stdout, stderr io.Writer) error {
-	fs := pflag.NewFlagSet("set", pflag.ContinueOnError)
-	fs.SetOutput(stderr)
-	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
-	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
-	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
-	reboot := fs.BoolP("reboot", "r", false, "Reboot the device after applying changes")
-	configPath := fs.String("config", "", "Read parameters from `FILE` (use - for stdin)")
+var (
+	setReboot     bool
+	setConfigPath string
+	// setParamValues holds one stringWithPlaceholder per known UDAP
+	// parameter, keyed by canonical wire name. Populated in init() and
+	// read in runSet to decide which --<param> flags were given.
+	setParamValues = make(map[string]*stringWithPlaceholder)
+)
 
-	// Register a string flag for every known UDAP parameter, using
+var setCmd = &cobra.Command{
+	Use:   "set <mac>",
+	Short: "Set parameters from any combination of --config FILE, piped stdin, and per-param --flags",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runSet,
+}
+
+func init() {
+	setCmd.Flags().BoolVarP(&setReboot, "reboot", "r", false, "Reboot the device after applying changes")
+	setCmd.Flags().StringVar(&setConfigPath, "config", "", "Read parameters from `FILE` (use - for stdin)")
+
+	// Register one --<flag> for every known UDAP parameter, using
 	// stringWithPlaceholder so each flag's --help line shows a semantic
 	// placeholder (IP, NAME, 0|1, ...) instead of pflag's default "string".
-	pf := paramFlags()
-	paramValues := make(map[string]*stringWithPlaceholder, len(pf))
-	for _, p := range pf {
+	for _, p := range paramFlags() {
 		v := newStringWithPlaceholder(p.placeholder)
-		fs.Var(v, p.flagName, p.help)
-		paramValues[p.udapName] = v
+		setCmd.Flags().Var(v, p.flagName, p.help)
+		setParamValues[p.udapName] = v
 	}
 
-	if err := parseSubcommandFlags(fs, args); err != nil {
-		return err
-	}
-	if fs.NArg() != 1 {
-		return &ExitError{Code: 1, Err: fmt.Errorf("set: expected exactly one MAC argument")}
-	}
-	mac, err := normalizeMAC(fs.Arg(0))
+	rootCmd.AddCommand(setCmd)
+}
+
+func runSet(cmd *cobra.Command, args []string) error {
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
+	timeout := flagTimeout.Value()
+
+	mac, err := normalizeMAC(args[0])
 	if err != nil {
 		return &ExitError{Code: 1, Err: err}
 	}
 
 	// Collect per-param flag values that were actually set, and reject
-	// invalid ones up front (review finding #2). The INI/stdin path
-	// already runs through ParseINI which calls udap.ValidateParameter;
-	// before this gate, --<param> VALUE flags slipped past it and were
-	// silently zero-filled by CreateSetDataPacket on parse failure.
+	// invalid ones up front. The INI/stdin path validates via
+	// ParseINI -> udap.ValidateParameter; this matches that gate for
+	// flag input.
 	flagValues := make(map[string]string)
-	for _, p := range pf {
-		if !fs.Changed(p.flagName) {
+	for _, p := range paramFlags() {
+		if !cmd.Flags().Changed(p.flagName) {
 			continue
 		}
-		val := paramValues[p.udapName].String()
+		val := setParamValues[p.udapName].String()
 		if err := udap.ValidateParameter(p.udapName, val); err != nil {
 			return &ExitError{Code: 1, Err: fmt.Errorf("--%s: %w", p.flagName, err)}
 		}
@@ -64,17 +73,17 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	var fileContent io.Reader
 	var fileLabel string
 	switch {
-	case *configPath == "-":
+	case setConfigPath == "-":
 		fileContent = stdinReader
 		fileLabel = "-"
-	case *configPath != "":
-		f, err := os.Open(*configPath)
+	case setConfigPath != "":
+		f, err := os.Open(setConfigPath)
 		if err != nil {
 			return &ExitError{Code: 1, Err: fmt.Errorf("open config: %w", err)}
 		}
 		defer f.Close()
 		fileContent = f
-		fileLabel = *configPath
+		fileLabel = setConfigPath
 	}
 
 	// Detect piped stdin (only consulted when no --config was given).
@@ -95,26 +104,26 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 		return &ExitError{Code: 1, Err: err}
 	}
 
-	client, err := newClient(*verbose, stderr)
+	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
+	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
-	stop := startProgress(stderr, "set", timeout.Value())
+	stop := startProgress(stderr, "set", timeout)
 	defer stop()
 	device, err := discoverAndFind(ctx, client, mac)
 	if err != nil {
 		return err
 	}
 
-	// Pre-populate device.Parameters via an explicit read so we can
-	// inspect the device's current interface byte before the merge
-	// goes onto the wire. SetDeviceConfigWithContext's own RMW skips
-	// its prelude read when device.Parameters is already populated
-	// (config.go:121), so this is one read, not two.
+	// Pre-populate device.Parameters via an explicit read so
+	// applyInterfaceDefault can inspect the device's current interface
+	// byte. SetDeviceConfigWithContext's own RMW skips its prelude read
+	// when device.Parameters is already populated, so this is one read,
+	// not two.
 	if err := client.GetAllDeviceConfigWithContext(ctx, device); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("read current parameters: %w", err)}
 	}
@@ -123,14 +132,13 @@ func runSet(args []string, stdout, stderr io.Writer) error {
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
 		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
 	}
-	if *reboot {
+	if setReboot {
 		if err := client.ResetDeviceWithContext(ctx, device); err != nil {
 			return &ExitError{Code: 2, Err: fmt.Errorf("set --reboot failed during reset: %w", err)}
 		}
 	}
 	stop()
 
-	// Echo what we sent for confirmation, sorted.
 	if err := formatParamMap(stdout, merged); err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
@@ -145,8 +153,7 @@ var (
 	stdinIsPiped           = isStdinPiped
 )
 
-// isStdinPiped returns true when stdin is not a terminal (i.e. data is piped
-// or redirected from a file). False if stdin is interactive or unavailable.
+// isStdinPiped returns true when stdin is not a terminal.
 func isStdinPiped() bool {
 	st, err := os.Stdin.Stat()
 	if err != nil {

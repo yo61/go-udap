@@ -3,38 +3,40 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io"
-	"time"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 )
 
-func runGetIP(args []string, stdout, stderr io.Writer) error {
-	fs := pflag.NewFlagSet("getip", pflag.ContinueOnError)
-	fs.SetOutput(stderr)
-	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
-	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
-	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
-	if err := parseSubcommandFlags(fs, args); err != nil {
-		return err
-	}
-	if fs.NArg() != 1 {
-		return &ExitError{Code: 1, Err: fmt.Errorf("getip: expected exactly one MAC argument")}
-	}
-	mac, err := normalizeMAC(fs.Arg(0))
+var getipCmd = &cobra.Command{
+	Use:   "getip <mac>",
+	Short: "Query device IP / subnet / gateway via UCP get_ip",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runGetIP,
+}
+
+func init() {
+	rootCmd.AddCommand(getipCmd)
+}
+
+func runGetIP(cmd *cobra.Command, args []string) error {
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
+	timeout := flagTimeout.Value()
+
+	mac, err := normalizeMAC(args[0])
 	if err != nil {
 		return &ExitError{Code: 1, Err: err}
 	}
 
-	client, err := newClient(*verbose, stderr)
+	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
+	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
-	stop := startProgress(stderr, "getip", timeout.Value())
+	stop := startProgress(stderr, "getip", timeout)
 	device, err := discoverAndFind(ctx, client, mac)
 	if err != nil {
 		stop()

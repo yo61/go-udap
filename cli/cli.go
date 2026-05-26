@@ -1,15 +1,14 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"runtime"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 
 	"go-udap/udap"
 )
@@ -18,6 +17,11 @@ import (
 // Set at build time via -ldflags "-X go-udap/cli.Version=...".
 // Defaults to "dev" for un-stamped local builds (e.g. `go install`).
 var Version = "dev"
+
+// defaultTimeout is the default value for --timeout. Single source of
+// truth; consumed by every subcommand via flagTimeout.Value(). PR 2 of
+// the shell-completions feature drops this to 2*time.Second.
+const defaultTimeout = 5 * time.Second
 
 // ExitError carries a process exit code alongside a message.
 // Use it from subcommand handlers to control go-udap's exit status.
@@ -35,49 +39,6 @@ func (e *ExitError) Error() string {
 
 func (e *ExitError) Unwrap() error { return e.Err }
 
-// bindInterfaceSelection captures the global --bind-interface /
-// --all-interfaces flags. The chosen mode determines which Client
-// constructor newClient uses. Mutated only by Run before any subcommand
-// executes.
-//
-// The flag is named --bind-interface (not --interface) so it doesn't
-// collide with the per-param --interface 0|1 flag used by `set` to
-// configure the device's wireless/wired NVRAM byte. Two unrelated
-// concepts share the word "interface"; the local-NIC binding flag gets
-// the more specific name.
-type bindInterfaceSelection struct {
-	name string // empty unless --bind-interface was set
-	all  bool   // true if --all-interfaces was set
-}
-
-var currentBindInterface bindInterfaceSelection
-
-// currentRetries holds the --retries N flag value. Defaults to 0 (no retries,
-// just one send). Used by newClient in discover.go to configure the UDP client.
-var currentRetries int
-
-// parseSubcommandFlags wraps fs.Parse and translates pflag.ErrHelp (the
-// signal pflag returns when --help is requested, after it has already
-// printed usage to stderr) into a nil-error, exit-0 ExitError sentinel.
-// Other parse errors become exit-1 ExitErrors with the parse message.
-//
-// Subcommands call this and return its result directly; main.go's "error:"
-// prefix is suppressed by the nil Err inside the sentinel ExitError.
-func parseSubcommandFlags(fs *pflag.FlagSet, args []string) error {
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, pflag.ErrHelp) {
-			return errHelpRequested
-		}
-		return &ExitError{Code: 1, Err: err}
-	}
-	return nil
-}
-
-// errHelpRequested is the sentinel returned by parseSubcommandFlags when
-// --help was passed. Subcommands propagate it; cli.Run swaps it for nil
-// so main.go reports exit 0 with no "error:" line.
-var errHelpRequested = errors.New("help requested")
-
 // ExitCode maps an error to a process exit code:
 //   - nil           → 0
 //   - *ExitError    → ee.Code
@@ -93,296 +54,118 @@ func ExitCode(err error) int {
 	return 2
 }
 
-// globalFlags holds values that apply to every subcommand.
-type globalFlags struct {
-	timeout time.Duration
-	verbose bool
+// bindInterfaceSelection captures the global --bind-interface /
+// --all-interfaces flags. Populated by rootCmd.PersistentPreRunE before
+// any subcommand RunE executes.
+type bindInterfaceSelection struct {
+	name string // empty unless --bind-interface was set
+	all  bool   // true if --all-interfaces was set
 }
 
-// Run parses the given arguments and dispatches to the appropriate subcommand.
-// stdout receives all command output; stderr receives logs and warnings.
-//
-// Global flags (--verbose / -v, --timeout) may appear EITHER before the
-// subcommand or after — `go-udap -v read <mac>` and `go-udap read -v
-// <mac>` are equivalent. moveGlobalFlagsAfterSubcommand shuffles them
-// past the subcommand name before dispatch so each subcommand's pflag
-// FlagSet sees them in its expected position.
-func Run(args []string, stdout, stderr io.Writer) error {
-	args = moveGlobalFlagsAfterSubcommand(args)
+var currentBindInterface bindInterfaceSelection
 
-	// Extract --bind-interface / --all-interfaces from the moved-into-place
-	// argv. moveGlobalFlagsAfterSubcommand has already validated the
-	// shape (i.e. global flags are now positioned after args[0]).
-	sel, remaining, ierr := extractBindInterfaceFlags(args)
-	if ierr != nil {
-		return ierr
-	}
-	if sel.name != "" && sel.all {
-		return &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface and --all-interfaces are mutually exclusive")}
-	}
-	if sel.name != "" {
-		ifs, err := udap.EnumerateInterfaces()
-		if err != nil {
-			return &ExitError{Code: 2, Err: fmt.Errorf("enumerate interfaces: %w", err)}
-		}
-		found := false
-		for _, iface := range ifs {
-			if iface.Name == sel.name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)", sel.name)}
-		}
-	}
-	prevSel := currentBindInterface
-	currentBindInterface = sel
-	defer func() { currentBindInterface = prevSel }()
-	args = remaining
+// currentRetries holds the --retries N flag value. Populated by
+// PersistentPreRunE.
+var currentRetries int
 
-	{
-		retries, remaining, rerr := extractRetriesFlag(args)
-		if rerr != nil {
-			return rerr
-		}
-		prevRetries := currentRetries
-		currentRetries = retries
-		defer func() { currentRetries = prevRetries }()
-		args = remaining
-	}
-
-	if len(args) == 0 {
-		printUsage(stdout)
-		return nil
-	}
-
-	switch args[0] {
-	case "-h", "--help", "help":
-		printUsage(stdout)
-		return nil
-	case "--version":
-		fmt.Fprintf(stdout, "go-udap %s\n", Version)
-		return nil
-	}
-
-	// Wrap stderr in a writer that serializes the progress bar with the
-	// structured logger so they don't smash into each other on the same
-	// terminal row. Subcommands and newClient both pull stderr from
-	// here, so all writes go through the same mutex.
-	syncErr := newStderrSync(stderr)
-
-	cmd := args[0]
-	subArgs := args[1:]
-
-	err := dispatch(cmd, subArgs, stdout, syncErr)
-	if errors.Is(err, errHelpRequested) {
-		return nil
-	}
-	return err
-}
-
-func dispatch(cmd string, subArgs []string, stdout, syncErr io.Writer) error {
-	switch cmd {
-	case "discover":
-		return runDiscover(subArgs, stdout, syncErr)
-	case "info":
-		return runInfo(subArgs, stdout, syncErr)
-	case "read":
-		return runRead(subArgs, stdout, syncErr)
-	case "get":
-		return runGet(subArgs, stdout, syncErr)
-	case "set":
-		return runSet(subArgs, stdout, syncErr)
-	case "reboot":
-		return runReboot(subArgs, stdout, syncErr)
-	case "getip":
-		return runGetIP(subArgs, stdout, syncErr)
-	case "interfaces":
-		return runInterfaces(subArgs, stdout, syncErr)
-	default:
-		return &ExitError{Code: 1, Err: fmt.Errorf("unknown command: %s", cmd)}
-	}
-}
-
-// globalFlagsBoolean and globalFlagsValue list the flag forms recognized
-// at the top level (i.e. before the subcommand). booleans take no value;
-// value flags take the next arg, or accept the --foo=bar form.
+// Package-level flag-value holders. Cobra reads into these; subcommand
+// RunE bodies read out of them. Module-level state is intentional —
+// the CLI process is single-shot and these vars are reset to defaults
+// when the binary re-runs.
 var (
-	globalFlagsBoolean = map[string]bool{
-		"-v":               true,
-		"--verbose":        true,
-		"--all-interfaces": true,
-	}
-	globalFlagsValue = map[string]bool{
-		"--timeout":        true,
-		"--bind-interface": true,
-		"--retries":        true,
-	}
+	flagTimeout       = newDurationWithPlaceholder("DURATION", defaultTimeout)
+	flagVerbose       bool
+	flagRetries       int
+	flagBindInterface string
+	flagAllInterfaces bool
 )
 
-// moveGlobalFlagsAfterSubcommand reorders args so leading global flags
-// land after the subcommand. This lets `go-udap -v read <mac>` work in
-// addition to `go-udap read -v <mac>`. Unknown flags or anything that
-// doesn't look like a flag stop the scan — that token is treated as
-// the subcommand.
-//
-// `--` is honored as the POSIX flag terminator: if it appears before
-// any non-flag token, args are returned unchanged so the rest of the
-// argv is treated as positional by the subcommand. (Without this guard
-// the prior implementation would hoist the leading flag past `--` and
-// then make `--` itself look like the subcommand name, producing
-// "unknown command: --".)
-func moveGlobalFlagsAfterSubcommand(args []string) []string {
-	var leading []string
-	i := 0
-scan:
-	for ; i < len(args); i++ {
-		a := args[i]
-		if a == "--" {
-			// POSIX terminator before subcommand — bail out and let
-			// the subcommand parser see the original argv.
-			return args
-		}
-		// --foo=bar form
-		if strings.HasPrefix(a, "--") {
-			if eq := strings.IndexByte(a, '='); eq > 0 {
-				name := a[:eq]
-				if globalFlagsBoolean[name] || globalFlagsValue[name] {
-					leading = append(leading, a)
-					continue
+// rootCmd is the entry point for the CLI. Subcommands are attached in
+// init() functions in their respective files.
+var rootCmd = &cobra.Command{
+	Use:   "go-udap",
+	Short: "Squeezebox UDAP configuration tool",
+	Long:  "go-udap configures Squeezebox devices over UDAP (UDP port 17784).",
+	// SilenceUsage prevents Cobra printing the full usage block on every
+	// RunE error — the CLI prints only "error: <msg>" via main.go.
+	SilenceUsage: true,
+	// SilenceErrors prevents Cobra printing the error itself; main.go
+	// handles that with the "error:" prefix.
+	SilenceErrors: true,
+	// PersistentPreRunE runs before every subcommand RunE. It populates
+	// currentBindInterface and currentRetries from the parsed flags and
+	// validates the --bind-interface / --all-interfaces combination.
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		currentRetries = flagRetries
+		sel := bindInterfaceSelection{name: flagBindInterface, all: flagAllInterfaces}
+		if sel.name != "" {
+			ifs, err := udap.EnumerateInterfaces()
+			if err != nil {
+				return &ExitError{Code: 2, Err: fmt.Errorf("enumerate interfaces: %w", err)}
+			}
+			found := false
+			for _, iface := range ifs {
+				if iface.Name == sel.name {
+					found = true
+					break
 				}
-				break scan
+			}
+			if !found {
+				return &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)", sel.name)}
 			}
 		}
-		if globalFlagsBoolean[a] {
-			leading = append(leading, a)
-			continue
-		}
-		if globalFlagsValue[a] {
-			if i+1 >= len(args) {
-				// Missing value — leave for subcommand parser to error on.
-				break scan
-			}
-			leading = append(leading, a, args[i+1])
-			i++
-			continue
-		}
-		// Either a non-flag (subcommand) or an unknown flag — stop.
-		break scan
-	}
-	if len(leading) == 0 || i >= len(args) {
-		return args
-	}
-	rest := args[i:]
-	out := make([]string, 0, len(args))
-	out = append(out, rest[0])     // subcommand
-	out = append(out, leading...)  // hoisted global flags
-	out = append(out, rest[1:]...) // subcommand args
-	return out
+		currentBindInterface = sel
+		return nil
+	},
 }
 
-// extractRetriesFlag scans args for --retries N (in either --foo=bar or
-// --foo bar form), removes it, and returns the parsed value plus the
-// leftover argv. Value must be a non-negative integer; otherwise an
-// ExitError Code 1 is returned.
-func extractRetriesFlag(args []string) (int, []string, error) {
-	retries := 0
-	out := make([]string, 0, len(args))
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case strings.HasPrefix(a, "--retries="):
-			v := strings.TrimPrefix(a, "--retries=")
-			n, err := strconv.Atoi(v)
-			if err != nil || n < 0 {
-				return 0, nil, &ExitError{Code: 1, Err: fmt.Errorf("--retries: invalid value %q (must be a non-negative integer)", v)}
-			}
-			retries = n
-		case a == "--retries":
-			if i+1 >= len(args) {
-				return 0, nil, &ExitError{Code: 1, Err: fmt.Errorf("--retries requires a value")}
-			}
-			v := args[i+1]
-			n, err := strconv.Atoi(v)
-			if err != nil || n < 0 {
-				return 0, nil, &ExitError{Code: 1, Err: fmt.Errorf("--retries: invalid value %q (must be a non-negative integer)", v)}
-			}
-			retries = n
-			i++
-		default:
-			out = append(out, a)
-		}
-	}
-	return retries, out, nil
-}
-
-func printUsage(w io.Writer) {
-	fmt.Fprintln(w, `go-udap — Squeezebox UDAP configuration tool
-
-Usage:
-  go-udap [global flags] <command> [args] [flags]
-
-Commands:
-  discover [--info]              Discover devices on the network
-  info <mac>                     Show metadata for one device
-  read <mac>                     Read all parameters from a device
-  get <mac> <param> [<param>...] Read specific parameters
-  set <mac> [--reboot] [--config FILE] [--<param> VALUE ...]
-                                 Set parameters from any combination of
-                                 --config FILE (or --config - for stdin),
-                                 piped stdin, and per-param --flags.
-                                 Pass --reboot/-r to also reboot the device
-                                 after writing (the wire op writes NVRAM
-                                 immediately, but some changes only take
-                                 effect after reboot).
-  reboot <mac>                   Reboot the device
-  getip <mac>                    Query device IP / subnet / gateway via UCP get_ip
-  interfaces                     List network interfaces usable for discovery
-
-Global flags:
-  --timeout DURATION      Operation timeout (default 5s)`)
+func init() {
+	f := rootCmd.PersistentFlags()
+	f.Var(flagTimeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
+	f.BoolVarP(&flagVerbose, "verbose", "v", false, "Debug logging to stderr")
+	f.IntVar(&flagRetries, "retries", 0, "Re-transmit each UDAP send N additional times (default 0; useful on lossy links)")
 	// --bind-interface and --all-interfaces depend on platform-specific
 	// socket options (IP_BOUND_IF on macOS, SO_BINDTODEVICE on Linux).
 	// Windows has no documented equivalent for broadcast traffic, so
 	// hiding the flags here avoids exposing options that would always error.
 	if runtime.GOOS != "windows" {
-		fmt.Fprintln(w, `  --bind-interface NAME   Bind discovery to one network interface
-  --all-interfaces        Broadcast on every usable interface (fan-out)`)
+		f.StringVar(&flagBindInterface, "bind-interface", "", "Bind discovery to one network interface")
+		f.BoolVar(&flagAllInterfaces, "all-interfaces", false, "Broadcast on every usable interface (fan-out)")
+		rootCmd.MarkFlagsMutuallyExclusive("bind-interface", "all-interfaces")
 	}
-	fmt.Fprintln(w, `  --retries N             Re-transmit each UDAP send N additional times (default 0; useful on lossy links)
-  --verbose, -v           Debug logging to stderr
-  --version               Print version and exit
-  --help, -h              Print this help`)
+	rootCmd.Version = Version
+	// Cobra default --version output is "go-udap version X.Y.Z";
+	// override to match the existing "go-udap X.Y.Z" format.
+	rootCmd.SetVersionTemplate("go-udap {{.Version}}\n")
 }
 
-// extractBindInterfaceFlags scans args for --bind-interface NAME and
-// --all-interfaces (in either --foo=bar or --foo bar form), removes
-// them, and returns the leftover argv plus the parsed selection.
-//
-// The singular flag is --bind-interface (not --interface) to keep clear
-// of the per-param --interface 0|1 flag exposed by `set` from the NVRAM
-// "interface" parameter (offset 52: 0=wireless, 1=wired). Both names
-// once collided and the global parser would swallow the per-param form.
-func extractBindInterfaceFlags(args []string) (bindInterfaceSelection, []string, error) {
-	var sel bindInterfaceSelection
-	out := make([]string, 0, len(args))
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--all-interfaces":
-			sel.all = true
-		case strings.HasPrefix(a, "--bind-interface="):
-			sel.name = strings.TrimPrefix(a, "--bind-interface=")
-		case a == "--bind-interface":
-			if i+1 >= len(args) {
-				return sel, nil, &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface requires a value")}
-			}
-			sel.name = args[i+1]
-			i++
-		default:
-			out = append(out, a)
-		}
+// Execute parses args and runs the appropriate subcommand. stdout and
+// stderr are the writers the command tree should produce output through;
+// stderr is wrapped in a stderrSync writer so the progress bar and the
+// structured logger don't smash together on the same terminal row.
+func Execute(args []string, stdout, stderr io.Writer) error {
+	syncErr := newStderrSync(stderr)
+	rootCmd.SetOut(stdout)
+	rootCmd.SetErr(syncErr)
+	rootCmd.SetArgs(args)
+	return rootCmd.ExecuteContext(context.Background())
+}
+
+// resetFlagsForTesting restores all package-level flag holders to their
+// defaults. Tests that call Execute multiple times must invoke this in
+// t.Cleanup to avoid bleed-through between runs.
+func resetFlagsForTesting() {
+	flagTimeout = newDurationWithPlaceholder("DURATION", defaultTimeout)
+	flagVerbose = false
+	flagRetries = 0
+	flagBindInterface = ""
+	flagAllInterfaces = false
+	currentBindInterface = bindInterfaceSelection{}
+	currentRetries = 0
+	// Re-register the PersistentFlag for --timeout since the holder is
+	// a fresh instance. (Other flag vars are scalars — pflag already
+	// holds a pointer, so they don't need re-registration.)
+	if f := rootCmd.PersistentFlags().Lookup("timeout"); f != nil {
+		f.Value = flagTimeout
 	}
-	return sel, out, nil
 }

@@ -3,46 +3,48 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io"
-	"time"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 
 	"go-udap/udap"
 )
 
-func runGet(args []string, stdout, stderr io.Writer) error {
-	fs := pflag.NewFlagSet("get", pflag.ContinueOnError)
-	fs.SetOutput(stderr)
-	timeout := newDurationWithPlaceholder("DURATION", 5*time.Second)
-	fs.Var(timeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
-	verbose := fs.BoolP("verbose", "v", false, "Debug logging to stderr")
-	if err := parseSubcommandFlags(fs, args); err != nil {
-		return err
-	}
-	if fs.NArg() < 2 {
-		return &ExitError{Code: 1, Err: fmt.Errorf("get: expected MAC and at least one parameter name")}
-	}
-	mac, err := normalizeMAC(fs.Arg(0))
+var getCmd = &cobra.Command{
+	Use:   "get <mac> <param> [<param>...]",
+	Short: "Read specific parameters",
+	Args:  cobra.MinimumNArgs(2),
+	RunE:  runGet,
+}
+
+func init() {
+	rootCmd.AddCommand(getCmd)
+}
+
+func runGet(cmd *cobra.Command, args []string) error {
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
+	timeout := flagTimeout.Value()
+
+	mac, err := normalizeMAC(args[0])
 	if err != nil {
 		return &ExitError{Code: 1, Err: err}
 	}
-	params := fs.Args()[1:]
+	params := args[1:]
 	for _, p := range params {
 		if _, ok := udap.ParameterByName(p); !ok {
 			return &ExitError{Code: 1, Err: fmt.Errorf("get: unknown parameter %q", p)}
 		}
 	}
 
-	client, err := newClient(*verbose, stderr)
+	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout.Value())
+	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
-	stop := startProgress(stderr, "get", timeout.Value())
+	stop := startProgress(stderr, "get", timeout)
 	defer stop()
 	device, err := discoverAndFind(ctx, client, mac)
 	if err != nil {
