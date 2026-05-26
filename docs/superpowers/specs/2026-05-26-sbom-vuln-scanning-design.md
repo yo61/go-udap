@@ -41,8 +41,10 @@ haven't been disclosed yet).
 
 ## Non-goals
 
-- **Cosign signing / SLSA provenance** — distinct concern. Separate spec if
-  desired.
+- **Cosign signing / SLSA provenance** — distinct concern, tracked separately
+  in [#93](https://github.com/yo61/go-udap/issues/93). See "Deferred:
+  artifact signing and build provenance" below for the threat-model split
+  and rationale.
 - **Trivy** — overlaps Grype's coverage for a pure-Go CLI with three deps; not
   worth the second tool's runtime.
 - **Committed SBOM file in repo** — generates churn on every dep bump for no
@@ -52,6 +54,47 @@ haven't been disclosed yet).
   findings prove easy to miss.
 - **Blocking on LOW/MEDIUM severity** — produces noise without proportionate
   signal on a 3-dep project. HIGH/CRITICAL only.
+
+### Deferred: artifact signing and build provenance
+
+The SBOM tells consumers **what is in** the binary. It does not tell them
+whether the file they downloaded is the one this project actually built, or
+whether it was built from the source it claims. Those are two further
+questions answered by separate mechanisms:
+
+| Question | Mechanism | Tool |
+|---|---|---|
+| What is in this artifact? | SBOM | syft (in scope) |
+| Was this artifact produced by the project, untampered in transit? | Artifact signature | **Cosign** (deferred) |
+| Was this artifact built from the source it claims, on a trusted builder? | Build attestation | **SLSA provenance** (deferred) |
+
+**Why deferred from this spec:**
+
+- Each has its own threat model, its own consumer-side verification story
+  (commands, tooling, docs), and its own UX cost. Bundling them with SBOM/
+  scanning would inflate scope without sharpening any of the three.
+- Cosign + SLSA both depend on OIDC plumbing in the GoReleaser workflow
+  (`id-token: write`, `attestations: write` permissions, transparency-log
+  uploads). The SBOM/scanning work does not. Keeping them separate keeps
+  the GoReleaser change in this spec to a single self-contained `sboms:`
+  block.
+- Consumer verification needs documentation in `docs-site/` (a how-to per
+  the Diataxis split already used there). That writing effort is non-trivial
+  and lands more cleanly when paired with the signing work itself.
+
+**Suggested order for the follow-up (per #93):**
+
+1. **Cosign first** — simpler scope, satisfies the most common threat model
+   (\"is this binary really from the project?\"). GoReleaser has a native
+   `signs:` block that handles it in ~one config addition.
+2. **SLSA provenance second** — reuses Cosign's OIDC + Sigstore plumbing;
+   adds `actions/attest-build-provenance` as one workflow step. Low
+   marginal cost once Cosign is in.
+
+Both should sign **every release artifact**, including the SBOMs produced
+by this spec — a signed SBOM is the actual goal; an unsigned SBOM is
+informative but unverifiable. The work in this spec produces the SBOMs in a
+state ready to be signed by the follow-up.
 
 ## References
 
