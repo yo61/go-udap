@@ -37,10 +37,8 @@ func applyInterfaceDefault(merged map[string]string, device *udap.Device, stderr
 	if merged["wireless_SSID"] != "" {
 		merged["interface"] = "0"
 		fmt.Fprintln(stderr, "go-udap: device interface is unset; inferred wireless from --wireless-ssid")
-		fmt.Fprintln(stderr, "  — pass --interface 1 to override")
 		return
 	}
 	merged["interface"] = "1"
 	fmt.Fprintln(stderr, "go-udap: device interface is unset; defaulting to wired")
-	fmt.Fprintln(stderr, "  — pass --interface 0 for wireless or --interface 1 to silence this notice")
 }
