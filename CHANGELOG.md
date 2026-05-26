@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.1](https://github.com/yo61/go-udap/compare/v2.2.0...v2.2.1) (2026-05-26)
+
+
+### Bug Fixes
+
+* **docs-site:** basePath in og:image meta tags ([#91](https://github.com/yo61/go-udap/issues/91)) ([1654703](https://github.com/yo61/go-udap/commit/165470395f94c6633aea51b021e359400da517fb))
+* **docs-site:** pass basePath to static search client fetch URL ([#90](https://github.com/yo61/go-udap/issues/90)) ([41fce13](https://github.com/yo61/go-udap/commit/41fce13d56fdf6b9e3d8aa8e96e2396d037af785))
+
+
+### Documentation
+
+* **site:** add Install shell completions how-to ([#89](https://github.com/yo61/go-udap/issues/89)) ([6e2de30](https://github.com/yo61/go-udap/commit/6e2de30dde81bebf797e4e5a5e694f79baf89b0f))
+* **site:** sync timeout default 5s -&gt; 2s ([#88](https://github.com/yo61/go-udap/issues/88)) ([3972460](https://github.com/yo61/go-udap/commit/39724600d7413fb0318f41b2d9ac3983cba64693))
+
 ## [2.2.0](https://github.com/yo61/go-udap/compare/v2.1.0...v2.2.0) (2026-05-26)
 
 
