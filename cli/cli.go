@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -124,16 +123,15 @@ func init() {
 	f := rootCmd.PersistentFlags()
 	f.Var(flagTimeout, "timeout", "Operation timeout, e.g. 5s, 30s, 2m")
 	f.BoolVarP(&flagVerbose, "verbose", "v", false, "Debug logging to stderr")
-	f.IntVar(&flagRetries, "retries", 0, "Re-transmit each UDAP send N additional times (default 0; useful on lossy links)")
-	// --bind-interface and --all-interfaces depend on platform-specific
-	// socket options (IP_BOUND_IF on macOS, SO_BINDTODEVICE on Linux).
-	// Windows has no documented equivalent for broadcast traffic, so
-	// hiding the flags here avoids exposing options that would always error.
-	if runtime.GOOS != "windows" {
-		f.StringVar(&flagBindInterface, "bind-interface", "", "Bind discovery to one network interface")
-		f.BoolVar(&flagAllInterfaces, "all-interfaces", false, "Broadcast on every usable interface (fan-out)")
-		rootCmd.MarkFlagsMutuallyExclusive("bind-interface", "all-interfaces")
-	}
+	f.Var(newIntWithPlaceholder("N", 0, &flagRetries), "retries", "Re-transmit each UDAP send N additional times (default 0; useful on lossy links)")
+	// --bind-interface and --all-interfaces are accepted on all platforms.
+	// Validation (against EnumerateInterfaces) runs in PersistentPreRunE on
+	// every platform — unknown names exit 1 everywhere. Platform-specific
+	// behaviour is in newClient: Windows socket-binding returns "not
+	// supported" when the flag is actually used.
+	f.StringVar(&flagBindInterface, "bind-interface", "", "Bind discovery to one network interface")
+	f.BoolVar(&flagAllInterfaces, "all-interfaces", false, "Broadcast on every usable interface (fan-out)")
+	rootCmd.MarkFlagsMutuallyExclusive("bind-interface", "all-interfaces")
 	rootCmd.Version = Version
 	// Cobra default --version output is "go-udap version X.Y.Z";
 	// override to match the existing "go-udap X.Y.Z" format.

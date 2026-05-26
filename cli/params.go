@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
 	"go-udap/udap"
@@ -89,3 +91,42 @@ func (d *durationWithPlaceholder) Type() string {
 // Value returns the parsed (or default) duration. Convenience accessor
 // since pflag.Value.String returns a string.
 func (d *durationWithPlaceholder) Value() time.Duration { return d.val }
+
+// intWithPlaceholder is the int analog of stringWithPlaceholder /
+// durationWithPlaceholder. Used so --retries shows "N" in the value-form
+// column instead of pflag's default "int".
+type intWithPlaceholder struct {
+	val         *int
+	placeholder string
+}
+
+func newIntWithPlaceholder(placeholder string, def int, target *int) *intWithPlaceholder {
+	*target = def
+	return &intWithPlaceholder{val: target, placeholder: placeholder}
+}
+
+func (i *intWithPlaceholder) String() string {
+	if i.val == nil {
+		return "0"
+	}
+	return strconv.Itoa(*i.val)
+}
+
+func (i *intWithPlaceholder) Set(v string) error {
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return err
+	}
+	if n < 0 {
+		return fmt.Errorf("must be a non-negative integer")
+	}
+	*i.val = n
+	return nil
+}
+
+func (i *intWithPlaceholder) Type() string {
+	if i.placeholder == "" {
+		return "int"
+	}
+	return i.placeholder
+}
