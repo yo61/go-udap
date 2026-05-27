@@ -7,8 +7,14 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:               "info <mac>",
-	Short:             "Show metadata for one device",
+	Use:   "info MAC",
+	Short: "Show metadata for one device",
+	Long: `Run a discovery cycle and print the metadata for one device by MAC
+address: MAC, IP, Name, Model, Firmware, HW Rev, UUID, and State.
+
+If the discovery response omits UUID (older firmware does), info falls
+back to a get_uuid query (UCP 0x000b) to fill that field. Failures of the
+fallback are soft; pass --verbose to see them on stderr.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runInfo,

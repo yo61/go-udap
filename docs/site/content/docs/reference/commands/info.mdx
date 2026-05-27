@@ -4,13 +4,13 @@ description: Show metadata for one device
 ---
 
 ```text
-go-udap info <mac> [--timeout DURATION]
+go-udap info MAC [--timeout DURATION]
 ```
 
 ## What it does
 
 Discovers devices on the network, then prints the full metadata block
-for the one whose MAC matches `<mac>`. Same metadata as
+for the one whose MAC matches `MAC`. Same metadata as
 `discover --info` but scoped to one device.
 
 Also fires `get_ip` to populate IP / Subnet / Gateway, and (if the

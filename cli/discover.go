@@ -16,8 +16,20 @@ var discoverInfo bool
 var discoverCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Discover devices on the network",
-	Args:  cobra.NoArgs,
-	RunE:  runDiscover,
+	Long: `Broadcast a UDAP advanced-discover packet on UDP port 17784 and
+print every Squeezebox device that responds within --timeout.
+
+By default only MAC addresses are printed, one per line. Pass --info to
+print full metadata per device (MAC, IP, Name, Model, Firmware, HW Rev,
+UUID, State, plus IP / subnet / gateway via a follow-up get_ip query).
+
+Sends always target the limited broadcast address 255.255.255.255 so
+unconfigured devices (which have no DHCP lease and so no notion of a
+subnet broadcast address) can hear them. On multi-homed hosts, use the
+global --bind-interface or --all-interfaces flags to control which NIC
+the broadcast leaves on.`,
+	Args: cobra.NoArgs,
+	RunE: runDiscover,
 }
 
 func init() {

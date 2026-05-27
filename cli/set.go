@@ -21,8 +21,22 @@ var (
 )
 
 var setCmd = &cobra.Command{
-	Use:               "set <mac>",
-	Short:             "Set parameters from any combination of --config FILE, piped stdin, and per-param --flags",
+	Use:   "set MAC",
+	Short: "Write parameters to a device",
+	Long: `Write one or more NVRAM parameters to a device. Three input sources
+are supported and can be combined: a config file (--config FILE), piped
+stdin (--config - or unspecified when stdin is piped), and per-param
+--PARAM flags (one for each known NVRAM parameter; see OPTIONS).
+
+When sources overlap, the later layer wins in this order: file < stdin
+< CLI flags. Every write is direct to NVRAM — there is no separate
+save_data step per the Net::UDAP reference.
+
+Pass --reboot (-r) to also reset the device after writing, which is
+needed for most network-related parameters to take effect.
+
+The available per-parameter flags are listed below; their accepted
+values are documented under each flag's description.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runSet,

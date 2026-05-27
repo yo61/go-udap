@@ -8,8 +8,15 @@ import (
 )
 
 var getipCmd = &cobra.Command{
-	Use:               "getip <mac>",
-	Short:             "Query device IP / subnet / gateway via UCP get_ip",
+	Use:   "getip MAC",
+	Short: "Query device IP / subnet / gateway via UCP get_ip",
+	Long: `Actively query the device's current network configuration via
+UCP_METHOD_GET_IP (0x0002). Prints IP / subnet / gateway, one per line.
+
+This is distinct from discover: discover passively observes the source
+address of an adv-discover response, while getip explicitly asks the
+device for its configured network parameters. Useful after a config
+change to confirm the device picked up the new settings.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runGetIP,

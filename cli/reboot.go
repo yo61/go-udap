@@ -8,8 +8,11 @@ import (
 )
 
 var rebootCmd = &cobra.Command{
-	Use:               "reboot <mac>",
-	Short:             "Reboot the device",
+	Use:   "reboot MAC",
+	Short: "Reboot the device",
+	Long: `Send a UDAP reset (UCP_METHOD_RESET) to the named device, causing it
+to reboot. Equivalent to "go-udap set <mac> --reboot" with no parameter
+changes.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runReboot,
