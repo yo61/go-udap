@@ -139,7 +139,7 @@ go run .
 
 ### Security scanning
 
-CI runs `govulncheck` and `grype` against every PR, every push to `main`, and on a daily cron (`.github/workflows/security.yaml`; landed in a separate PR). To reproduce locally:
+CI runs `govulncheck` and `grype` against every PR, every push to `main`, and on a daily cron (`.github/workflows/security.yaml`). To reproduce locally:
 
 ```bash
 task security

@@ -1,5 +1,7 @@
 # SBOM + vulnerability scanning Implementation Plan
 
+> **Status:** Implemented 2026-05-27. Tasks 1–4 merged in PRs #95, #96, #97, #98. First shipped in v2.3.0. Follow-up (Cosign + SLSA) tracked in #93.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add three-layer supply-chain hygiene to `go-udap` — release-attached SBOMs, active CI vulnerability scanning (govulncheck + Grype), and expanded Dependabot coverage.

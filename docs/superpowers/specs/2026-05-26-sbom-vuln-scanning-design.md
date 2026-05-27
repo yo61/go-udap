@@ -1,7 +1,7 @@
 # SBOM generation and vulnerability scanning for go-udap
 
 **Date:** 2026-05-26
-**Status:** Draft — awaiting implementation plan
+**Status:** Implemented 2026-05-27 (PRs #95, #96, #97, #98; first shipped in v2.3.0)
 
 ## Summary
 
