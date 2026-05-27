@@ -39,6 +39,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # GoReleaser's sboms: block (see .goreleaser.yaml) shells out to
+      # the syft binary on $PATH. goreleaser-action does NOT bundle
+      # syft, so we install it explicitly. download-syft drops the
+      # binary on $PATH without running anchore/sbom-action's own SBOM
+      # step (goreleaser owns the per-archive cataloging).
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+
       # GoReleaser reuses release-please's existing draft (see
       # .goreleaser.yaml: use_existing_draft) and publishes it in a
       # single EditRelease call by setting draft=false. No separate
