@@ -118,6 +118,7 @@ task lint               # Run go vet
 task tidy               # Tidy go modules
 task clean              # Remove build artifacts
 task run                # Build and run
+task security           # Run govulncheck + grype locally (matches CI)
 task dev                # Run without building (go run)
 ```
 
@@ -135,6 +136,20 @@ go test -race ./...
 # Development
 go run .
 ```
+
+### Security scanning
+
+CI runs `govulncheck` and `grype` against every PR, every push to `main`, and on a daily cron (`.github/workflows/security.yaml`; landed in a separate PR). To reproduce locally:
+
+```bash
+task security
+```
+
+`govulncheck` (Go-native, reachability-aware) is run via `go run` so no install is needed. `grype` is optional locally — install with `brew install grype`. CI is authoritative; the local target is for quick iteration on dep upgrades.
+
+SBOMs are produced two ways:
+- **Per release:** `.goreleaser.yaml` emits SPDX-JSON and CycloneDX-JSON per archive (uploaded as release artifacts).
+- **Per CI run:** `security.yaml` produces a CycloneDX SBOM artifact for Grype to scan.
 
 ## CLI Commands (when running the tool)
 
