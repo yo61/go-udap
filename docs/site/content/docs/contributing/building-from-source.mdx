@@ -8,6 +8,9 @@ description: Build, test, and lint go-udap locally
 - Go 1.26 or later (see `go.mod`)
 - [Task](https://taskfile.dev/) (optional, for build automation)
 - [prek](https://github.com/j178/prek) (optional, for pre-commit hooks)
+- `goimports` (only if running pre-commit hooks — the `go-imports`
+  hook shells out to it). Install with `brew install goimports` on
+  macOS / Linux, or `go install golang.org/x/tools/cmd/goimports@latest`.
 
 ## Build
 
