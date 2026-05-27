@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.0](https://github.com/yo61/go-udap/compare/v2.3.0...v2.4.0) (2026-05-27)
+
+
+### Features
+
+* ship man pages and refresh README ([#104](https://github.com/yo61/go-udap/issues/104)) ([c76994c](https://github.com/yo61/go-udap/commit/c76994cac7a7ad47838da10060d5d6f732f70cbd))
+
+
+### Documentation
+
+* mark sbom + scanning spec and plan as implemented ([#103](https://github.com/yo61/go-udap/issues/103)) ([8b1c18c](https://github.com/yo61/go-udap/commit/8b1c18ca0356b79cee931134494022c9176260cb))
+
 ## [2.3.0](https://github.com/yo61/go-udap/compare/v2.2.1...v2.3.0) (2026-05-27)
 
 
