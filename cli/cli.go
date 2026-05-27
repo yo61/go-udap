@@ -85,7 +85,17 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "go-udap",
 	Short: "Squeezebox UDAP configuration tool",
-	Long:  "go-udap configures Squeezebox devices over UDAP (UDP port 17784).",
+	Long: `go-udap discovers and configures Squeezebox devices over UDAP
+(Universal Device Access Protocol) on UDP port 17784.
+
+It is single-shot: every invocation runs one subcommand to completion
+and exits. There is no daemon or interactive shell. Subcommands map
+one-to-one onto UDAP wire methods (discover, get_data, set_data, reset,
+get_ip, get_uuid).
+
+UDAP only talks to devices in setup mode (the front light flashes red).
+Brand-new devices arrive in setup mode; existing devices can be put
+back into it by holding the front button for 3-6 seconds.`,
 	// SilenceUsage prevents Cobra printing the full usage block on every
 	// RunE error — the CLI prints only "error: <msg>" via main.go.
 	SilenceUsage: true,
@@ -140,6 +150,12 @@ func init() {
 	// override to match the existing "go-udap X.Y.Z" format.
 	rootCmd.SetVersionTemplate("go-udap {{.Version}}\n")
 }
+
+// Root returns the assembled cobra command tree. Intended for tooling
+// that walks the tree without running it — e.g. the man-page generator
+// in cmd/docs. The tree is a package-level singleton populated by init()
+// side-effects in each subcommand file; callers must not mutate it.
+func Root() *cobra.Command { return rootCmd }
 
 // Execute parses args and runs the appropriate subcommand. stdout and
 // stderr are the writers the command tree should produce output through;

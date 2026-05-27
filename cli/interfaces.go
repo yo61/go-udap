@@ -11,8 +11,16 @@ import (
 var interfacesCmd = &cobra.Command{
 	Use:   "interfaces",
 	Short: "List network interfaces usable for discovery",
-	Args:  cobra.NoArgs,
-	RunE:  runInterfaces,
+	Long: `Print a table of local network interfaces that satisfy the filter
+go-udap applies to discovery: up, broadcast-capable, has an IPv4
+address, and not a loopback.
+
+Useful for picking a value for the global --bind-interface flag on
+multi-homed hosts. The Broadcast column is informational only — UDAP
+discovery always targets the limited broadcast 255.255.255.255 so
+unconfigured devices can hear it.`,
+	Args: cobra.NoArgs,
+	RunE: runInterfaces,
 }
 
 func init() {

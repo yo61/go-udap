@@ -127,12 +127,19 @@ tasks:
       - go run . __dump-completions ./completions
       - echo "Wrote ./completions/{go-udap.bash,_go-udap,go-udap.fish}"
 
+  man:
+    desc: Generate man pages (section 1) from the cobra command tree into ./man.
+      Produces go-udap.1 and one go-udap-<sub>.1 per visible subcommand.
+      Runs in goreleaser's before-hooks so release archives ship them too.
+    cmds:
+      - go run ./cmd/docs ./man
+
   clean:
     desc: Remove build artifacts
     cmds:
       - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}.exe
       - rm -f {{.BINARY_NAME}}-linux-amd64 {{.BINARY_NAME}}-linux-arm64
-      - rm -rf bin/
+      - rm -rf bin/ man/
       - rm -f coverage.out coverage.html
 
   run:

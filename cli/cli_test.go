@@ -88,3 +88,20 @@ func TestExitCodeReturnsZeroForNonExitError(t *testing.T) {
 		t.Errorf("ExitError should preserve code, got %d", got)
 	}
 }
+
+// TestRootSubcommandsHaveLongDescriptions guards against new subcommands
+// shipping a bare DESCRIPTION section in the generated man pages. cmd/docs
+// runs cobra/doc.GenManTree which falls back to Short when Long is empty,
+// producing a one-line man page DESCRIPTION. Every visible subcommand
+// should set Long.
+func TestRootSubcommandsHaveLongDescriptions(t *testing.T) {
+	for _, sub := range Root().Commands() {
+		if sub.Hidden || sub.Name() == "help" || sub.Name() == "completion" {
+			continue
+		}
+		if strings.TrimSpace(sub.Long) == "" {
+			t.Errorf("subcommand %q has no Long description; man page will fall back to Short",
+				sub.Name())
+		}
+	}
+}

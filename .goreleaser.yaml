@@ -5,6 +5,8 @@ before:
     - go mod tidy
     - mkdir -p ./completions
     - go run . __dump-completions ./completions
+    - mkdir -p ./man
+    - go run ./cmd/docs ./man
 
 builds:
   - id: go-udap
@@ -47,6 +49,26 @@ archives:
         dst: completions/_go-udap
       - src: completions/go-udap.fish
         dst: completions/go-udap.fish
+      # Man pages at the FHS-standard path so users can copy the whole
+      # tarball under /usr/local and have man find them automatically.
+      - src: man/go-udap.1
+        dst: share/man/man1/go-udap.1
+      - src: man/go-udap-discover.1
+        dst: share/man/man1/go-udap-discover.1
+      - src: man/go-udap-get.1
+        dst: share/man/man1/go-udap-get.1
+      - src: man/go-udap-getip.1
+        dst: share/man/man1/go-udap-getip.1
+      - src: man/go-udap-info.1
+        dst: share/man/man1/go-udap-info.1
+      - src: man/go-udap-interfaces.1
+        dst: share/man/man1/go-udap-interfaces.1
+      - src: man/go-udap-read.1
+        dst: share/man/man1/go-udap-read.1
+      - src: man/go-udap-reboot.1
+        dst: share/man/man1/go-udap-reboot.1
+      - src: man/go-udap-set.1
+        dst: share/man/man1/go-udap-set.1
     format_overrides:
       - goos: windows
         formats:
@@ -104,6 +126,19 @@ homebrew_casks:
       bash: completions/go-udap.bash
       zsh: completions/_go-udap
       fish: completions/go-udap.fish
+    # Paths are relative to the unpacked cask archive — same archive
+    # listed in archives.files above, so these resolve to the
+    # share/man/man1/*.1 entries we stage at build time.
+    manpages:
+      - share/man/man1/go-udap.1
+      - share/man/man1/go-udap-discover.1
+      - share/man/man1/go-udap-get.1
+      - share/man/man1/go-udap-getip.1
+      - share/man/man1/go-udap-info.1
+      - share/man/man1/go-udap-interfaces.1
+      - share/man/man1/go-udap-read.1
+      - share/man/man1/go-udap-reboot.1
+      - share/man/man1/go-udap-set.1
     hooks:
       post:
         install: |

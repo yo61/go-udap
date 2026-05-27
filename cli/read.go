@@ -13,8 +13,15 @@ import (
 var readAll bool
 
 var readCmd = &cobra.Command{
-	Use:               "read <mac>",
-	Short:             "Read all parameters from a device",
+	Use:   "read MAC",
+	Short: "Read all parameters from a device",
+	Long: `Read every known NVRAM parameter from a device and print them in
+config-file format (one "name = value" per line).
+
+By default the output is filtered down to values changed from the
+factory defaults, so piping it back through "go-udap set --config -"
+restores only what the user actually set. Pass --all (-a) to include
+factory defaults and offset_NNN entries for unrecognized NVRAM offsets.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runRead,
