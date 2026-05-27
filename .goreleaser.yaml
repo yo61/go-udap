@@ -56,6 +56,24 @@ checksum:
   name_template: 'SHA256SUMS'
   algorithm: sha256
 
+# Per-archive SBOMs in SPDX-JSON and CycloneDX-JSON. syft is invoked
+# once per archive per format. Files upload alongside the archive in
+# the GitHub release and are hashed into SHA256SUMS by the existing
+# checksum block (verify via --snapshot if changing this).
+#
+# Design ref: docs/superpowers/specs/2026-05-26-sbom-vuln-scanning-design.md
+sboms:
+  - id: spdx
+    artifacts: archive
+    documents:
+      - "${artifact}.spdx.json"
+    args: ["$artifact", "--output", "spdx-json=$document"]
+  - id: cyclonedx
+    artifacts: archive
+    documents:
+      - "${artifact}.cdx.json"
+    args: ["$artifact", "--output", "cyclonedx-json=$document"]
+
 # release-please creates an empty draft release for the tag (see
 # .release-please-config.json: "draft": true). Reuse that existing
 # draft instead of creating a second one: GoReleaser otherwise creates
