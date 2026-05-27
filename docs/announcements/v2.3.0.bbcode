@@ -1,0 +1,23 @@
+[SIZE=28px][B]go-udap v2.3.0 is available[/B][/SIZE]
+
+[URL="https://github.com/yo61/go-udap/releases/tag/v2.3.0"]Get it on the GitHub release page[/URL] — or [FONT=Courier New]brew upgrade go-udap[/FONT] if you installed via Homebrew.
+
+[SIZE=20px][B]What's new since v2.1.0[/B][/SIZE]
+
+[B]Tab completion[/B] for bash, zsh, and fish. Subcommands, flags, the 26 NVRAM parameter names — all complete. Two highlights:
+[LIST]
+[*]Tab after [FONT=Courier New]go-udap info [/FONT] runs a quick discovery and offers MAC addresses of devices currently on your network. No more typing six hex bytes with colons.
+[*]Tab after [FONT=Courier New]--bind-interface [/FONT] offers your usable local interface names.
+[/LIST]
+If you installed via Homebrew ([FONT=Courier New]brew install yo61/tap/go-udap[/FONT]), completions wire themselves up on the next [FONT=Courier New]brew upgrade[/FONT] — no manual setup.
+
+[B]SBOMs attached to every release.[/B] Each release archive on GitHub now ships alongside an SPDX and a CycloneDX bill-of-materials file ([FONT=Courier New].spdx.json[/FONT] / [FONT=Courier New].cdx.json[/FONT]). If your environment requires SBOMs for review, you can grab them next to the binary. They're covered by [FONT=Courier New]SHA256SUMS[/FONT] so you can verify integrity.
+
+[B]Daily vulnerability monitoring.[/B] A scheduled scan now checks go-udap's dependencies against CVE databases every day. If a vulnerability is disclosed against something we depend on, it gets surfaced within 24 hours instead of waiting for the next dev cycle.
+
+[B]Things you might notice in passing:[/B]
+[LIST]
+[*]The default network timeout dropped from 5s to 2s.
+[*]Help and error message formatting changed slightly — the CLI moved to the standard Cobra framework under the hood. This is what enables the completions above and gives more polished diagnostics. Existing commands, flags, and exit codes are unchanged.
+[*]On the [URL="https://yo61.github.io/go-udap/"]docs site[/URL], in-site search and social-preview images now render correctly.
+[/LIST]
