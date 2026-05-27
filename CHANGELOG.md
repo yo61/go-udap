@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0](https://github.com/yo61/go-udap/compare/v2.2.1...v2.3.0) (2026-05-27)
+
+
+### Features
+
+* emit per-archive SBOMs (spdx + cyclonedx) ([#98](https://github.com/yo61/go-udap/issues/98)) ([4cf5853](https://github.com/yo61/go-udap/commit/4cf585395340ad22baa5c63f492b3ff28f98d8f3))
+
+
+### Documentation
+
+* SBOM + vulnerability scanning design and implementation plan ([#94](https://github.com/yo61/go-udap/issues/94)) ([d61ae28](https://github.com/yo61/go-udap/commit/d61ae28042d88b6d60612a10e7f1efe07ae836e8))
+
 ## [2.2.1](https://github.com/yo61/go-udap/compare/v2.2.0...v2.2.1) (2026-05-26)
 
 
