@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.1](https://github.com/yo61/go-udap/compare/v2.4.0...v2.4.1) (2026-06-01)
+
+
+### Bug Fixes
+
+* **deps:** patch postcss XSS (CVE-2026-41305) via pnpm override ([#115](https://github.com/yo61/go-udap/issues/115)) ([fa8a8f7](https://github.com/yo61/go-udap/commit/fa8a8f71d9d3d12bb7d992a508b21ce34954043b))
+
+
+### Documentation
+
+* add concepts page on setup mode vs run mode ([#112](https://github.com/yo61/go-udap/issues/112)) ([c111544](https://github.com/yo61/go-udap/commit/c11154490dc10e19a01066e168ea20305d7c4730))
+* add release announcement archive for v2.3.0 and v2.4.0 ([#106](https://github.com/yo61/go-udap/issues/106)) ([9d42048](https://github.com/yo61/go-udap/commit/9d42048c57a091dc14f8ae66798ca8a8edc529b3))
+* list goimports as a pre-commit prerequisite ([#108](https://github.com/yo61/go-udap/issues/108)) ([8d0405f](https://github.com/yo61/go-udap/commit/8d0405f858324f17eac82f505c5b4b2ffbc6677e))
+
 ## [2.4.0](https://github.com/yo61/go-udap/compare/v2.3.0...v2.4.0) (2026-05-27)
 
 
