@@ -3,6 +3,7 @@
   "packages": {
     ".": {
       "release-type": "go",
+      "bootstrap-sha": "24b4d67669ea42b7654c845db0fe0366e021d331",
       "draft": true,
       "include-component-in-tag": false,
       "include-v-in-tag": true,
