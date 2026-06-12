@@ -120,6 +120,9 @@ task clean              # Remove build artifacts
 task run                # Build and run
 task security           # Run govulncheck + grype locally (matches CI)
 task dev                # Run without building (go run)
+task docs:dev           # Run the Fumadocs site locally with hot reload (no basePath)
+task docs:serve         # Production-build the docs site and serve locally (no basePath)
+task docs:build         # Production build of the docs site with /go-udap basePath (matches CI)
 ```
 
 ### Manual Commands
