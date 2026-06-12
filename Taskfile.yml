@@ -134,6 +134,31 @@ tasks:
     cmds:
       - go run ./cmd/docs ./man
 
+  docs:dev:
+    desc: Run the Fumadocs site locally with hot reload at http://localhost:3000.
+      Strips the GitHub Pages basePath (/go-udap) via BASE_PATH= so assets
+      resolve under root, not /go-udap/_next/...
+    dir: docs/site
+    cmds:
+      - BASE_PATH= pnpm dev
+
+  docs:serve:
+    desc: Production-build the Fumadocs site (no basePath) and serve it at
+      http://localhost:3000. Use this to preview the production output before
+      pushing; for hot-reload editing use 'task docs:dev'.
+    dir: docs/site
+    cmds:
+      - BASE_PATH= SITE_URL=http://localhost:3000 pnpm build
+      - pnpm start
+
+  docs:build:
+    desc: Production build of the Fumadocs site with /go-udap basePath (matches
+      .github/workflows/docs.yaml output). Use this to reproduce the CI build
+      locally; for local viewing use 'task docs:serve' instead.
+    dir: docs/site
+    cmds:
+      - pnpm build
+
   clean:
     desc: Remove build artifacts
     cmds:
