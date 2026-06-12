@@ -22,17 +22,17 @@ Lyrion Music Server.
 
 ## Steps
 
-### 1. Put the device in setup mode
+### Put the device in setup mode
 
 If the device is brand-new out of the box, it's already in setup mode
-— skip to step 2.
+— skip to the next step.
 
 If you're configuring an already-configured device, hold the front
 button for 3-6 seconds until the light flashes red. (Holding for 6+
 seconds triggers a full factory reset; you don't need that for
 just-reconfigure.)
 
-### 2. Discover the device
+### Discover the device
 
 ```bash
 go-udap discover
@@ -47,7 +47,7 @@ Expected output (one MAC, your device's):
 If you see nothing, see
 [Troubleshoot "no devices found"](/how-to/no-devices-found).
 
-### 3. Look at what it currently reports
+### Look at what it currently reports
 
 ```bash
 go-udap info 00:04:20:16:06:02
@@ -67,7 +67,7 @@ State:    init
 
 The `0.0.0.0` IP and `init` state confirm the device is unconfigured.
 
-### 4. Apply your configuration and reboot
+### Apply your configuration and reboot
 
 Choose a hostname for your device (e.g. `living-room`) and find the
 IP of your Lyrion Music Server (e.g. `192.168.1.250`).
@@ -92,7 +92,7 @@ go-udap set 00:04:20:16:06:02 \
 Expected: command returns within a couple of seconds. The device
 reboots and is unreachable for ~10 seconds.
 
-### 5. Verify
+### Verify
 
 Wait ~15 seconds for the device to come back up, then:
 

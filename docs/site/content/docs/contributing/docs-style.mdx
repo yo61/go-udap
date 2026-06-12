@@ -17,14 +17,17 @@ order. Examples: the tutorial, every `how-to/*` page, every
 
 Heading shape: a top-level group heading (`## Steps`, `## Options`,
 `## Methods`, `## Setup`, or whatever names the group) followed by
-numbered sub-headings of the form `### N. Title`. Never use
-`### Step N — Title` or `### Option N — Title` — the leading
-`N.` is the only numbering format.
+unnumbered sub-headings of the form `### Title`. Never use
+`### Step N — Title`, `### Option N — Title`, or `### N. Title` —
+the heading text is the title alone. Order is implicit from the
+heading sequence; numbering would be redundant noise in the
+rendered sidebar table-of-contents.
 
-If each step is a single line (typically one command), use an
-ordered markdown list under `## Steps` instead of H3 sub-headings.
-Substantial steps with paragraphs of explanation get H3 sub-headings;
-brief one-liner steps get a numbered list.
+If each step is a single line (typically one command), use a
+numbered ordered markdown list under `## Steps` instead of H3
+sub-headings. The split is by step length: substantial steps with
+paragraphs of explanation get unnumbered H3 sub-headings; brief
+one-liner steps get a numbered list.
 
 The recipe-shaped how-to has a canonical section order:
 
@@ -40,8 +43,8 @@ The recipe-shaped how-to has a canonical section order:
 (trailing topical sections, optional — e.g. "## Why does this happen?")
 ```
 
-The tutorial archetype uses `## Prerequisites`, `## Steps` with H3
-numbered sub-headings, then any trailing tutorial sections
+The tutorial archetype uses `## Prerequisites`, `## Steps` with
+unnumbered H3 sub-headings, then any trailing tutorial sections
 (`## What's next?` etc.). It does not include `## Goal` —
 tutorials are framed by their title and intro, not by a Goal section.
 
@@ -93,7 +96,7 @@ at H2. A literal `# Title` line in the body creates a double-H1.
 
 ### No "Step N —" / "Option N —" prefixes in headings
 
-Use the Procedure archetype's group-heading + numbered-sub-heading
+Use the Procedure archetype's group-heading + unnumbered-sub-heading
 pattern instead. Compare:
 
 ```markdown
@@ -101,8 +104,8 @@ pattern instead. Compare:
 ## Step 2 — Read the parameters         ← wrong
 
 ## Steps                                 ← right
-### 1. Discover the device
-### 2. Read the parameters
+### Discover the device
+### Read the parameters
 ```
 
 ### No standalone numbered H2s
@@ -114,9 +117,9 @@ pattern instead. Compare:
 ## Packet framing                       ← right (flat parallel topics)
 ## Discovery TLVs
 
-## Topics                                ← also right (group + numbered)
-### 1. Packet framing
-### 2. Discovery TLVs
+## Topics                                ← also right (group + unnumbered)
+### Packet framing
+### Discovery TLVs
 ```
 
 If the topics are ordered, use the Procedure archetype. If they are
