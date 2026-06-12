@@ -5,7 +5,9 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
+    "dev:local": "BASE_PATH= next dev",
     "start": "serve out",
+    "start:local": "BASE_PATH= SITE_URL=http://localhost:3000 next build && serve out",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
     "postinstall": "fumadocs-mdx"
   },
