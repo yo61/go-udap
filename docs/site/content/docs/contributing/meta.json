@@ -1,6 +1,7 @@
 {
   "title": "Contributing",
   "pages": [
+    "docs-style",
     "building-from-source",
     "cross-compilation",
     "release-process"
