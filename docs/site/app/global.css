@@ -2,6 +2,11 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+/* Light-mode background: pure white instead of Fumadocs's hsl(0,0%,96%) light grey. */
+:root {
+  --color-fd-background: hsl(0, 0%, 100%);
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -9,4 +14,18 @@ html {
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* Slightly larger headings — moderate bump (~half way to Starlight scale). */
+article#nd-page > h1 {
+  font-size: 2.25rem;
+  line-height: 1.15;
+}
+
+article#nd-page .prose :where(h2):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+  font-size: 1.75em;
+}
+
+article#nd-page .prose :where(h3):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+  font-size: 1.5em;
 }
