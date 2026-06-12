@@ -38,6 +38,12 @@ explicitly to suppress the notice.
 | `--timeout DURATION` | `2s` | Operation timeout |
 | `--<param> VALUE` | — | One flag per parameter you want to set (see [NVRAM parameters](../nvram-parameters.mdx) for the canonical list) |
 
+## Exit codes
+
+- `0` — success
+- `1` — invalid MAC, unknown parameter, or malformed config
+- `2` — device not found, or transport error
+
 ## Examples
 
 DHCP on wireless with WPA2:
@@ -68,11 +74,5 @@ lan_subnet_mask=255.255.255.0
 lan_gateway=192.168.1.1
 EOF
 ```
-
-## Exit codes
-
-- `0` — success
-- `1` — invalid MAC, unknown parameter, or malformed config
-- `2` — device not found, or transport error
 
 See [Config file format](../config-file-format.mdx) for the `.conf` syntax.

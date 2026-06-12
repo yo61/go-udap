@@ -1,0 +1,142 @@
+---
+title: Documentation style
+description: Heading conventions and page archetypes for this site
+---
+
+Every page on this docs site fits one of three archetypes. Pick the
+one your page is, follow its canonical heading shape, stop. This page
+is itself written in the Explainer archetype it documents below.
+
+## Archetypes
+
+### Procedure
+
+A step-by-step or option-by-option recipe. The reader follows in
+order. Examples: the tutorial, every `how-to/*` page, every
+`contributing/*` page.
+
+Heading shape: a top-level group heading (`## Steps`, `## Options`,
+`## Methods`, `## Setup`, or whatever names the group) followed by
+unnumbered sub-headings of the form `### Title`. Never use
+`### Step N — Title`, `### Option N — Title`, or `### N. Title` —
+the heading text is the title alone. Order is implicit from the
+heading sequence; numbering would be redundant noise in the
+rendered sidebar table-of-contents.
+
+If each step is a single line (typically one command), use a
+numbered ordered markdown list under `## Steps` instead of H3
+sub-headings. The split is by step length: substantial steps with
+paragraphs of explanation get unnumbered H3 sub-headings; brief
+one-liner steps get a numbered list.
+
+The recipe-shaped how-to has a canonical section order:
+
+```
+(intro paragraph, optional)
+(## Example config — optional, when the example is shown inline above the recipe)
+## Goal
+## Prerequisites
+## Steps
+## Verification
+## Example config       (optional, when the example is shown after the recipe)
+## Notes                (optional)
+(trailing topical sections, optional — e.g. "## Why does this happen?")
+```
+
+The tutorial archetype uses `## Prerequisites`, `## Steps` with
+unnumbered H3 sub-headings, then any trailing tutorial sections
+(`## What's next?` etc.). It does not include `## Goal` —
+tutorials are framed by their title and intro, not by a Goal section.
+
+### Explainer
+
+A conceptual page. Parallel topics, no inherent ordering. The reader
+typically arrives, reads the section they need, leaves. Examples:
+every `concepts/*` page, `reference/global-flags`, this page.
+
+Heading shape: flat unnumbered `##` headings. Multiple H2s in
+sequence; each is a parallel topic. Never use `## 1. Title` /
+`## Step N` / `### N.` — the numbering implies ordering the reader
+does not need.
+
+Sub-headings (`###`) are fine when a single topic decomposes
+naturally; they should not be numbered.
+
+### Reference
+
+Looked-up data, not read top-to-bottom. The reader is verifying or
+copying. Examples: every `reference/commands/*` page, the
+NVRAM-parameter table, exit-codes.
+
+Heading shape: sibling pages use the **same** H2 sequence in the
+**same** order so the reader navigates by muscle memory.
+
+For per-command pages the canonical H2 order is:
+
+```
+## What it does
+## Output
+## Flags
+## Exit codes
+## Examples
+```
+
+Pages where a section does not apply (e.g. a command with no flags)
+omit the H2 entirely rather than ship an empty section.
+
+## Universal rules
+
+These three rules apply across every archetype.
+
+### No H1 in body
+
+The page title comes from frontmatter (`title:`) and is already
+rendered as the page H1 by the Fumadocs layout. Body content starts
+at H2. A literal `# Title` line in the body creates a double-H1.
+
+### No "Step N —" / "Option N —" prefixes in headings
+
+Use the Procedure archetype's group-heading + unnumbered-sub-heading
+pattern instead. Compare:
+
+```markdown
+## Step 1 — Discover the device         ← wrong
+## Step 2 — Read the parameters         ← wrong
+
+## Steps                                 ← right
+### Discover the device
+### Read the parameters
+```
+
+### No standalone numbered H2s
+
+```markdown
+## 1. Packet framing                    ← wrong (anti-pattern)
+## 2. Discovery TLVs                    ← wrong
+
+## Packet framing                       ← right (flat parallel topics)
+## Discovery TLVs
+
+## Topics                                ← also right (group + unnumbered)
+### Packet framing
+### Discovery TLVs
+```
+
+If the topics are ordered, use the Procedure archetype. If they are
+parallel, use the Explainer archetype. Numbered standalone H2s are
+the worst of both — they imply ordering without a group heading to
+frame it.
+
+## Components
+
+Fumadocs UI ships components — `Callout`, `Cards`, `LinkCard` — that
+the docs site uses. Use them when they add value (a `Callout` for a
+warning the reader must not miss; `Cards` / `LinkCard` for landing-page
+navigation).
+
+There is no `<HowTo>` component. A previous custom `<HowTo>` MDX
+component was removed because it imposed a visual style (shaded boxes)
+on five how-to pages that diverged from the rest of the site, and
+because at least five existing how-to pages did not fit its
+Goal/Steps/Verification mould. Recipe-shaped how-tos now use the
+plain-markdown section order documented above.

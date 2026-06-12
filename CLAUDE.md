@@ -99,6 +99,12 @@ The application is structured with a modular design:
 - Device responses use TLV encoding for structured data
 - Network byte order (big-endian) for all protocol fields
 
+## Documentation style
+
+Heading conventions and page archetypes for the docs site are
+documented at `docs/site/content/docs/contributing/docs-style.mdx`.
+Follow that guide when editing any docs page.
+
 ## Common Commands
 
 This project uses [Task](https://taskfile.dev/) for build automation. Install with `brew install go-task`.

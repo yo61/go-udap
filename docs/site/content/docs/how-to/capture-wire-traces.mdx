@@ -34,7 +34,7 @@ firmware introduces wire-format changes.
 
 ## Setup
 
-### 1. Identify the active network interface
+### Identify the active network interface
 
 Run on the dev box:
 
@@ -56,7 +56,7 @@ Save the name as `IFACE`:
 export IFACE=en0    # change to match your interface
 ```
 
-### 2. Build go-udap from the cli-redesign branch
+### Build go-udap from the cli-redesign branch
 
 ```bash
 cd /path/to/go-udap
@@ -67,7 +67,7 @@ go build -o /tmp/go-udap .
 You will run `/tmp/go-udap` for every command below. (Building to `/tmp`
 keeps the binary out of the repo working tree.)
 
-### 3. Confirm you can reach the SBR
+### Confirm you can reach the SBR
 
 ```bash
 /tmp/go-udap discover
@@ -81,7 +81,7 @@ proceeding. Save the MAC for later use:
 export SBR_MAC=00:04:20:XX:XX:XX    # use the MAC you just saw
 ```
 
-### 4. Note the SBR's current firmware version
+### Note the SBR's current firmware version
 
 ```bash
 /tmp/go-udap info $SBR_MAC
@@ -99,7 +99,7 @@ All commands below assume `$IFACE`, `$SBR_MAC`, and `/tmp/go-udap` are
 set per "Setup" above. Run the capture in one terminal, the `go-udap`
 commands in another.
 
-### 1. Start the packet capture
+### Start the packet capture
 
 In **terminal A**:
 
@@ -112,7 +112,7 @@ Leave it running. You will `Ctrl-C` it at the end of the session.
 If macOS asks for permission for `tcpdump` to access the interface,
 grant it.
 
-### 2. Record sequences in terminal B
+### Record sequences in terminal B
 
 Each numbered step below corresponds to one fixture the agent will
 extract. Run the commands in order, with brief pauses between so the
@@ -221,7 +221,7 @@ If `go-udap`'s client-side validation rejects the request before
 sending, note that in `capture-notes.txt` — we can revisit how to
 elicit a real error response.
 
-### 3. Stop the capture
+### Stop the capture
 
 In terminal A: press `Ctrl-C`. tcpdump prints a packet count summary;
 note the total in case you want to sanity-check that all sequences

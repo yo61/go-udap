@@ -7,23 +7,26 @@ A Squeezebox reports `State: init` when it hasn't yet completed
 initial configuration. If a previous `go-udap set` was interrupted or
 applied bad values, the device can sit in `init` indefinitely.
 
-<HowTo
-  goal="Get a Squeezebox out of init state and into connected state"
-  prerequisites={[
-    "Physical access to the device",
-    "go-udap installed",
-    "Device connected to power and on the same LAN as the dev machine"
-  ]}
-  steps={[
-    <>Confirm the device is reachable: <code>go-udap discover</code></>,
-    <>If the device is in init state and you want to start over: factory-reset by holding the front button for 6+ seconds. The light flashes rapidly red, then the device reboots into a clean factory state.</>,
-    <>Re-run the <a href="/tutorials/configure-your-first-squeezebox">tutorial</a> from a clean state.</>,
-    <>If the device DOESN'T appear in <code>discover</code> after factory reset, see <a href="/how-to/no-devices-found">Troubleshoot &quot;no devices found&quot;</a>.</>,
-  ]}
-  verification={
-    <>After the tutorial completes successfully, <code>go-udap info &lt;mac&gt;</code> should show <code>State: connected</code> and a real DHCP IP (not 0.0.0.0).</>
-  }
-/>
+## Goal
+
+Get a Squeezebox out of init state and into connected state.
+
+## Prerequisites
+
+- Physical access to the device
+- `go-udap` installed
+- Device connected to power and on the same LAN as the dev machine
+
+## Steps
+
+1. Confirm the device is reachable: `go-udap discover`
+2. If the device is in init state and you want to start over: factory-reset by holding the front button for 6+ seconds. The light flashes rapidly red, then the device reboots into a clean factory state.
+3. Re-run the [tutorial](/tutorials/configure-your-first-squeezebox) from a clean state.
+4. If the device DOESN'T appear in `discover` after factory reset, see [Troubleshoot "no devices found"](/how-to/no-devices-found).
+
+## Verification
+
+After the tutorial completes successfully, `go-udap info <mac>` should show `State: connected` and a real DHCP IP (not `0.0.0.0`).
 
 ## Why does this happen?
 
