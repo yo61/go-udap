@@ -206,7 +206,7 @@ Every other page on the site already conforms and is not touched.
 
 | File | Change |
 |---|---|
-| `tutorials/configure-your-first-squeezebox.mdx` | Rename `## What you need` → `## Prerequisites`. Replace nine `## Step N — Title` headings with `## Steps` group followed by `### 1. Title` through `### 9. Title`. Preserve every trailing section. |
+| `tutorials/configure-your-first-squeezebox.mdx` | Rename `## What you need` → `## Prerequisites`. Replace five `## Step N — Title` headings with `## Steps` group followed by `### 1. Title` through `### 5. Title`. Preserve every trailing section. |
 | `how-to/no-devices-found.mdx` | Preserve the existing intro paragraph. Replace `## Step N: Title` × 4 with `## Steps` group followed by `### 1. Title` through `### 4. Title`. |
 | `how-to/install-go-udap.mdx` | Replace `## Option N — Title` × 3 with `## Options` group followed by `### 1. Homebrew (macOS and Linux)`, `### 2. Pre-built binaries`, `### 3. Build from source`. Preserve trailing `## Verify the install` section. |
 
