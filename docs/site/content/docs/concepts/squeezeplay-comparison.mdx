@@ -45,7 +45,7 @@ Files read (captured from `ralph-irving/squeezeplay@master`,
 
 Compared against `go-udap` at the merge of PR #43 (commit `3612854`).
 
-## 1. Packet framing and protocol primitives
+## Packet framing and protocol primitives
 
 Header layout — mostly aligned, one cosmetic decomposition difference:
 
@@ -97,7 +97,7 @@ Identical format. squeezeplay's `parseDiscover` (Udap.lua:191-202) and
 go-udap's `parseDiscoveryResponse` (discovery.go:114-149) are
 structurally equivalent.
 
-## 2. Discovery TLVs and decoding
+## Discovery TLVs and decoding
 
 squeezeplay's `ucpCodes` (Udap.lua:73-86, 1-indexed) vs. go-udap's
 constants:
@@ -128,7 +128,7 @@ the same TLV decoder regardless of method. `go-udap` has separate
 `parseDiscoveryResponse` and `parseGetIPResponse` — functionally
 equivalent but more explicit.
 
-## 3. `get_ip` / network-config operation
+## `get_ip` / network-config operation
 
 squeezeplay implements `get_ip` (method 0x0002) in both roles:
 
@@ -150,7 +150,7 @@ hardware device returns all three. `go-udap`'s decoder is correct.
 setup (SetupSqueezeboxApplet.lua:1083-1098). Same field `go-udap`
 surfaces as `NetworkConfig.IP`.
 
-## 4. NVRAM parameter table (`configSettings`)
+## NVRAM parameter table (`configSettings`)
 
 squeezeplay's 22-parameter table (Udap.lua:22-45) vs. `go-udap`'s
 26-parameter `udap.Parameters`:
@@ -201,7 +201,7 @@ squeezeplay-aware tool that uses `slimserver_address=...` will be
 accepted by `go-udap set --config FILE`. `go-udap read` emits the
 canonical `lms_address`.
 
-## 5. Broadcast and addressing
+## Broadcast and addressing
 
 `go-udap` always sends to **`255.255.255.255:17784`** (transport.go:60-67).
 Never directed-subnet broadcast, never unicast. This is intentional:
@@ -223,7 +223,7 @@ plumbing) are go-udap enhancements beyond squeezeplay's scope, reflecting
 that `go-udap` runs on developer hosts that often have Wi-Fi + Ethernet
 both up.
 
-## 6. Retry and timeout strategy
+## Retry and timeout strategy
 
 **squeezeplay** (`SetupSqueezeboxApplet`):
 
@@ -251,7 +251,7 @@ LAN discovery, not ad-hoc Wi-Fi setup. Triple-send on every request
 would be noise. An optional retry flag could be added if `go-udap`
 ever needs to operate over a lossy link.
 
-## 7. Error handling
+## Error handling
 
 squeezeplay's `parseUdap` (`ucpMethodHandlers`, Udap.lua:289-298) maps
 both `error` (method 7) and `credentials_error` (method 8) to `nil` —
@@ -267,7 +267,7 @@ to the caller. `MethodCredentialsError` (0x0008) returns a distinct
 `"rejected credentials"` error. This is more correct than squeezeplay's
 silent-drop pattern.
 
-## 8. Device-type coverage (the non-SBR question)
+## Device-type coverage (the non-SBR question)
 
 **The UDAP wire protocol is device-agnostic.**
 
@@ -307,7 +307,7 @@ and `read --all` against one. NVRAM values may differ across models
 (different default firmwares, model-specific feature bits) but the
 wire framing and parameter offsets/lengths should hold.
 
-## 9. Findings that motivated new tracker items
+## Findings that motivated new tracker items
 
 Captured separately as TaskCreate entries; cross-referenced here for the
 sake of the contributor reading this note in isolation:
@@ -324,7 +324,7 @@ sake of the contributor reading this note in isolation:
   priority; only matters if `go-udap` is ever pointed at a device over
   ad-hoc Wi-Fi.
 
-## 10. Squeezeplay designs intentionally NOT replicated
+## Squeezeplay designs intentionally NOT replicated
 
 - **Singleton `SocketUdp` instance.** Makes sense in an embedded
   single-process runtime; `go-udap`'s instantiated `Client` per
