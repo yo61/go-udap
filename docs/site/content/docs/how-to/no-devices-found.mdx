@@ -6,12 +6,14 @@ description: Diagnostic steps when go-udap discover returns nothing
 When `go-udap discover` returns nothing, work through this checklist
 in order.
 
-## Step 1: Confirm the device is powered on
+## Steps
+
+### 1. Confirm the device is powered on
 
 The most boring cause. Plug it in, wait 30 seconds for it to come
 fully up, try again.
 
-## Step 2: Confirm the device is on the same network segment
+### 2. Confirm the device is on the same network segment
 
 UDAP discovery is broadcast-based; broadcasts don't cross routers.
 The device and your dev machine need to be on the same VLAN / subnet.
@@ -20,7 +22,7 @@ If the device is unconfigured (no DHCP lease), it broadcasts from
 source IP `0.0.0.0` — it doesn't *have* a subnet yet, but it must be
 physically on the same Layer-2 segment.
 
-## Step 3: Check UDP port 17784 isn't blocked
+### 3. Check UDP port 17784 isn't blocked
 
 Some host firewalls block inbound UDP on non-standard ports. Test
 with tcpdump:
@@ -33,10 +35,10 @@ In another terminal, run `go-udap discover`. You should see the
 outbound broadcast (length 27) and the device's reply (length 61+).
 
 If you see the outbound but no reply, the device isn't responding
-(check Step 1 and Step 2 again). If you see neither, your host
+(check step 1 and step 2 again). If you see neither, your host
 firewall is dropping the outbound — find and fix it.
 
-## Step 4: On a multi-homed laptop, try `--bind-interface` or `--all-interfaces`
+### 4. On a multi-homed laptop, try `--bind-interface` or `--all-interfaces`
 
 If your host has Wi-Fi + Ethernet both up, default discovery only
 emits on the kernel's default-route NIC. If the device is on the

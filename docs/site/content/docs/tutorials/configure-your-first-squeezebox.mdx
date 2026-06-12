@@ -8,9 +8,11 @@ factory-reset) Squeezebox from the command line. By the end, you'll
 have a device with a hostname you chose, on DHCP, pointed at your
 Lyrion Music Server.
 
-## What you need
+## Prerequisites
 
-- A Squeezebox device (Receiver, Boom, Touch, Radio — any model works)
+- A Squeezebox Receiver (the UDAP protocol is shared across the
+  Boom, Touch, and Radio too, but only the Receiver has been tested
+  so far)
 - An Ethernet cable connecting the device to the same LAN as your
   computer (Wi-Fi setup is a separate how-to; for first onboarding,
   wired is much simpler)
@@ -18,17 +20,19 @@ Lyrion Music Server.
 - A Lyrion Music Server running somewhere on your LAN (note its IP
   address)
 
-## Step 1 — Put the device in setup mode
+## Steps
+
+### 1. Put the device in setup mode
 
 If the device is brand-new out of the box, it's already in setup mode
-— skip to Step 2.
+— skip to step 2.
 
 If you're configuring an already-configured device, hold the front
 button for 3-6 seconds until the light flashes red. (Holding for 6+
 seconds triggers a full factory reset; you don't need that for
 just-reconfigure.)
 
-## Step 2 — Discover the device
+### 2. Discover the device
 
 ```bash
 go-udap discover
@@ -43,7 +47,7 @@ Expected output (one MAC, your device's):
 If you see nothing, see
 [Troubleshoot "no devices found"](/how-to/no-devices-found).
 
-## Step 3 — Look at what it currently reports
+### 3. Look at what it currently reports
 
 ```bash
 go-udap info 00:04:20:16:06:02
@@ -63,7 +67,7 @@ State:    init
 
 The `0.0.0.0` IP and `init` state confirm the device is unconfigured.
 
-## Step 4 — Apply your configuration and reboot
+### 4. Apply your configuration and reboot
 
 Choose a hostname for your device (e.g. `living-room`) and find the
 IP of your Lyrion Music Server (e.g. `192.168.1.250`).
@@ -88,7 +92,7 @@ go-udap set 00:04:20:16:06:02 \
 Expected: command returns within a couple of seconds. The device
 reboots and is unreachable for ~10 seconds.
 
-## Step 5 — Verify
+### 5. Verify
 
 Wait ~15 seconds for the device to come back up, then:
 
