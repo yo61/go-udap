@@ -13,23 +13,26 @@ only needs to point it at your Lyrion Music Server.
 server_address=192.168.1.250
 ```
 
-<HowTo
-  goal="Configure a Squeezebox to use DHCP on wired Ethernet, pointed at your Lyrion Music Server"
-  prerequisites={[
-    "Device connected by Ethernet to the same subnet as the dev machine",
-    "Device in setup or init mode (front-button hold 3-6s if needed; new devices are already in setup mode)",
-    "go-udap installed and on PATH",
-    "Your Lyrion Music Server's IP address known (e.g. 192.168.1.250)"
-  ]}
-  steps={[
-    <>Save the example config above as <code>dhcp.conf</code> (or <a href="/examples/dhcp.conf">download it</a>) and edit <code>server_address</code> to your LMS IP.</>,
-    <>Discover the device: <code>go-udap discover</code></>,
-    <>Apply the config and reboot: <code>go-udap set &lt;mac&gt; --config dhcp.conf --reboot</code></>,
-  ]}
-  verification={
-    <>After ~15 seconds, run <code>go-udap getip &lt;mac&gt;</code>. You should see a DHCP-assigned IP from your network's subnet.</>
-  }
-/>
+## Goal
+
+Configure a Squeezebox to use DHCP on wired Ethernet, pointed at your Lyrion Music Server.
+
+## Prerequisites
+
+- Device connected by Ethernet to the same subnet as the dev machine
+- Device in setup or init mode (front-button hold 3-6s if needed; new devices are already in setup mode)
+- `go-udap` installed and on `PATH`
+- Your Lyrion Music Server's IP address known (e.g. `192.168.1.250`)
+
+## Steps
+
+1. Save the example config above as `dhcp.conf` (or [download it](/examples/dhcp.conf)) and edit `server_address` to your LMS IP.
+2. Discover the device: `go-udap discover`
+3. Apply the config and reboot: `go-udap set <mac> --config dhcp.conf --reboot`
+
+## Verification
+
+After ~15 seconds, run `go-udap getip <mac>`. You should see a DHCP-assigned IP from your network's subnet.
 
 ## Notes
 

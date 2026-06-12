@@ -8,22 +8,25 @@ If your laptop has Wi-Fi + wired Ethernet both up, default
 default-route NIC. If your Squeezebox is on the *other* interface's
 subnet, you'll see zero devices.
 
-<HowTo
-  goal="Make go-udap discover find a Squeezebox that's reachable only via a non-default NIC"
-  prerequisites={[
-    "go-udap installed and on PATH",
-    "Multi-NIC dev machine (Wi-Fi + Ethernet, or multiple Ethernet)",
-    "macOS or Linux — Windows multi-NIC discovery is not yet supported (tracked as Task #29)"
-  ]}
-  steps={[
-    <>List your usable interfaces: <code>go-udap interfaces</code></>,
-    <>Either pick one explicitly: <code>go-udap --bind-interface en7 discover</code></>,
-    <>Or fan out across all of them: <code>go-udap --all-interfaces discover</code></>,
-  ]}
-  verification={
-    <>You should now see the device's MAC in the output. Run <code>tcpdump -i any 'udp port 17784'</code> in another terminal to confirm the broadcast went out the NIC you expected.</>
-  }
-/>
+## Goal
+
+Make `go-udap discover` find a Squeezebox that's reachable only via a non-default NIC.
+
+## Prerequisites
+
+- `go-udap` installed and on `PATH`
+- Multi-NIC dev machine (Wi-Fi + Ethernet, or multiple Ethernet)
+- macOS or Linux — Windows multi-NIC discovery is not yet supported (tracked as Task #29)
+
+## Steps
+
+1. List your usable interfaces: `go-udap interfaces`
+2. Either pick one explicitly: `go-udap --bind-interface en7 discover`
+3. Or fan out across all of them: `go-udap --all-interfaces discover`
+
+## Verification
+
+You should now see the device's MAC in the output. Run `tcpdump -i any 'udp port 17784'` in another terminal to confirm the broadcast went out the NIC you expected.
 
 ## Which one should I use?
 
