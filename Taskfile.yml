@@ -226,7 +226,9 @@ tasks:
 
   update:docs:
     desc: Update docs/site npm dependencies within their semver ranges
-      via pnpm. Modifies pnpm-lock.yaml only; package.json untouched.
+      via pnpm. Writes the new in-range tip to both package.json
+      (caret ranges) and pnpm-lock.yaml; exact-pinned versions are
+      left alone — use 'update:docs-latest' to lift those.
     dir: docs/site
     cmds:
       - pnpm update
