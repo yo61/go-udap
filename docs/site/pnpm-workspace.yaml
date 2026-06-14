@@ -4,3 +4,4 @@ allowBuilds:
 
 overrides:
   postcss@<8.5.10: ^8.5.10
+  esbuild@<0.28.1: ^0.28.1
