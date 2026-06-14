@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.2](https://github.com/yo61/go-udap/compare/v2.4.1...v2.4.2) (2026-06-14)
+
+
+### Documentation
+
+* correct update:docs description — pnpm update writes package.json too ([#133](https://github.com/yo61/go-udap/issues/133)) ([ccf392d](https://github.com/yo61/go-udap/commit/ccf392d72c6df414184371eebfc66c729c362120))
+* **site:** borrow Starlight visual elements + local-viewing scripts ([#122](https://github.com/yo61/go-udap/issues/122)) ([214d81d](https://github.com/yo61/go-udap/commit/214d81d6ee02c571ab53c94ed44209d36bb5d5d9))
+* **site:** site-wide heading consistency + drop &lt;HowTo&gt; component ([#126](https://github.com/yo61/go-udap/issues/126)) ([73d2791](https://github.com/yo61/go-udap/commit/73d27916cb959edbf91acdcf584325d504103d6f))
+
 ## [2.4.1](https://github.com/yo61/go-udap/compare/v2.4.0...v2.4.1) (2026-06-01)
 
 
