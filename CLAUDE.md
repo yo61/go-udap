@@ -129,6 +129,11 @@ task dev                # Run without building (go run)
 task docs:dev           # Run the Fumadocs site locally with hot reload (no basePath)
 task docs:serve         # Production-build the docs site and serve locally (no basePath)
 task docs:build         # Production build of the docs site with /go-udap basePath (matches CI)
+task update:all         # Refresh all CLI-updatable ecosystems (Go, docs/site npm, hooks)
+task update:go          # Update Go modules (in-range) and tidy go.sum
+task update:docs        # Update docs/site npm deps (in-range, via pnpm update)
+task update:docs-latest # Update docs/site npm deps to latest — cross-major; review the diff
+task update:hooks       # Update pre-commit hook revisions via 'prek auto-update'
 ```
 
 ### Manual Commands

@@ -206,3 +206,42 @@ tasks:
         else
           echo "grype not installed; skipping (brew install grype)" >&2
         fi
+
+  update:all:
+    desc: Refresh dependencies across all CLI-updatable ecosystems
+      (Go modules, docs/site npm in-range, pre-commit hooks). GitHub
+      Actions are tag-tracked by Dependabot, not Task. Run 'task test'
+      and 'task docs:build' afterward to verify the bumps.
+    cmds:
+      - task: update:go
+      - task: update:docs
+      - task: update:hooks
+
+  update:go:
+    desc: Update Go modules to latest minor/patch within go.mod ranges
+      and tidy go.sum.
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+
+  update:docs:
+    desc: Update docs/site npm dependencies within their semver ranges
+      via pnpm. Modifies pnpm-lock.yaml only; package.json untouched.
+    dir: docs/site
+    cmds:
+      - pnpm update
+
+  update:docs-latest:
+    desc: Update docs/site npm dependencies to the latest versions,
+      ignoring semver ranges in package.json. May bump majors — review
+      the diff and run 'task docs:build' before committing.
+    dir: docs/site
+    cmds:
+      - pnpm update --latest
+
+  update:hooks:
+    desc: Update pre-commit hook revisions via 'prek auto-update'.
+      Requires prek in PATH (https://github.com/j178/prek).
+    cmds:
+      - command -v prek >/dev/null || { echo "prek not in PATH; install per https://github.com/j178/prek"; exit 1; }
+      - prek auto-update
