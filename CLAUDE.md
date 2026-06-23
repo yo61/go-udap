@@ -201,14 +201,17 @@ Output is on stdout; logs and warnings on stderr. Exit codes: 0 success,
 
 The tool builds and runs on multiple platforms without any external dependencies:
 
-| Platform | Build Command | Binary Size (optimized) |
-|----------|---------------|------------------------|
-| macOS (amd64/arm64) | `go build` | ~2.8 MB |
-| Windows (amd64) | `GOOS=windows GOARCH=amd64 go build` | ~2.9 MB |
-| Linux (amd64) | `GOOS=linux GOARCH=amd64 go build` | ~2.8 MB |
-| Linux (arm64) | `GOOS=linux GOARCH=arm64 go build` | ~2.7 MB |
+| Platform | Build Command |
+|----------|---------------|
+| macOS (amd64/arm64) | `go build` |
+| Windows (amd64/arm64) | `GOOS=windows go build` |
+| Linux (amd64/arm64) | `GOOS=linux go build` |
 
-**Note**: Windows binaries can be further compressed with UPX (`upx --best`) to ~1.2 MB.
+All optimized binaries are ~4.5–4.8 MB with no external runtime
+dependencies. Set `GOARCH=amd64` or `GOARCH=arm64` to pick the
+architecture; see "Manual Commands" above for full cross-compile
+invocations. Windows binaries can be further compressed with UPX
+(`upx --best`).
 
 ## udap package API
 
