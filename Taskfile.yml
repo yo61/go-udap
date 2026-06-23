@@ -33,6 +33,15 @@ tasks:
     generates:
       - "{{.BINARY_NAME}}.exe"
 
+  build:windows-arm64:
+    desc: Cross-compile for Windows (arm64)
+    cmds:
+      - GOOS=windows GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-windows-arm64.exe .
+    sources:
+      - "**/*.go"
+    generates:
+      - "{{.BINARY_NAME}}-windows-arm64.exe"
+
   build:linux:
     desc: Cross-compile for Linux (amd64)
     cmds:
@@ -66,6 +75,7 @@ tasks:
     cmds:
       - task: build
       - task: build:windows
+      - task: build:windows-arm64
       - task: build:linux
       - task: build:linux-arm64
 
@@ -162,7 +172,7 @@ tasks:
   clean:
     desc: Remove build artifacts
     cmds:
-      - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}.exe
+      - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}.exe {{.BINARY_NAME}}-windows-arm64.exe
       - rm -f {{.BINARY_NAME}}-linux-amd64 {{.BINARY_NAME}}-linux-arm64
       - rm -rf bin/ man/
       - rm -f coverage.out coverage.html

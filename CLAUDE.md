@@ -205,6 +205,7 @@ The tool builds and runs on multiple platforms without any external dependencies
 |----------|---------------|------------------------|
 | macOS (amd64/arm64) | `go build` | ~2.8 MB |
 | Windows (amd64) | `GOOS=windows GOARCH=amd64 go build` | ~2.9 MB |
+| Windows (arm64) | `GOOS=windows GOARCH=arm64 go build` | ~2.9 MB |
 | Linux (amd64) | `GOOS=linux GOARCH=amd64 go build` | ~2.8 MB |
 | Linux (arm64) | `GOOS=linux GOARCH=arm64 go build` | ~2.7 MB |
 
