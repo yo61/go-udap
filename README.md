@@ -4,6 +4,7 @@
 [![Docs](https://github.com/yo61/go-udap/actions/workflows/docs.yaml/badge.svg)](https://yo61.github.io/go-udap/)
 [![Release](https://img.shields.io/github/v/release/yo61/go-udap)](https://github.com/yo61/go-udap/releases)
 [![Go Reference](https://pkg.go.dev/badge/go-udap.svg)](https://pkg.go.dev/go-udap)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yo61/go-udap)
 
 A small command-line tool that discovers and configures
 [Squeezebox](https://wiki.lyrion.org/) devices over UDAP — the
