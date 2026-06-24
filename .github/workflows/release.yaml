@@ -42,6 +42,13 @@ jobs:
           client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          # Scope the token to this repo and the minimum scopes
+          # release-please needs: contents (branches, tags, releases),
+          # pull-requests (the release PR), issues (labels on that PR).
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
