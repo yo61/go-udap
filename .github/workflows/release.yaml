@@ -73,3 +73,19 @@ jobs:
           gh api -X POST "repos/${REPO}/git/refs" \
             -f "ref=refs/tags/${TAG}" \
             -f "sha=${SHA}"
+
+      # The release step above scans for the next version BEFORE the tag
+      # for the just-published release exists (it is pushed in the step
+      # above this one). If any non-release commit landed on main just
+      # before the release PR merged, that scan cannot find the new tag,
+      # falls back to walking the full commit history, and re-surfaces
+      # already-released breaking changes as a phantom major-bump PR
+      # (see #136). Re-running release-please now that the tag exists
+      # anchors the next-version scan to it and reconciles the PR.
+      - name: Reconcile next-version PR after tagging
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
+        with:
+          token: ${{ steps.create_token.outputs.token }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
