@@ -67,3 +67,20 @@ jobs:
         run: zsh -n ./completions/_go-udap
       - name: Fish syntax check
         run: fish -c 'source ./completions/go-udap.fish'
+
+  # Lint PR commit messages against Conventional Commits
+  # (commitlint.config.js). commitlint is a commit-msg hook that
+  # `prek run` skips, so the lint job above doesn't cover it.
+  commitlint:
+    name: Conventional Commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.mjs
