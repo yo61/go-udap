@@ -17,8 +17,8 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-go@v6.4.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
         with:
           go-version-file: go.mod
       - run: go vet ./...
@@ -31,14 +31,14 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-go@v6.4.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
         with:
           go-version-file: go.mod
       # dnephin/pre-commit-golang's go-imports hook calls goimports
       # directly; install it on PATH before prek runs.
       - run: go install golang.org/x/tools/cmd/goimports@latest
-      - uses: j178/prek-action@v2
+      - uses: j178/prek-action@e98a699c41eb69ab013a45817a0406469a748f8d  # v2.0.5
         with:
           prek-version: 0.3.13
 
@@ -48,8 +48,8 @@ jobs:
     name: completion-smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-go@v6.4.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
         with:
           go-version-file: go.mod
       - name: Install zsh and fish
@@ -69,7 +69,7 @@ jobs:
         run: fish -c 'source ./completions/go-udap.fish'
 
   # Lint PR commit messages against Conventional Commits
-  # (commitlint.config.js). commitlint is a commit-msg hook that
+  # (commitlint.config.mjs). commitlint is a commit-msg hook that
   # `prek run` skips, so the lint job above doesn't cover it.
   commitlint:
     name: Conventional Commits
@@ -78,9 +78,9 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v6
+      - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed  # v6.2.1
         with:
           configFile: commitlint.config.mjs
