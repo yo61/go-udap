@@ -30,14 +30,21 @@ jobs:
           repositories: |
             go-udap
             homebrew-tap
+          # Scope to the minimum: goreleaser only uses this token to push
+          # the updated formula to homebrew-tap (contents write).
+          permission-contents: write
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
         with:
           go-version-file: go.mod
+          # Release build: skip setup-go's dependency cache to avoid a
+          # poisoned cache tainting published artifacts (zizmor cache-poisoning).
+          cache: false
 
       # GoReleaser's sboms: block (see .goreleaser.yaml) shells out to
       # the syft binary on $PATH. goreleaser-action does NOT bundle
