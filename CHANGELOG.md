@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.3](https://github.com/yo61/go-udap/compare/v2.4.2...v2.4.3) (2026-07-10)
+
+
+### Bug Fixes
+
+* emit a brew-style-clean go-udap cask ([#152](https://github.com/yo61/go-udap/issues/152)) ([c705697](https://github.com/yo61/go-udap/commit/c705697624246bf139af1dd8283e9d8440aceafd))
+
 ## [2.4.2](https://github.com/yo61/go-udap/compare/v2.4.1...v2.4.2) (2026-06-14)
 
 
