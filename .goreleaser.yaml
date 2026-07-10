@@ -117,8 +117,9 @@ homebrew_casks:
     homepage: "https://github.com/yo61/go-udap"
     description: "Squeezebox UDAP configuration tool"
     license: MIT
-    url:
-      verified: github.com/yo61/go-udap
+    # No url.verified: the download and homepage share the github.com domain,
+    # so `brew audit` rejects `verified` as unnecessary. Omitting it also keeps
+    # the generated `url` stanza single-line (no ArgumentAlignment offenses).
     completions:
       bash: completions/go-udap.bash
       zsh: completions/_go-udap
@@ -139,9 +140,7 @@ homebrew_casks:
     hooks:
       post:
         install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/go-udap"]
-          end
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/go-udap"] if OS.mac?
 
 changelog:
   use: github

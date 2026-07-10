@@ -66,3 +66,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap_token.outputs.token }}
+
+      # GoReleaser's cask generator emits a trailing blank line that `brew style`
+      # rejects. The tap's test-bot lints the WHOLE tap, so one unstyled cask
+      # blocks every formula's bump PR from bottling. Run `brew style --fix` on
+      # the cask GoReleaser just pushed and commit the result. The
+      # SEMANTIC_RELEASE App bypasses the tap's protected main (it is the same
+      # token GoReleaser pushes the cask with).
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+
+      - name: Style-fix the generated cask in the tap
+        env:
+          APP_TOKEN: ${{ steps.tap_token.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          tap_dir="$(mktemp -d)"
+          git clone --depth 1 \
+            "https://x-access-token:${APP_TOKEN}@github.com/${OWNER}/homebrew-tap" \
+            "$tap_dir"
+          brew style --fix "$tap_dir/Casks/go-udap.rb"
+          if git -C "$tap_dir" diff --quiet; then
+            echo "cask already style-clean"
+            exit 0
+          fi
+          git -C "$tap_dir" config user.name "goreleaserbot"
+          git -C "$tap_dir" config user.email "goreleaserbot@users.noreply.github.com"
+          git -C "$tap_dir" commit -am "style: brew style --fix go-udap cask"
+          git -C "$tap_dir" push
