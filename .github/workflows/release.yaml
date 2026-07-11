@@ -1,18 +1,30 @@
 name: Release
 
-# release-please opens / updates a Release PR on every push to main
-# that contains version-bumping commits (feat, fix, etc., per
-# conventional commits). Merging the Release PR cuts the release: the
-# GitHub release is created in draft state, the manifest is bumped,
-# and the CHANGELOG is updated. This workflow then pushes the git tag
-# refs/tags/vX.Y.Z, which triggers GoReleaser to upload binaries to
-# the existing draft and publish it.
+# release-please manages two artifacts on pushes to main:
+#   1. the Release PR — opened/updated when main has version-bumping
+#      commits (feat/fix/perf, per conventional commits).
+#   2. the GitHub release — cut when a Release PR merges. The release is
+#      created in draft state, the manifest is bumped, and the CHANGELOG
+#      is updated. This workflow then pushes refs/tags/vX.Y.Z, which
+#      triggers GoReleaser to upload binaries to the draft and publish it.
 #
-# Why push the tag here: a GitHub draft release stores tag_name as
-# metadata only — it does NOT create refs/tags/vX.Y.Z. Without an
-# explicit ref creation, GoReleaser (triggered by on: push: tags) never
-# fires and the release sits in draft forever, while release-please's
-# next scan opens a phantom next-version PR.
+# The two responsibilities are split across two release-please steps so
+# the next-version PR scan never runs before the just-created release's
+# tag exists. A single combined invocation would create the draft
+# release and immediately scan for the next version — but a draft release
+# has no git tag ref yet (GitHub stores tag_name as metadata only; the
+# ref is pushed in a later step). With no tag to anchor to, release-please
+# reports "No latest release found", walks the entire history from
+# bootstrap-sha, and re-surfaces already-shipped BREAKING CHANGE footers
+# as a phantom major-bump PR (#136, #155).
+#
+# Ordering that avoids the race:
+#   1. release-only scan (skip-github-pull-request: true) — creates the
+#      draft release; never opens a PR, so no phantom is possible.
+#   2. push refs/tags/vX.Y.Z for the draft release.
+#   3. PR-only scan (skip-github-release: true) — runs last, after the tag
+#      exists, so it anchors to the new release and opens/updates the real
+#      next-version PR (or none, when there is nothing to release).
 #
 # Convention: use `docs:` (not `feat(docs):`) for documentation-only
 # changes so they don't trigger a version bump. Bump-triggering types:
@@ -52,12 +64,18 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
+      # Release-only scan: creates the draft GitHub release when a Release
+      # PR was merged, and emits release_created / tag_name / sha for the
+      # tag-push step. skip-github-pull-request suppresses the next-version
+      # scan here — that scan must wait until the tag ref exists (final
+      # step), or it walks full history and opens a phantom major-bump PR.
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
           token: ${{ steps.create_token.outputs.token }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-pull-request: true
 
       # release-please-action does not push refs/tags/<tag> when the
       # release is created as a draft (GitHub's data model: draft
@@ -76,18 +94,16 @@ jobs:
             -f "ref=refs/tags/${TAG}" \
             -f "sha=${SHA}"
 
-      # The release step above scans for the next version BEFORE the tag
-      # for the just-published release exists (it is pushed in the step
-      # above this one). If any non-release commit landed on main just
-      # before the release PR merged, that scan cannot find the new tag,
-      # falls back to walking the full commit history, and re-surfaces
-      # already-released breaking changes as a phantom major-bump PR
-      # (see #136). Re-running release-please now that the tag exists
-      # anchors the next-version scan to it and reconciles the PR.
-      - name: Reconcile next-version PR after tagging
-        if: ${{ steps.release.outputs.release_created == 'true' }}
+      # PR-only scan: opens/updates the next-version Release PR. Not gated
+      # on release_created, so ordinary feature pushes still get a Release
+      # PR. On a release run it executes after the tag push above, so it
+      # anchors to the new tag instead of walking full history.
+      # skip-github-release avoids re-processing the release the first step
+      # already created.
+      - name: Open or update the next-version Release PR
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
           token: ${{ steps.create_token.outputs.token }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-release: true
