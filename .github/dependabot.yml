@@ -40,6 +40,12 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+    ignore:
+      # TypeScript 7.x is the native (Go) compiler; it drops the JS compiler
+      # API that `next build` loads for type-checking. Hold on 6.x until the
+      # Next.js/fumadocs toolchain supports the native compiler.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       docs-site-minor-patch:
         update-types: ["minor", "patch"]

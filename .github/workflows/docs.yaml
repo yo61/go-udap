@@ -6,14 +6,18 @@ on:
     paths:
       - 'docs/site/**'
       - '.github/workflows/docs.yaml'
+  pull_request:
+    paths:
+      - 'docs/site/**'
+      - '.github/workflows/docs.yaml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -42,6 +46,7 @@ jobs:
 
   deploy:
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       pages: write
