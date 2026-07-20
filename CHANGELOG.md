@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.4](https://github.com/yo61/go-udap/compare/v2.4.3...v2.4.4) (2026-07-20)
+
+
+### Bug Fixes
+
+* **docs:** pin typescript to 6.x and gate docs build on PRs ([#161](https://github.com/yo61/go-udap/issues/161)) ([0327986](https://github.com/yo61/go-udap/commit/03279869df1821ab1ed8830c635617e084a1ac9f))
+
 ## [2.4.3](https://github.com/yo61/go-udap/compare/v2.4.2...v2.4.3) (2026-07-10)
 
 
