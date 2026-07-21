@@ -14,7 +14,7 @@
 - **Merge order.** The **tap PR must merge first** — the `go-udap` release dispatch has no `bump-go-udap` workflow to target until it does. Do not cut a release until both PRs are merged.
 - **No ruleset bypass, no rule weakening.** Every commit reaching tap `main` must be GitHub-signed (`createCommitOnBranch` or squash-merge); nothing pushes to `main` outside a PR.
 - **Pin actions to SHA with a version comment.** Reuse the tap's existing pins verbatim: `actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2`, `actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1`. Use `persist-credentials: false` on checkout.
-- **Lint gates.** Tap workflows must pass `actionlint` and `zizmor .github/workflows/` (the tap CI runs both). Commit messages are Conventional Commits (`commitlint` runs in both repos).
+- **Lint gates.** Tap workflows must pass `actionlint` and `zizmor .github/workflows/`. The tap's CI runs `zizmor` (see `zizmor.yaml`); `actionlint` is a local gate — run it locally before committing. Commit messages are Conventional Commits (`commitlint` runs in both repos).
 - **Cask branch prefix is `cask/`** (distinct from the formulae's `bump/`) so `publish-bottles.yaml` ignores cask PRs with no edit.
 - **Cask-name hyphen hazard.** The cask is named `go-udap` (contains a hyphen). Never parse `cask/go-udap-<v>` with `${ref%%-*}` (splits on the first hyphen → wrong). Strip the literal `cask/go-udap-` prefix instead.
 - **Verification is lint + dry-run + one live release.** These are infra-as-code changes with no unit tests; per-task gates are `actionlint`/`zizmor`/`goreleaser --snapshot`. The true end-to-end test is Task 7 (a real release).
