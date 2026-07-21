@@ -140,12 +140,12 @@ func runSet(cmd *cobra.Command, args []string) error {
 	// when device.Parameters is already populated, so this is one read,
 	// not two.
 	if err := client.GetAllDeviceConfigWithContext(ctx, device); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("read current parameters: %w", err)}
+		return deviceOpError("set", mac, timeout, err)
 	}
 	applyInterfaceDefault(merged, device, stderr)
 
 	if err := client.SetDeviceConfigWithContext(ctx, device, merged); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("set failed: %w", err)}
+		return deviceOpError("set", mac, timeout, err)
 	}
 	if setReboot {
 		if err := client.ResetDeviceWithContext(ctx, device); err != nil {

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -58,7 +57,7 @@ func runRead(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if err := client.GetAllDeviceConfigWithContext(ctx, device); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("read failed: %w", err)}
+		return deviceOpError("read", mac, timeout, err)
 	}
 	stop()
 

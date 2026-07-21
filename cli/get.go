@@ -60,7 +60,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 	}
 	values, err := client.GetDeviceConfigWithContext(ctx, device, params)
 	if err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("get failed: %w", err)}
+		return deviceOpError("get", mac, timeout, err)
 	}
 	stop()
 	if err := formatGetResult(stdout, params, values); err != nil {
