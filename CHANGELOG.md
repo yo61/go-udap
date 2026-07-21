@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.5](https://github.com/yo61/go-udap/compare/v2.4.4...v2.4.5) (2026-07-21)
+
+
+### Bug Fixes
+
+* **security:** bump brace-expansion to 1.1.16 (GHSA-3jxr-9vmj-r5cp) ([#165](https://github.com/yo61/go-udap/issues/165)) ([57d3464](https://github.com/yo61/go-udap/commit/57d346425fa658f290e106cc2ab0da621a978ad3))
+
 ## [2.4.4](https://github.com/yo61/go-udap/compare/v2.4.3...v2.4.4) (2026-07-20)
 
 
