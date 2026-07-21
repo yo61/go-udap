@@ -48,6 +48,9 @@ func (n *Network) ReceiveScheduled(packetBytes []byte) []ScheduledReply {
 		return n.handleDiscovery(pkt)
 	case udap.MethodGetData:
 		return n.dispatchUnicast(pkt, OpGet, func(d *device) []byte {
+			if d.cfg.DropGetData {
+				return nil
+			}
 			return d.buildGetDataResponse(pkt, payload)
 		})
 	case udap.MethodSetData:

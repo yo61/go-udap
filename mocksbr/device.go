@@ -48,6 +48,10 @@ type DeviceConfig struct {
 	Unreachable bool
 	RebootDelay time.Duration
 
+	// DropGetData makes the device silently ignore get_data requests
+	// (for timeout testing of read/get and set's prelude read).
+	DropGetData bool
+
 	// DropGetIP makes the device silently ignore get_ip requests
 	// (for timeout testing).
 	DropGetIP bool

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )
@@ -53,7 +52,7 @@ func runGetIP(cmd *cobra.Command, args []string) error {
 	nc, err := client.GetDeviceNetworkConfigWithContext(ctx, device)
 	stop()
 	if err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("get_ip failed for %s: %w", mac, err)}
+		return deviceOpError("getip", mac, timeout, err)
 	}
 	formatNetworkConfig(stdout, nc)
 	return nil
