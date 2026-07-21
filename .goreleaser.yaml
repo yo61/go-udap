@@ -106,14 +106,22 @@ sboms:
 release:
   draft: false
   use_existing_draft: true
+  # Attach the rendered cask so the tap can fetch and land it via a signed PR
+  # (see .github/workflows/goreleaser.yaml). GoReleaser no longer pushes it.
+  extra_files:
+    - glob: ./dist/homebrew/Casks/go-udap.rb
 
+# GoReleaser renders the cask but does NOT push it: the tap's Default Branch
+# ruleset rejects direct, unsigned pushes to main. skip_upload keeps generation
+# (the cask is written to dist/ and attached to the release above); the tap's
+# bump-go-udap workflow fetches that asset and lands it via a signed PR.
 homebrew_casks:
   - name: go-udap
+    skip_upload: "true"
     repository:
       owner: yo61
       name: homebrew-tap
       branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/yo61/go-udap"
     description: "Squeezebox UDAP configuration tool"
     license: MIT
