@@ -28,10 +28,9 @@ jobs:
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
-            go-udap
             homebrew-tap
-          # Scope to the minimum: goreleaser only uses this token to push
-          # the updated formula to homebrew-tap (contents write).
+          # Scope to the minimum: this token now only fires the repository_dispatch
+          # that tells the tap to bump the cask (contents:write covers dispatch).
           permission-contents: write
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -65,33 +64,20 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap_token.outputs.token }}
 
-      # GoReleaser's cask generator emits a trailing blank line that `brew style`
-      # rejects. The tap's test-bot lints the WHOLE tap, so one unstyled cask
-      # blocks every formula's bump PR from bottling. Run `brew style --fix` on
-      # the cask GoReleaser just pushed and commit the result. The
-      # SEMANTIC_RELEASE App bypasses the tap's protected main (it is the same
-      # token GoReleaser pushes the cask with).
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
-
-      - name: Style-fix the generated cask in the tap
+      # GoReleaser no longer pushes the cask (the tap's Default Branch ruleset
+      # rejects direct, unsigned pushes to main). Instead: tell the tap to bump.
+      # bump-go-udap.yaml fetches the go-udap.rb asset attached to this release,
+      # commits it via a signed createCommitOnBranch PR, and publish-cask.yaml
+      # squash-merges it once brew test-bot is green. VERSION is the tag ref
+      # (github.ref_name), already constrained to a valid SemVer tag by this
+      # workflow's `on.push.tags` filter.
+      - name: Trigger tap cask bump
         env:
-          APP_TOKEN: ${{ steps.tap_token.outputs.token }}
-          OWNER: ${{ github.repository_owner }}
+          GH_TOKEN: ${{ steps.tap_token.outputs.token }}
+          VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          tap_dir="$(mktemp -d)"
-          git clone --depth 1 \
-            "https://x-access-token:${APP_TOKEN}@github.com/${OWNER}/homebrew-tap" \
-            "$tap_dir"
-          brew style --fix "$tap_dir/Casks/go-udap.rb"
-          if git -C "$tap_dir" diff --quiet; then
-            echo "cask already style-clean"
-            exit 0
-          fi
-          git -C "$tap_dir" config user.name "goreleaserbot"
-          git -C "$tap_dir" config user.email "goreleaserbot@users.noreply.github.com"
-          git -C "$tap_dir" commit -am "style: brew style --fix go-udap cask"
-          git -C "$tap_dir" push
+          gh api -X POST repos/yo61/homebrew-tap/dispatches \
+            -f event_type=bump-go-udap \
+            -f 'client_payload[version]='"${VERSION#v}"
