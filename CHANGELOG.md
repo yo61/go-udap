@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.6](https://github.com/yo61/go-udap/compare/v2.4.5...v2.4.6) (2026-07-21)
+
+
+### Bug Fixes
+
+* **cli:** plain-English timeout errors for device ops ([#168](https://github.com/yo61/go-udap/issues/168)) ([7fac6cc](https://github.com/yo61/go-udap/commit/7fac6cc21511675719a5ba977089bf093fa7cace)), closes [#110](https://github.com/yo61/go-udap/issues/110)
+
+
+### Documentation
+
+* record CLI timeout error-layer decision and quality criteria ([#170](https://github.com/yo61/go-udap/issues/170)) ([502ebbf](https://github.com/yo61/go-udap/commit/502ebbfa6e11f237bf3cce612ca9f2579622eca1))
+
 ## [2.4.5](https://github.com/yo61/go-udap/compare/v2.4.4...v2.4.5) (2026-07-21)
 
 
