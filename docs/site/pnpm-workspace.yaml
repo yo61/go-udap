@@ -3,6 +3,8 @@ allowBuilds:
   sharp: true
 
 overrides:
+  # A transitive dep resolves postcss 8.4.31 (GHSA-qx2v-qp2m-jg93);
+  # pull it to the patched 8.5.10+.
   postcss@<8.5.10: ^8.5.10
   # sharp is an unused optional dep of Next (static export +
   # images.unoptimized disables the only consumer); force past
