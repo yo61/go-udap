@@ -4,3 +4,7 @@ allowBuilds:
 
 overrides:
   postcss@<8.5.10: ^8.5.10
+  # sharp is an unused optional dep of Next (static export +
+  # images.unoptimized disables the only consumer); force past
+  # GHSA-f88m-g3jw-g9cj. Next declares ^0.34.5, so this overrides it.
+  sharp@<0.35.0: ^0.35.0
