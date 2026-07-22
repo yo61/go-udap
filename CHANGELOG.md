@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.7](https://github.com/yo61/go-udap/compare/v2.4.6...v2.4.7) (2026-07-22)
+
+
+### Bug Fixes
+
+* **docs:** bump fast-uri and sharp past high-severity advisories ([#171](https://github.com/yo61/go-udap/issues/171)) ([3e4a17a](https://github.com/yo61/go-udap/commit/3e4a17adc99eaead9a478dc6687574fcb346498f))
+
 ## [2.4.6](https://github.com/yo61/go-udap/compare/v2.4.5...v2.4.6) (2026-07-21)
 
 
