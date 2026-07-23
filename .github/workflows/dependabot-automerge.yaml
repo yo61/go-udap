@@ -1,0 +1,56 @@
+name: Dependabot auto-merge
+
+# Enables auto-merge on Dependabot npm PRs under docs/site (patch + minor),
+# so GitHub merges them once main's required status checks are green.
+#
+# Why: docs-site security fixes arrive as patch/minor bumps. Auto-merging them
+# lands the fix before the daily Grype cron in security.yaml flags the advisory
+# as a red build on main. Routine docs bumps ride the same path.
+#
+# Native auto-merge waits only on the branch ruleset's *required* status checks.
+# With no required checks it would merge immediately, before CI runs — so this
+# workflow is only safe while main requires the CI + security checks. That
+# policy (allow_auto_merge + required_status_checks) is managed in the Terraform
+# IaC repo, not here. See docs alongside this file for the required contexts.
+#
+# Dependabot commits as chore(deps), which release-please ignores, so an
+# auto-merge never cuts a go-udap release.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    name: dependabot-automerge
+    runs-on: ubuntu-latest
+    # Only Dependabot's own PRs. Match the immutable event-payload author
+    # (login + numeric id) rather than github.actor, which is spoofable.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.user.id == 49699333
+    permissions:
+      # Elevated for this job only. GitHub grants these to a Dependabot-
+      # triggered pull_request workflow via the permissions key; the default
+      # token would otherwise be read-only. No PR code is checked out or run,
+      # so pull_request (not pull_request_target) is the safe trigger.
+      contents: write # enable auto-merge (server-side squash merge)
+      pull-requests: write # enabling auto-merge acts on the PR
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      # Grouped PRs report the highest semver change in update-type, so a group
+      # containing a major bump is correctly excluded. The npm ecosystem is only
+      # configured for docs/site, but the directory check is kept as a guard.
+      - name: Enable auto-merge for docs/site patch and minor updates
+        if: >-
+          steps.meta.outputs.package-ecosystem == 'npm' &&
+          startsWith(steps.meta.outputs.directory, '/docs/site') &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
