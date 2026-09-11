@@ -1,4 +1,11 @@
 version: 2
+
+# Commit type decides whether an update ships. release-please treats every
+# visible changelog section as releasable, so `deps` both lists an update in
+# the changelog and cuts a patch release, while `chore` does neither. The line
+# is drawn at what reaches users: only updates that change the published
+# package use `deps`. See yo61/jobhound
+# decisions/2026-08-13-dependency-updates-and-releases.md.
 updates:
   # Pre-existing: pre-commit hook updates (don't remove)
   - package-ecosystem: "pre-commit"
@@ -7,12 +14,8 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
-    # Route dependency bumps to the Dependencies changelog section.
-    # release-please picks a section by commit *type*, and the default
-    # `chore(deps)` is type `chore`, which the preset hides. No
-    # `include: scope` -- it would produce `deps(deps):`.
     commit-message:
-      prefix: "deps"
+      prefix: "chore(deps)"
     groups:
       hooks:
         patterns: ["*"]
@@ -24,10 +27,7 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
-    # Route dependency bumps to the Dependencies changelog section.
-    # release-please picks a section by commit *type*, and the default
-    # `chore(deps)` is type `chore`, which the preset hides. No
-    # `include: scope` -- it would produce `deps(deps):`.
+    # Module updates ship in the released binary, so they keep `deps`.
     commit-message:
       prefix: "deps"
     groups:
@@ -41,12 +41,8 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
-    # Route dependency bumps to the Dependencies changelog section.
-    # release-please picks a section by commit *type*, and the default
-    # `chore(deps)` is type `chore`, which the preset hides. No
-    # `include: scope` -- it would produce `deps(deps):`.
     commit-message:
-      prefix: "deps"
+      prefix: "chore(deps)"
     groups:
       actions-minor-patch:
         update-types: ["minor", "patch"]
@@ -64,12 +60,8 @@ updates:
       # Next.js/fumadocs toolchain supports the native compiler.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
-    # Route dependency bumps to the Dependencies changelog section.
-    # release-please picks a section by commit *type*, and the default
-    # `chore(deps)` is type `chore`, which the preset hides. No
-    # `include: scope` -- it would produce `deps(deps):`.
     commit-message:
-      prefix: "deps"
+      prefix: "chore(deps)"
     groups:
       docs-site-minor-patch:
         update-types: ["minor", "patch"]
