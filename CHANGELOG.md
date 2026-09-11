@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.9](https://github.com/yo61/go-udap/compare/v2.4.8...v2.4.9) (2026-09-11)
+
+
+### Dependencies
+
+* bump the actions-minor-patch group with 4 updates ([#214](https://github.com/yo61/go-udap/issues/214)) ([292d742](https://github.com/yo61/go-udap/commit/292d74251a578bf4a36c4421e75260d5eb76777d))
+* bump the docs-site-minor-patch group in /docs/site with 7 updates ([#215](https://github.com/yo61/go-udap/issues/215)) ([3c2c0c8](https://github.com/yo61/go-udap/commit/3c2c0c80578e522d4802de45709ed70c7892cff5))
+
 ## [2.4.8](https://github.com/yo61/go-udap/compare/v2.4.7...v2.4.8) (2026-09-04)
 
 
