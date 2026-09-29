@@ -272,8 +272,8 @@ tasks:
     desc: Run without building; pass CLI args via -- (e.g. task dev -- discover)
     summary: >-
       Runs straight from source with `go run`, skipping the build: `task dev -- discover`. Faster
-      to iterate with than build-then-run, and it leaves no binary behind, but it is unstamped so
-      `--version` reports nothing useful.
+      to iterate with than build-then-run, and it leaves no binary behind, but it is unstamped, so
+      `--version` reports `dev` rather than the git-described version.
     cmds:
       - go run . {{.CLI_ARGS}}
 
