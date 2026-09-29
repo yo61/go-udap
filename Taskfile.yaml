@@ -12,6 +12,11 @@ vars:
 
 tasks:
   default:
+    desc: List available tasks
+    cmds:
+      - task --list-all
+
+  build:
     desc: Build optimized binary for current platform
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} .
@@ -19,11 +24,6 @@ tasks:
       - "**/*.go"
     generates:
       - "{{.BINARY_NAME}}"
-
-  build:
-    desc: Build optimized binary for current platform
-    cmds:
-      - task: default
 
   build:windows:
     desc: Cross-compile for Windows (amd64)
