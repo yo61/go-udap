@@ -80,9 +80,11 @@ tasks:
       - task: build:linux-arm64
 
   release:
-    desc: Build all platforms and UPX-compress the Linux/Windows binaries
-      (~67% smaller). Requires upx in PATH (`brew install upx`). Skips
-      macOS — modern macOS rejects UPX-packed binaries by default.
+    desc: 'Build all platforms and UPX-compress the Linux/Windows binaries'
+    summary: >-
+      Build all platforms and UPX-compress the Linux/Windows binaries (~67% smaller). Requires upx
+      in PATH (`brew install upx`). Skips macOS — modern macOS rejects UPX-packed binaries by
+      default.
     deps: [build:all]
     cmds:
       - command -v upx >/dev/null || { echo "upx not found; install with 'brew install upx'"; exit 1; }
@@ -91,10 +93,11 @@ tasks:
       - upx --best --lzma {{.BINARY_NAME}}.exe
 
   release:stats:
-    desc: Print a table of GitHub release-asset download counts.
-      Thin wrapper over the gh-release-stats extension. Install once
-      with `gh extension install yo61/gh-release-stats`. Pass extra
-      flags via CLI_ARGS (e.g. `task release:stats -- --json`).
+    desc: 'Print a table of GitHub release-asset download counts'
+    summary: >-
+      Print a table of GitHub release-asset download counts. Thin wrapper over the
+      gh-release-stats extension. Install once with `gh extension install yo61/gh-release-stats`.
+      Pass extra flags via CLI_ARGS (e.g. `task release:stats -- --json`).
     cmds:
       - gh release-stats {{.CLI_ARGS}}
 
@@ -138,33 +141,41 @@ tasks:
       - echo "Wrote ./completions/{go-udap.bash,_go-udap,go-udap.fish}"
 
   man:
-    desc: Generate man pages (section 1) from the cobra command tree into ./man.
-      Produces go-udap.1 and one go-udap-<sub>.1 per visible subcommand.
-      Runs in goreleaser's before-hooks so release archives ship them too.
+    desc: 'Generate man pages (section 1) from the cobra command tree into ./man'
+    summary: >-
+      Generate man pages (section 1) from the cobra command tree into ./man. Produces go-udap.1
+      and one go-udap-<sub>.1 per visible subcommand. Runs in goreleaser's before-hooks so release
+      archives ship them too.
     cmds:
       - go run ./cmd/docs ./man
 
   docs:dev:
-    desc: Run the Fumadocs site locally with hot reload at http://localhost:3000.
-      Strips the GitHub Pages basePath (/go-udap) via BASE_PATH= so assets
-      resolve under root, not /go-udap/_next/...
+    desc: 'Run the Fumadocs site locally with hot reload at http://localhost:3000'
+    summary: >-
+      Run the Fumadocs site locally with hot reload at http://localhost:3000. Strips the GitHub
+      Pages basePath (/go-udap) via BASE_PATH= so assets resolve under root, not
+      /go-udap/_next/...
     dir: docs/site
     cmds:
       - BASE_PATH= pnpm dev
 
   docs:serve:
-    desc: Production-build the Fumadocs site (no basePath) and serve it at
-      http://localhost:3000. Use this to preview the production output before
-      pushing; for hot-reload editing use 'task docs:dev'.
+    desc: 'Production-build the Fumadocs site without basePath and serve it locally'
+    summary: >-
+      Production-build the Fumadocs site (no basePath) and serve it at http://localhost:3000. Use
+      this to preview the production output before pushing; for hot-reload editing use 'task
+      docs:dev'.
     dir: docs/site
     cmds:
       - BASE_PATH= SITE_URL=http://localhost:3000 pnpm build
       - pnpm start
 
   docs:build:
-    desc: Production build of the Fumadocs site with /go-udap basePath (matches
-      .github/workflows/docs.yaml output). Use this to reproduce the CI build
-      locally; for local viewing use 'task docs:serve' instead.
+    desc: 'Production build of the Fumadocs site with the /go-udap basePath, as CI does'
+    summary: >-
+      Production build of the Fumadocs site with /go-udap basePath (matches
+      .github/workflows/docs.yaml output). Use this to reproduce the CI build locally; for local
+      viewing use 'task docs:serve' instead.
     dir: docs/site
     cmds:
       - pnpm build
@@ -194,25 +205,26 @@ tasks:
       - go run . {{.CLI_ARGS}}
 
   mutate:
-    desc: 'Run mutation testing against udap/getdata_response.go (protocol
-      parser; clean unit tests, deterministic results). Requires
-      go-mutesting: `go install
-      github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest`.
-      Whole-package runs against ./udap/... are unreliable here because
-      timing-sensitive tests (Slow injection, --timeout assertions) flake
-      under concurrent mutation runs and produce noisy "survivor" lists.
-      Use this target for periodic audits of protocol-parsing files only;
-      target other files explicitly via `go-mutesting <file>`. Not run
-      in CI — too slow per-PR.'
+    desc: 'Run mutation testing against udap/getdata_response.go'
+    summary: >-
+      Run mutation testing against udap/getdata_response.go (protocol parser; clean unit tests,
+      deterministic results). Requires go-mutesting: `go install
+      github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest`. Whole-package runs against
+      ./udap/... are unreliable here because timing-sensitive tests (Slow injection, --timeout
+      assertions) flake under concurrent mutation runs and produce noisy "survivor" lists. Use
+      this target for periodic audits of protocol-parsing files only; target other files
+      explicitly via `go-mutesting <file>`. Not run in CI — too slow per-PR.
     cmds:
       - command -v go-mutesting >/dev/null || { echo "go-mutesting not in PATH; run 'go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest'"; exit 1; }
       - go-mutesting udap/getdata_response.go
 
   security:
-    desc: 'Run govulncheck + grype locally (matches CI). govulncheck is
-      Go-native and reachability-aware; grype scans an in-process SBOM
-      for broader CVE coverage. Both are advisory locally — CI is
-      authoritative. grype is optional (install with `brew install grype`).'
+    desc: 'Run govulncheck + grype locally (matches CI)'
+    summary: >-
+      Run govulncheck + grype locally (matches CI). govulncheck is Go-native and
+      reachability-aware; grype scans an in-process SBOM for broader CVE coverage. Both are
+      advisory locally — CI is authoritative. grype is optional (install with `brew install
+      grype`).
     cmds:
       - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
       - |
@@ -223,10 +235,11 @@ tasks:
         fi
 
   update:all:
-    desc: Refresh dependencies across all CLI-updatable ecosystems
-      (Go modules, docs/site npm in-range, pre-commit hooks). GitHub
-      Actions are tag-tracked by Dependabot, not Task. Run 'task test'
-      and 'task docs:build' afterward to verify the bumps.
+    desc: 'Refresh dependencies across all CLI-updatable ecosystems'
+    summary: >-
+      Refresh dependencies across all CLI-updatable ecosystems (Go modules, docs/site npm
+      in-range, pre-commit hooks). GitHub Actions are tag-tracked by Dependabot, not Task. Run
+      'task test' and 'task docs:build' afterward to verify the bumps.
     cmds:
       - task: update:go
       - task: update:docs
@@ -240,25 +253,29 @@ tasks:
       - go mod tidy
 
   update:docs:
-    desc: Update docs/site npm dependencies within their semver ranges
-      via pnpm. Writes the new in-range tip to both package.json
-      (caret ranges) and pnpm-lock.yaml; exact-pinned versions are
-      left alone — use 'update:docs-latest' to lift those.
+    desc: 'Update docs/site npm dependencies within their semver ranges via pnpm'
+    summary: >-
+      Update docs/site npm dependencies within their semver ranges via pnpm. Writes the new
+      in-range tip to both package.json (caret ranges) and pnpm-lock.yaml; exact-pinned versions
+      are left alone — use 'update:docs-latest' to lift those.
     dir: docs/site
     cmds:
       - pnpm update
 
   update:docs-latest:
-    desc: Update docs/site npm dependencies to the latest versions,
-      ignoring semver ranges in package.json. May bump majors — review
-      the diff and run 'task docs:build' before committing.
+    desc: 'Update docs/site npm dependencies to the latest versions, ignoring semver ranges'
+    summary: >-
+      Update docs/site npm dependencies to the latest versions, ignoring semver ranges in
+      package.json. May bump majors — review the diff and run 'task docs:build' before committing.
     dir: docs/site
     cmds:
       - pnpm update --latest
 
   update:hooks:
-    desc: Update pre-commit hook revisions via 'prek auto-update'.
-      Requires prek in PATH (https://github.com/j178/prek).
+    desc: "Update pre-commit hook revisions via 'prek auto-update'"
+    summary: >-
+      Update pre-commit hook revisions via 'prek auto-update'. Requires prek in PATH
+      (https://github.com/j178/prek).
     cmds:
       - command -v prek >/dev/null || { echo "prek not in PATH; install per https://github.com/j178/prek"; exit 1; }
       - prek auto-update
