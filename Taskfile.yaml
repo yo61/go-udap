@@ -83,9 +83,10 @@ tasks:
   release:
     desc: 'Build all platforms and UPX-compress the Linux/Windows binaries'
     summary: >-
-      Build all platforms and UPX-compress the Linux/Windows binaries (~67% smaller). Requires upx
-      in PATH (`brew install upx`). Skips macOS — modern macOS rejects UPX-packed binaries by
-      default.
+      Builds every platform through build:all, then UPX-compresses the Linux and Windows binaries
+      — roughly 67% smaller. macOS is skipped deliberately rather than overlooked: modern macOS
+      rejects UPX-packed binaries, so compressing the darwin builds would ship something that will
+      not launch.
     deps: [build:all]
     cmds:
       - command -v upx >/dev/null || { echo "upx not found; install with 'brew install upx'"; exit 1; }
@@ -96,9 +97,11 @@ tasks:
   release:stats:
     desc: 'Print a table of GitHub release-asset download counts'
     summary: >-
-      Print a table of GitHub release-asset download counts. Thin wrapper over the
-      gh-release-stats extension. Install once with `gh extension install yo61/gh-release-stats`.
-      Pass extra flags via CLI_ARGS (e.g. `task release:stats -- --json`).
+      Prints a table of download counts for the published release assets, as a thin wrapper over
+      the gh-release-stats extension. Install that once before first use — `gh extension install
+      yo61/gh-release-stats` — because this task does not check for it and without it you get gh's
+      own "unknown command" error. Extra flags pass straight through: `task release:stats --
+      --json`.
     cmds:
       - gh release-stats {{.CLI_ARGS}}
 
@@ -144,18 +147,21 @@ tasks:
   man:
     desc: 'Generate man pages (section 1) from the cobra command tree into ./man'
     summary: >-
-      Generate man pages (section 1) from the cobra command tree into ./man. Produces go-udap.1
-      and one go-udap-<sub>.1 per visible subcommand. Runs in goreleaser's before-hooks so release
-      archives ship them too.
+      Regenerates the man pages under ./man from the cobra command tree: go-udap.1 plus one
+      go-udap-<sub>.1 for each visible subcommand. You rarely need to run it by hand —
+      goreleaser's before-hooks run the same command, so a release archive ships current pages
+      whether or not you did.
     cmds:
       - go run ./cmd/docs ./man
 
   docs:dev:
     desc: 'Run the Fumadocs site locally with hot reload at http://localhost:3000'
     summary: >-
-      Run the Fumadocs site locally with hot reload at http://localhost:3000. Strips the GitHub
-      Pages basePath (/go-udap) via BASE_PATH= so assets resolve under root, not
-      /go-udap/_next/...
+      Serves the Fumadocs site at http://localhost:3000 with hot reload. This is the one to use
+      while writing docs. BASE_PATH= overrides the /go-udap default that next.config.mjs sets, so
+      assets resolve at the root instead of under /go-udap/_next/... — which is what makes
+      localhost work at all. For a production build instead: docs:serve to look at one, docs:build
+      to reproduce CI's.
     dir: docs/site
     cmds:
       - BASE_PATH= pnpm dev
@@ -163,9 +169,9 @@ tasks:
   docs:serve:
     desc: 'Production-build the Fumadocs site without basePath and serve it locally'
     summary: >-
-      Production-build the Fumadocs site (no basePath) and serve it at http://localhost:3000. Use
-      this to preview the production output before pushing; for hot-reload editing use 'task
-      docs:dev'.
+      Production-builds the site with no basePath and serves it at http://localhost:3000. Use it
+      to check the built output before pushing, when hot reload might be masking a build-only
+      problem. For editing use docs:dev; to reproduce exactly what CI publishes use docs:build.
     dir: docs/site
     cmds:
       - BASE_PATH= SITE_URL=http://localhost:3000 pnpm build
@@ -174,9 +180,10 @@ tasks:
   docs:build:
     desc: 'Production build of the Fumadocs site with the /go-udap basePath, as CI does'
     summary: >-
-      Production build of the Fumadocs site with /go-udap basePath (matches
-      .github/workflows/docs.yaml output). Use this to reproduce the CI build locally; for local
-      viewing use 'task docs:serve' instead.
+      Production-builds the site the way CI does, keeping the /go-udap basePath that
+      next.config.mjs defaults to, so it reproduces what .github/workflows/docs.yaml publishes to
+      GitHub Pages. It is for checking the build, not for viewing it — served locally, that
+      basePath makes the assets 404. Use docs:serve to look at the output and docs:dev to edit.
     dir: docs/site
     cmds:
       - pnpm build
@@ -208,13 +215,13 @@ tasks:
   mutate:
     desc: 'Run mutation testing against udap/getdata_response.go'
     summary: >-
-      Run mutation testing against udap/getdata_response.go (protocol parser; clean unit tests,
-      deterministic results). Requires go-mutesting: `go install
-      github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest`. Whole-package runs against
-      ./udap/... are unreliable here because timing-sensitive tests (Slow injection, --timeout
-      assertions) flake under concurrent mutation runs and produce noisy "survivor" lists. Use
-      this target for periodic audits of protocol-parsing files only; target other files
-      explicitly via `go-mutesting <file>`. Not run in CI — too slow per-PR.
+      Mutation-tests one file: udap/getdata_response.go, the protocol parser. Its tests are
+      deterministic, so a surviving mutant is a real gap in them rather than noise. This is a
+      periodic audit, not a per-change check — a run takes minutes, which is why it is not in CI.
+      For any other file, call the tool directly: `go-mutesting <file>`. Whole-package runs
+      (./udap/...) are not worth it: the timeout-sensitive tests there — transport,
+      socket_unblock, multi_transport — flake under concurrent mutation and fill the survivor list
+      with false positives.
     cmds:
       - command -v go-mutesting >/dev/null || { echo "go-mutesting not in PATH; run 'go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest'"; exit 1; }
       - go-mutesting udap/getdata_response.go
@@ -222,10 +229,10 @@ tasks:
   security:
     desc: 'Run govulncheck + grype locally (matches CI)'
     summary: >-
-      Run govulncheck + grype locally (matches CI). govulncheck is Go-native and
-      reachability-aware; grype scans an in-process SBOM for broader CVE coverage. Both are
-      advisory locally — CI is authoritative. grype is optional (install with `brew install
-      grype`).
+      Runs the same two scanners CI does: govulncheck, which is Go-native and reachability-aware,
+      then grype against an in-process SBOM for broader CVE coverage. Both are advisory here — CI
+      is authoritative. grype is optional: the task says so on stderr and carries on without it,
+      so a local pass proves less than a CI pass.
     cmds:
       - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
       - |
@@ -238,9 +245,10 @@ tasks:
   update:all:
     desc: 'Refresh dependencies across all CLI-updatable ecosystems'
     summary: >-
-      Refresh dependencies across all CLI-updatable ecosystems (Go modules, docs/site npm
-      in-range, pre-commit hooks). GitHub Actions are tag-tracked by Dependabot, not Task. Run
-      'task test' and 'task docs:build' afterward to verify the bumps.
+      Runs update:go, update:docs and update:hooks — every ecosystem something on the command line
+      can bump. GitHub Actions are deliberately absent: Dependabot tracks those by tag. Nothing
+      here verifies the result, so run `task test` and `task docs:build` afterwards; a bump that
+      breaks the build will not announce itself.
     cmds:
       - task: update:go
       - task: update:docs
@@ -256,9 +264,10 @@ tasks:
   update:docs:
     desc: 'Update docs/site npm dependencies within their semver ranges via pnpm'
     summary: >-
-      Update docs/site npm dependencies within their semver ranges via pnpm. Writes the new
-      in-range tip to both package.json (caret ranges) and pnpm-lock.yaml; exact-pinned versions
-      are left alone — use 'update:docs-latest' to lift those.
+      Bumps docs/site npm dependencies within the semver ranges package.json already allows,
+      writing the new versions to both package.json and pnpm-lock.yaml. A dependency pinned to an
+      exact version is left alone, since by definition nothing is in range for it — use
+      update:docs-latest to lift those.
     dir: docs/site
     cmds:
       - pnpm update
@@ -266,8 +275,10 @@ tasks:
   update:docs-latest:
     desc: 'Update docs/site npm dependencies to the latest versions, ignoring semver ranges'
     summary: >-
-      Update docs/site npm dependencies to the latest versions, ignoring semver ranges in
-      package.json. May bump majors — review the diff and run 'task docs:build' before committing.
+      Bumps docs/site npm dependencies to their latest versions, ignoring the semver ranges in
+      package.json and rewriting those ranges to match. This can cross major versions, so treat
+      the diff as a change to review rather than a routine refresh, and run `task docs:build`
+      before committing.
     dir: docs/site
     cmds:
       - pnpm update --latest
@@ -275,8 +286,8 @@ tasks:
   update:hooks:
     desc: "Update pre-commit hook revisions via 'prek auto-update'"
     summary: >-
-      Update pre-commit hook revisions via 'prek auto-update'. Requires prek in PATH
-      (https://github.com/j178/prek).
+      Updates the pinned hook revisions in .pre-commit-config.yaml through `prek auto-update`.
+      Only the versions change — which hooks run is whatever the file already lists.
     cmds:
       - command -v prek >/dev/null || { echo "prek not in PATH; install per https://github.com/j178/prek"; exit 1; }
       - prek auto-update
