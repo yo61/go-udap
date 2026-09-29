@@ -18,6 +18,12 @@ tasks:
 
   build:
     desc: Build optimized binary for current platform
+    summary: >-
+      Builds for the current platform with the version stamped in from `git describe` (so a dirty
+      tree reports -dirty), symbols and DWARF stripped, and -trimpath set so no local paths are
+      embedded. Fingerprinted on **/*.go, so a second run with nothing changed is skipped —
+      silently, since root silent suppresses the up-to-date notice; `task --verbose build` shows
+      it.
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} .
     sources:
@@ -27,6 +33,9 @@ tasks:
 
   build:windows:
     desc: Cross-compile for Windows (amd64)
+    summary: >-
+      Cross-compiles for Windows amd64 to go-udap.exe, same flags and version stamping as build.
+      No toolchain beyond Go is needed; it is a plain GOOS/GOARCH build.
     cmds:
       - GOOS=windows GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}.exe .
     sources:
@@ -36,6 +45,9 @@ tasks:
 
   build:windows-arm64:
     desc: Cross-compile for Windows (arm64)
+    summary: >-
+      Cross-compiles for Windows arm64 to go-udap-windows-arm64.exe. Named apart from the amd64
+      build so both can sit in the directory at once, which is what build:all relies on.
     cmds:
       - GOOS=windows GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-windows-arm64.exe .
     sources:
@@ -45,6 +57,9 @@ tasks:
 
   build:linux:
     desc: Cross-compile for Linux (amd64)
+    summary: >-
+      Cross-compiles for Linux amd64 to go-udap-linux-amd64, same flags and version stamping as
+      build.
     cmds:
       - GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-amd64 .
     sources:
@@ -54,6 +69,9 @@ tasks:
 
   build:linux-arm64:
     desc: Cross-compile for Linux (arm64)
+    summary: >-
+      Cross-compiles for Linux arm64 to go-udap-linux-arm64, same flags and version stamping as
+      build.
     cmds:
       - GOOS=linux GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-arm64 .
     sources:
@@ -63,6 +81,11 @@ tasks:
 
   build:mocksbr:
     desc: Build mocksbr binary for current platform with version stamped (output at ./bin/mocksbr)
+    summary: >-
+      Builds the mock Squeezebox responder into bin/mocksbr, stamping the version into
+      main.Version rather than the CLI's — it is a separate program with its own flags. This is
+      the device the end-to-end tests talk to, so it is a test fixture rather than something
+      shipped.
     cmds:
       - mkdir -p bin
       - go build {{.MOCKSBR_BUILD_FLAGS}} -o bin/mocksbr ./cmd/mocksbr
@@ -73,6 +96,11 @@ tasks:
 
   build:all:
     desc: Build for all platforms
+    summary: >-
+      Runs the five platform builds: current, Windows amd64 and arm64, Linux amd64 and arm64. Each
+      writes a differently named file, so they accumulate rather than overwrite. It does not build
+      mocksbr, and it does not compress — `release` is the one that UPX-packs the Linux and
+      Windows binaries.
     cmds:
       - task: build
       - task: build:windows
@@ -107,16 +135,26 @@ tasks:
 
   test:
     desc: Run all tests
+    summary: >-
+      go test ./... — no -race and no -count=1, so results can be served from the test cache and a
+      data race will not be reported. test:verbose and test:coverage are the same scope with more
+      output; mutation coverage is the separate `mutate` task.
     cmds:
       - go test ./...
 
   test:verbose:
     desc: Run all tests with verbose output
+    summary: >-
+      The same tests as `test` with -v, so every test name and its log output is printed. Useful
+      when a failure's cause is in the logs rather than the assertion.
     cmds:
       - go test -v ./...
 
   test:coverage:
     desc: Run tests with coverage report
+    summary: >-
+      Runs the tests with a coverage profile and renders coverage.html to open in a browser. Both
+      coverage.out and coverage.html are build artifacts that `clean` removes.
     cmds:
       - go test -coverprofile=coverage.out ./...
       - go tool cover -html=coverage.out -o coverage.html
@@ -124,21 +162,36 @@ tasks:
 
   fmt:
     desc: Format all Go files
+    summary: >-
+      go fmt ./... — this REWRITES files in place. There is no check-only counterpart here, so
+      nothing in this Taskfile fails on unformatted code; CI is where that is caught.
     cmds:
       - go fmt ./...
 
   lint:
     desc: Run go vet
+    summary: >-
+      go vet ./... only — not golangci-lint. It catches the vet suite's correctness problems, not
+      style, and the vulnerability scanners live in the separate `security` task.
     cmds:
       - go vet ./...
 
   tidy:
     desc: Tidy go modules
+    summary: >-
+      go mod tidy: drops requirements nothing imports and adds any that are missing, rewriting
+      go.mod and go.sum. Worth running before a commit that changed imports, since CI will notice
+      the difference.
     cmds:
       - go mod tidy
 
   completions:
     desc: Generate shell completion scripts into ./completions
+    summary: >-
+      Generates the bash, zsh and fish completion scripts into ./completions via the CLI's own
+      hidden __dump-completions command, so they cannot drift from the real command tree.
+      goreleaser's before-hooks run the same command, so release archives ship current ones
+      whether or not you did.
     cmds:
       - mkdir -p ./completions
       - go run . __dump-completions ./completions
@@ -190,6 +243,10 @@ tasks:
 
   clean:
     desc: Remove build artifacts
+    summary: >-
+      Removes everything the build tasks produce: the five platform binaries, bin/, man/,
+      coverage.out and coverage.html, .verify/ and mocksbr/mocksbr. Nothing tracked is touched, so
+      it is safe to run whenever the tree looks cluttered.
     cmds:
       - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}.exe {{.BINARY_NAME}}-windows-arm64.exe
       - rm -f {{.BINARY_NAME}}-linux-amd64 {{.BINARY_NAME}}-linux-arm64
@@ -203,12 +260,20 @@ tasks:
 
   run:
     desc: Build and print help (CLI is single-shot; pass args explicitly)
+    summary: >-
+      Builds, then runs the binary with --help. The CLI is single-shot rather than a daemon, so
+      there is nothing to leave running — pass real arguments explicitly if you want to do more
+      than see the help.
     cmds:
       - task: build
       - ./{{.BINARY_NAME}} --help
 
   dev:
     desc: Run without building; pass CLI args via -- (e.g. task dev -- discover)
+    summary: >-
+      Runs straight from source with `go run`, skipping the build: `task dev -- discover`. Faster
+      to iterate with than build-then-run, and it leaves no binary behind, but it is unstamped so
+      `--version` reports nothing useful.
     cmds:
       - go run . {{.CLI_ARGS}}
 
@@ -257,6 +322,10 @@ tasks:
   update:go:
     desc: Update Go modules to latest minor/patch within go.mod ranges
       and tidy go.sum.
+    summary: >-
+      Runs `go get -u ./...` then `go mod tidy`, so it moves dependencies to their latest minor
+      and patch releases within the constraints go.mod already allows, and does not cross a major.
+      Nothing here verifies the result — run `task test` afterwards.
     cmds:
       - go get -u ./...
       - go mod tidy
