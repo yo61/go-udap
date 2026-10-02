@@ -10,18 +10,19 @@ overrides:
   # images.unoptimized disables the only consumer); force past
   # GHSA-f88m-g3jw-g9cj. Next declares ^0.34.5, so this overrides it.
   sharp@<0.35.0: ^0.35.0
-  # brace-expansion (via minimatch@3) is vulnerable to a DoS from
-  # unbounded expansion. The 5.0.8 pin covered GHSA-mh99-v99m-4gvg,
-  # but GHSA-rgw5-rvv9-x895 bypasses that mitigation via unbounded
-  # intermediate arrays; 5.0.9 is the fix. Still a CommonJS build, so
-  # minimatch's require() resolves.
-  brace-expansion@<5.0.9: ^5.0.9
+  # brace-expansion (via minimatch@3, under serve) is vulnerable to
+  # DoS from brace expansion: stack exhaustion in parseCommaParts
+  # (GHSA-6j4f-fj2g-mc7p) and on nested groups (GHSA-qhr7-859c-m2p7),
+  # and quadratic-time expansion (GHSA-q2hr-2g5m-vwhr). 5.0.12 fixes
+  # all three. Still ships a CommonJS build, so minimatch's require()
+  # resolves.
+  brace-expansion@<5.0.12: ^5.0.12
   # fast-uri (via ajv, under serve) mis-parses hostnames and schemes in
   # several ways: skipped IDN canonicalization (GHSA-5jgf-p345-68v8),
   # malformed IPv6 normalization (GHSA-f65p-4m7j-42xc), repeated
   # hostname percent-decoding (GHSA-fph4-wmhf-6fwf), and percent-encoded
-  # scheme normalization (GHSA-jqff-g426-hqxp) — host confusion and
-  # SSRF. These supersede the earlier 3.1.5 pin for GHSA-7p8r-x3mc-p8w7,
-  # which is itself vulnerable; 3.1.6 is the fix for the 3.x line that
+  # scheme normalization (GHSA-jqff-g426-hqxp), and inconsistent host
+  # case normalization via percent-encoded octets (GHSA-hrr3-gc8f-f4qj)
+  # — host confusion and SSRF. 3.1.8 is the fix for the 3.x line that
   # ajv resolves.
-  fast-uri@<3.1.6: ^3.1.6
+  fast-uri@<3.1.8: ^3.1.8
