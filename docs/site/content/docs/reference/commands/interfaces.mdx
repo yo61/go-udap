@@ -4,7 +4,7 @@ description: List network interfaces usable for discovery
 ---
 
 ```text
-go-udap interfaces
+go-udap interfaces [--format text|json|csv | --json]
 ```
 
 ## What it does
@@ -15,7 +15,7 @@ output gives you the `NAME` values you can pass to `--bind-interface`.
 
 ## Output
 
-Fixed-column table:
+The default `text` format is a fixed-column table:
 
 ```text
 NAME            INDEX  ADDRESS            BROADCAST
@@ -29,8 +29,38 @@ It's informational only — UDAP discovery sends to limited broadcast
 [How UDAP discovery works](/concepts/how-udap-discovery-works)
 for the why).
 
+With `--json` (or `-o json`), an array with one object per interface.
+`address` and `broadcast` are `null` when absent:
+
+```json
+[{"name":"en0","index":14,"address":"192.168.1.118","broadcast":"192.168.1.255"}]
+```
+
+With `-o csv`, a header row and one row per interface. A `null` value
+is an empty cell:
+
+```text
+name,index,address,broadcast
+en0,14,192.168.1.118,192.168.1.255
+```
+
+When no interface qualifies, stderr says `no usable interfaces found`
+and stdout is empty for `text`, `[]` for `json`, and the header row
+alone for `csv`.
+
+The JSON keys and CSV columns are a stable contract: none will be
+removed or renamed without a major version. New ones may be added. See
+[Output formats](../global-flags.mdx#output-formats).
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--format FORMAT`, `-o` | `text` | Output format: `text`, `json` or `csv` |
+| `--json` | off | Shorthand for `--format json` |
+
 ## Exit codes
 
 - `0` — success (even if zero interfaces qualify)
 - `1` — OS enumeration error
-- `2` — unknown or invalid flag, or a stray argument
+- `2` — unknown or invalid flag (including a format name other than `text`, `json` or `csv`), `--json` with `--format`, or a stray argument

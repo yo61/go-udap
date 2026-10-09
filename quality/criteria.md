@@ -45,7 +45,9 @@ context wrap chain)
 ## Source: CLAUDE.md "Output ... Exit codes: 0 success, 1 operation failure, 2 usage error" (flipped in #252)
 
 ## Last triggered: 2026-10-09 (#252 — cobra's own parse/validation
-errors were untyped and fell through to the operation-failure code)
+errors were untyped and fell through to the operation-failure code;
+#245 — review found four error branches with no test asserting their
+code)
 
 Third criterion added 2026-10-09 (#252): the mutual-exclusion test
 passed `eth0`, which macOS lacks, so it exited non-zero from interface

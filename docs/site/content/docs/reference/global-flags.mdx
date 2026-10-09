@@ -13,8 +13,75 @@ Every flag below can appear before OR after the subcommand —
 | `--bind-interface NAME` | — | Bind discovery (and all subsequent operations) to one named network interface. See [`interfaces`](./commands/interfaces.mdx) for valid names. Mutually exclusive with `--all-interfaces`. **Not supported on Windows** — the flag is hidden from `--help` there |
 | `--all-interfaces` | off | Fan out discovery across every usable network interface. Useful on multi-homed hosts. Mutually exclusive with `--bind-interface`. **Not supported on Windows** |
 | `--retries N` | `0` | Re-transmit each UDAP send `N` additional times back-to-back. Useful on lossy links (ad-hoc Wi-Fi). `--retries 2` matches the squeezeplay reference triple-send |
-| `--version` | — | Print version and exit |
+| `--format FORMAT`, `-o` | `text` | Output format for commands that write data: `text`, `json` or `csv`. See [Output formats](#output-formats) |
+| `--json` | off | Shorthand for `--format json`. Can't be combined with `--format` |
+| `--version` | — | Print version and exit. Not a global flag: give it on its own, as `go-udap --version` |
+| `--build-info` | — | Print version and build metadata, then exit. Like `--version`, root only |
 | `--help`, `-h` | — | Print help |
+
+## Output formats
+
+`--format`/`-o` selects how a command writes its result to stdout:
+`text` (the default), `json` or `csv`. `--json` is shorthand for
+`--format json`. Names must be lowercase and exact; anything else is a
+usage error (exit 2). Giving `--json` together with `--format` is a
+usage error, even when they agree.
+
+Only stdout changes. Errors, warnings, progress and logs stay as plain
+text on stderr, and the exit code still reports failure.
+
+- **JSON** is compact: one value per invocation and a trailing
+  newline. A list is a bare array and anything else is an object.
+  Every key is always present, with `null` for an absent value.
+- **CSV** follows RFC 4180, always starts with a header row, and
+  writes `null` as an empty cell.
+- **Empty results** give `[]` in JSON and the header row alone in CSV.
+
+Commands that support the format flags in this release: `interfaces`,
+`--version` and `--build-info`. A format flag on a command that writes
+no data output, such as `reboot`, is a usage error (exit 2).
+`--help` always wins: `go-udap reboot --json --help` prints help.
+
+JSON keys and CSV columns are a stable contract, documented on each
+command's page. Removing or renaming one is a breaking change and only
+happens in a major version. Adding one is not breaking.
+
+### `--version`
+
+```text
+$ go-udap --version
+go-udap 3.0.0
+$ go-udap --version --json
+{"name":"go-udap","version":"3.0.0"}
+$ go-udap --version -o csv
+name,version
+go-udap,3.0.0
+```
+
+### `--build-info`
+
+Version plus build metadata read from the binary: commit, commit time,
+whether the working tree was modified, Go version, OS and
+architecture. A field is `null` when the build didn't record it, for
+example a `go run` build has no commit. The text form omits absent
+fields.
+
+```text
+$ go-udap --build-info
+go-udap 3.0.0
+Commit:      db37553ed89bdfcf9bad1781232a338c4c3cc0d9
+Commit time: 2026-10-09T13:43:01Z
+Modified:    false
+Go version:  go1.27.2
+OS:          darwin
+Arch:        arm64
+```
+
+JSON keys, in order: `name`, `version`, `commit`, `commit_time`,
+`modified` (a boolean), `go_version`, `os`, `arch`. CSV uses the same
+names as its header row.
+
+`--verbose` with `--version` or `--build-info` is a usage error (exit 2).
 
 ## Multi-interface behaviour (`--bind-interface` / `--all-interfaces`)
 

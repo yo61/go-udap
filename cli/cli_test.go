@@ -56,12 +56,6 @@ func TestVersionVariableIsOverridable(t *testing.T) {
 	original := Version
 	t.Cleanup(func() { Version = original })
 	Version = "test-1.2.3"
-	// The version is read into rootCmd.Version at init() time, so we
-	// also need to update rootCmd.Version directly for the change to
-	// affect the running command.
-	originalCmdVersion := rootCmd.Version
-	t.Cleanup(func() { rootCmd.Version = originalCmdVersion })
-	rootCmd.Version = Version
 
 	var stdout, stderr bytes.Buffer
 	if err := Execute([]string{"--version"}, &stdout, &stderr); err != nil {
