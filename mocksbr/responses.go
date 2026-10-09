@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"maps"
 	"net"
+	"slices"
 	"strconv"
 
 	"go-udap/udap"
@@ -144,11 +146,17 @@ func (d *device) buildGetDataResponse(req *udap.Packet, payload []byte) []byte {
 		return buf.Bytes()
 	}
 
-	_ = binary.Write(buf, binary.BigEndian, uint16(len(requested)))
+	_ = binary.Write(buf, binary.BigEndian, uint16(len(requested)+len(d.cfg.UnknownOffsets)))
 	for _, item := range requested {
 		_ = binary.Write(buf, binary.BigEndian, item.offset)
 		_ = binary.Write(buf, binary.BigEndian, item.length)
 		buf.Write(encodeParamValue(item.length, working[item.name]))
+	}
+	for _, offset := range slices.Sorted(maps.Keys(d.cfg.UnknownOffsets)) {
+		value := d.cfg.UnknownOffsets[offset]
+		_ = binary.Write(buf, binary.BigEndian, offset)
+		_ = binary.Write(buf, binary.BigEndian, uint16(len(value)))
+		buf.Write(value)
 	}
 	return buf.Bytes()
 }

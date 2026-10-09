@@ -35,11 +35,15 @@ save_data step per the Net::UDAP reference.
 Pass --reboot (-r) to also reset the device after writing, which is
 needed for most network-related parameters to take effect.
 
+On success, set prints the parameters it wrote, in the same format as
+read (or as one JSON object or name,value CSV rows with --format).
+
 The available per-parameter flags are listed below; their accepted
 values are documented under each flag's description.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runSet,
+	Annotations:       map[string]string{annotationResult: ""},
 }
 
 func init() {
@@ -59,7 +63,6 @@ func init() {
 }
 
 func runSet(cmd *cobra.Command, args []string) error {
-	stdout := cmd.OutOrStdout()
 	stderr := cmd.ErrOrStderr()
 	timeout := flagTimeout.Value()
 
@@ -155,10 +158,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 	}
 	stop()
 
-	if err := formatParamMap(stdout, merged); err != nil {
-		return &ExitError{Code: exitFailure, Err: err}
-	}
-	return nil
+	return renderResult(cmd, sortedParams(merged))
 }
 
 // stdinReader and stdinIsPiped are package-level seams used by e2e

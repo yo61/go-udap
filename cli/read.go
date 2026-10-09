@@ -15,7 +15,8 @@ var readCmd = &cobra.Command{
 	Use:   "read MAC",
 	Short: "Read all parameters from a device",
 	Long: `Read every known NVRAM parameter from a device and print them in
-config-file format (one "name = value" per line).
+config-file format (one "name=value" per line, sorted by name). --format
+json writes one object and csv writes name,value rows.
 
 By default the output is filtered down to values changed from the
 factory defaults, so piping it back through "go-udap set --config -"
@@ -24,6 +25,7 @@ factory defaults and offset_NNN entries for unrecognized NVRAM offsets.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runRead,
+	Annotations:       map[string]string{annotationResult: ""},
 }
 
 func init() {
@@ -33,7 +35,6 @@ func init() {
 }
 
 func runRead(cmd *cobra.Command, args []string) error {
-	stdout := cmd.OutOrStdout()
 	stderr := cmd.ErrOrStderr()
 	timeout := flagTimeout.Value()
 
@@ -65,10 +66,7 @@ func runRead(cmd *cobra.Command, args []string) error {
 	if !readAll {
 		out = filterReadOutput(out)
 	}
-	if err := formatParamMap(stdout, out); err != nil {
-		return &ExitError{Code: exitFailure, Err: err}
-	}
-	return nil
+	return renderResult(cmd, sortedParams(out))
 }
 
 // filterReadOutput trims a device-parameter map down to the entries

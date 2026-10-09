@@ -2,44 +2,77 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
-	"sort"
+	"slices"
 
 	"go-udap/udap"
 )
 
-// formatParamMap writes "key=value\n" lines to w, sorted by key.
-// Used by `read` and multi-param `get`.
-func formatParamMap(w io.Writer, m map[string]string) error {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+// paramValue is one NVRAM parameter and its value.
+type paramValue struct{ name, value string }
+
+// paramList is the Result of `read` and `set`: parameters in the order
+// they are written out.
+type paramList []paramValue
+
+func sortedParams(m map[string]string) paramList {
+	out := make(paramList, 0, len(m))
+	for _, name := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, paramValue{name: name, value: m[name]})
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		if _, err := fmt.Fprintf(w, "%s=%s\n", k, m[k]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return out
 }
 
-// formatGetResult writes the result of a `get` command. Single-param requests
-// produce a bare value (one line, no key=); multi-param requests produce
-// key=value lines (one per requested param, in request order).
-func formatGetResult(w io.Writer, requested []string, values map[string]string) error {
-	if len(requested) == 1 {
-		_, err := fmt.Fprintf(w, "%s\n", values[requested[0]])
-		return err
+func (l paramList) WriteText(w io.Writer) error {
+	var b bytes.Buffer
+	for _, p := range l {
+		fmt.Fprintf(&b, "%s=%s\n", p.name, p.value)
 	}
-	for _, k := range requested {
-		if _, err := fmt.Fprintf(w, "%s=%s\n", k, values[k]); err != nil {
-			return err
+	_, err := w.Write(b.Bytes())
+	return err
+}
+
+func (l paramList) JSONValue() any { return paramObject{l} }
+
+func (l paramList) CSVHeader() []string { return []string{"name", "value"} }
+
+func (l paramList) CSVRows() [][]*string {
+	rows := make([][]*string, 0, len(l))
+	for _, p := range l {
+		rows = append(rows, []*string{&p.name, &p.value})
+	}
+	return rows
+}
+
+// paramObject marshals a paramList as one JSON object, keeping its
+// order (a map would sort the keys).
+type paramObject struct{ params paramList }
+
+func (o paramObject) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, p := range o.params {
+		if i > 0 {
+			b.WriteByte(',')
 		}
+		name, err := json.Marshal(p.name)
+		if err != nil {
+			return nil, err
+		}
+		value, err := json.Marshal(p.value)
+		if err != nil {
+			return nil, err
+		}
+		b.Write(name)
+		b.WriteByte(':')
+		b.Write(value)
 	}
-	return nil
+	b.WriteByte('}')
+	return b.Bytes(), nil
 }
 
 // formatDeviceInfo writes a multi-line metadata block for one device.

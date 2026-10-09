@@ -5,49 +5,58 @@ import (
 	"strings"
 	"testing"
 
+	"go-udap/cli/output"
 	"go-udap/udap"
 )
 
-func TestFormatParamMapSortsByKey(t *testing.T) {
+func renderTo(t *testing.T, f output.Format, r output.Result) string {
+	t.Helper()
 	var buf bytes.Buffer
-	err := formatParamMap(&buf, map[string]string{
+	if err := output.Render(&buf, f, r); err != nil {
+		t.Fatalf("Render(%s): %v", f, err)
+	}
+	return buf.String()
+}
+
+func TestSortedParamsTextSortsByKey(t *testing.T) {
+	got := renderTo(t, output.Text, sortedParams(map[string]string{
 		"hostname":    "foo",
 		"lan_ip_mode": "1",
 		"interface":   "0",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	}))
+	if want := "hostname=foo\ninterface=0\nlan_ip_mode=1\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
-	got := buf.String()
-	want := "hostname=foo\ninterface=0\nlan_ip_mode=1\n"
+}
+
+func TestParamListJSONKeepsOrderAndEscapes(t *testing.T) {
+	list := paramList{{"wireless_SSID", `say "hi" <&>`}, {"hostname", ""}}
+	got := renderTo(t, output.JSON, list)
+	want := `{"wireless_SSID":"say \"hi\" \u003c\u0026\u003e","hostname":""}` + "\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
-func TestFormatGetSingleValueIsBare(t *testing.T) {
-	var buf bytes.Buffer
-	err := formatGetResult(&buf, []string{"lan_ip_mode"}, map[string]string{"lan_ip_mode": "1"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if buf.String() != "1\n" {
-		t.Errorf("got %q, want %q", buf.String(), "1\n")
+func TestParamListJSONEmptyIsEmptyObject(t *testing.T) {
+	for name, list := range map[string]paramList{"nil": nil, "empty": sortedParams(nil)} {
+		if got := renderTo(t, output.JSON, list); got != "{}\n" {
+			t.Errorf("%s: got %q, want %q", name, got, "{}\n")
+		}
 	}
 }
 
-func TestFormatGetMultipleValuesIsKeyEqValue(t *testing.T) {
-	var buf bytes.Buffer
-	err := formatGetResult(&buf, []string{"lan_ip_mode", "hostname"}, map[string]string{
-		"lan_ip_mode": "1",
-		"hostname":    "foo",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestGetResultTextIsBareForOneParam(t *testing.T) {
+	got := renderTo(t, output.Text, getResult{paramList{{"lan_ip_mode", "1"}}})
+	if got != "1\n" {
+		t.Errorf("got %q, want %q", got, "1\n")
 	}
-	got := buf.String()
-	if !strings.Contains(got, "lan_ip_mode=1\n") || !strings.Contains(got, "hostname=foo\n") {
-		t.Errorf("got %q, want both param=value lines", got)
+}
+
+func TestGetResultTextKeepsRequestOrder(t *testing.T) {
+	got := renderTo(t, output.Text, getResult{paramList{{"lan_ip_mode", "1"}, {"hostname", "foo"}}})
+	if want := "lan_ip_mode=1\nhostname=foo\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
