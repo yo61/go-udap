@@ -16,6 +16,7 @@ changes.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runReboot,
+	Annotations:       map[string]string{annotationNoResult: "reboot writes no output"},
 }
 
 func init() {

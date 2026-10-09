@@ -39,3 +39,18 @@ Checked against spf13/cobra v1.10.2 on 2026-10-09 with a throwaway probe
   and validation (`cli.Execute`). cobra's own `help` and `__complete`
   commands use `Run`, which can't return an error, and they're added
   during `ExecuteC`, so a tree walk done beforehand never sees them.
+
+## Lazily created commands and test state (checked for #245)
+
+- cobra creates the default `completion` command (and its `bash`/`zsh`/
+  `fish`/`powershell` children) inside `ExecuteC`. An `init()` can't
+  annotate it. `InitDefaultCompletionCmd()` creates it early and is a
+  no-op once it exists, but it decides whether to create the command by
+  counting subcommands already attached. So call it once the tree is
+  complete (`cli.Execute`), not from `init()`.
+- A per-command `--help` flag keeps its value in pflag, not in a
+  package var. Clearing `Changed` doesn't turn it off, so a test that
+  runs `--help` leaves later `Execute` calls on the same tree printing
+  help. `resetFlagsForTesting` sets it back to `false`.
+- With a root `RunE` but no root `Args`, stray arguments still fail
+  with "unknown command", so `go-udap --version extra` exits 2.

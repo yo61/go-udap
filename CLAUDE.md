@@ -20,7 +20,15 @@ The application is structured with a modular design:
   derived from udap.Parameters; cli/source.go layers --config FILE /
   piped stdin / per-param flags for `set`. cli/progress.go and
   cli/stderr.go provide the progress bar (TTY-detected) and the mutex
-  that serializes its output with the udap logger.
+  that serializes its output with the udap logger. cli/format.go holds
+  the --format/-o and --json flags and rejects them (in
+  PersistentPreRunE) on commands without the `annotationResult`
+  annotation. cli/version.go is root's RunE: --version and
+  --build-info Results, otherwise help.
+- **cli/output/**: `Format` (a pflag.Value), the `Result` interface
+  (four methods: WriteText, JSONValue, CSVHeader, CSVRows) and
+  `Render(w, Format, Result)`. Per-command Result types live in `cli`,
+  next to their commands.
 - **udap/client.go**: Core client (UDP socket, packet builders,
   capture). Also defines NewClientForInterface and
   NewClientForAllInterfaces constructors for per-interface and fan-out
@@ -177,9 +185,12 @@ interactive shell.
 - `go-udap set MAC [--reboot/-r] [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win). The wire op writes NVRAM directly (every UCP_METHOD_SET_DATA writes — there is no separate save_data wire method per the Net::UDAP reference). Pass `--reboot/-r` to also reboot after writing.
 - `go-udap reboot MAC` — Reboot the device
 - `go-udap getip MAC` — Query the device's current IP / subnet / gateway via UCP_METHOD_GET_IP (0x0002). Distinct from discovery: discover passively observes; getip actively asks
-- `go-udap interfaces` — List local network interfaces usable for UDAP discovery (Up + Broadcast + has IPv4 + not loopback). Useful for picking a value for `--bind-interface NAME`
+- `go-udap interfaces` — List local network interfaces usable for UDAP discovery (Up + Broadcast + has IPv4 + not loopback). Useful for picking a value for `--bind-interface NAME`. Supports `--format`/`--json`
+- `go-udap --version` / `go-udap --build-info` — Version, or version plus VCS and runtime metadata from `debug.ReadBuildInfo`. Root-only flags; both support `--format`/`--json`
 
-Global flags: `--timeout DURATION` (default 2s), `--retries N` (default 0), `--verbose`/`-v`, `--version`, `--help`/`-h`, `--bind-interface NAME`, `--all-interfaces`.
+Global flags: `--timeout DURATION` (default 2s), `--retries N` (default 0), `--verbose`/`-v`, `--help`/`-h`, `--bind-interface NAME`, `--all-interfaces`, `--format`/`-o text|json|csv`, `--json`.
+
+`--format`/`--json` select the Output format (see CONTEXT.md). Only commands annotated with `annotationResult` accept them, plus root when `--version` or `--build-info` is given; `rg 'annotationResult:' cli` lists them. Commands annotated with `annotationNoResult` (and bare root) reject them with a reason; any other command gets a neutral `<cmd>: --json not supported`.
 Global flags are accepted before OR after the subcommand
 (`go-udap -v read MAC` and `go-udap read -v MAC` are equivalent).
 

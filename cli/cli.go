@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"go-udap/cli/output"
 	"go-udap/udap"
 )
 
@@ -23,6 +24,8 @@ var Version = "dev"
 // truth; consumed by every subcommand via flagTimeout.Value(). PR 2 of
 // the shell-completions feature drops this to 2*time.Second.
 const defaultTimeout = 2 * time.Second
+
+const programName = "go-udap"
 
 // Process exit codes. Success is 0.
 const (
@@ -90,7 +93,7 @@ var (
 // rootCmd is the entry point for the CLI. Subcommands are attached in
 // init() functions in their respective files.
 var rootCmd = &cobra.Command{
-	Use:   "go-udap",
+	Use:   programName,
 	Short: "Squeezebox UDAP configuration tool",
 	Long: `go-udap discovers and configures Squeezebox devices over UDAP
 (Universal Device Access Protocol) on UDP port 17784.
@@ -109,10 +112,14 @@ back into it by holding the front button for 3-6 seconds.`,
 	// SilenceErrors prevents Cobra printing the error itself; main.go
 	// handles that with the "error:" prefix.
 	SilenceErrors: true,
+	RunE:          runRoot,
 	// PersistentPreRunE runs before every subcommand RunE. It populates
 	// currentBindInterface and currentRetries from the parsed flags and
 	// validates the --bind-interface / --all-interfaces combination.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := rejectFormatFlag(cmd); err != nil {
+			return err
+		}
 		currentRetries = flagRetries
 		sel := bindInterfaceSelection{name: flagBindInterface, all: flagAllInterfaces}
 		if sel.name != "" && sel.all {
@@ -160,10 +167,6 @@ func init() {
 	if err := rootCmd.RegisterFlagCompletionFunc("bind-interface", completeInterfaces); err != nil {
 		panic(fmt.Sprintf("register bind-interface completion: %v", err))
 	}
-	rootCmd.Version = Version
-	// Cobra default --version output is "go-udap version X.Y.Z";
-	// override to match the existing "go-udap X.Y.Z" format.
-	rootCmd.SetVersionTemplate("go-udap {{.Version}}\n")
 }
 
 // Root returns the assembled cobra command tree. Intended for tooling
@@ -181,7 +184,10 @@ func Root() *cobra.Command { return rootCmd }
 // from cobra's own parsing and validation (unknown command, bad flag,
 // wrong argument count, conflicting flags), so it becomes a usage error.
 func Execute(args []string, stdout, stderr io.Writer) error {
-	trackRunEStartOnce.Do(func() { trackRunEStart(rootCmd) })
+	trackRunEStartOnce.Do(func() {
+		annotateCompletionCmd()
+		trackRunEStart(rootCmd)
+	})
 	reachedRunE = false
 	syncErr := newStderrSync(stderr)
 	rootCmd.SetOut(stdout)
@@ -226,6 +232,10 @@ func resetFlagsForTesting() {
 	flagRetries = 0
 	flagBindInterface = ""
 	flagAllInterfaces = false
+	flagFormat = output.Text
+	flagJSON = false
+	flagVersion = false
+	flagBuildInfo = false
 	currentBindInterface = bindInterfaceSelection{}
 	currentRetries = 0
 	// Re-register the PersistentFlag for --timeout since the holder is
@@ -248,9 +258,14 @@ func resetFlagsForTesting() {
 }
 
 // resetChangedInTree recursively clears the Changed flag on every pflag
-// flag in a cobra command and all its subcommands.
+// flag in a cobra command and all its subcommands, and turns --help off.
 func resetChangedInTree(cmd *cobra.Command) {
-	clearChanged := func(f *pflag.Flag) { f.Changed = false }
+	clearChanged := func(f *pflag.Flag) {
+		f.Changed = false
+		if f.Name == "help" { // Set("false") on a bool flag cannot fail
+			_ = f.Value.Set("false")
+		}
+	}
 	cmd.PersistentFlags().VisitAll(clearChanged)
 	cmd.Flags().VisitAll(clearChanged)
 	for _, sub := range cmd.Commands() {

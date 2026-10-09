@@ -47,6 +47,7 @@ func startMockEnv(t *testing.T, n int) *e2eEnv {
 func (e *e2eEnv) runCLI(t *testing.T, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
 	t.Cleanup(resetFlagsForTesting)
+	resetFlagsForTesting()
 	var outBuf, errBuf bytes.Buffer
 	err := Execute(args, &outBuf, &errBuf)
 	if err != nil {
