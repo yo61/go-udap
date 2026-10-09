@@ -119,13 +119,18 @@ context wrap chain)
       alerts CI reports.
     - When a stdlib alert is open in the Security tab, go.mod's go
       directive is moved to a release that fixes it.
+    - Before merging a release-please PR, there are no open govulncheck
+      alerts. goreleaser builds with `go-version-file: go.mod`, so a
+      release cut while stdlib alerts are open ships binaries on the
+      vulnerable stdlib even though CI is green.
 
 ## Severity: warning
 
-## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115, #129, #171, #179, #188
+## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115, #129, #171, #179, #188, #241, #242
 
-## Last triggered: 2026-10-09 (sharp GHSA-wq5f-xc86-pv6w landed on
-0.35.4, above the existing `^0.35.0` floor — repeat offender again)
+## Last triggered: 2026-10-09 (#241 — sharp GHSA-wq5f-xc86-pv6w landed
+on 0.35.4, above the existing `^0.35.0` floor; #242 — 13 stdlib
+advisories against go 1.27.1, directive moved to 1.27.2)
 
 ---
 
