@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.10](https://github.com/yo61/go-udap/compare/v2.4.9...v2.4.10) (2026-10-09)
+
+
+### Bug Fixes
+
+* make bare `task` list the tasks instead of building ([#234](https://github.com/yo61/go-udap/issues/234)) ([b6de510](https://github.com/yo61/go-udap/commit/b6de510aa7bd1e093c42bd417ead097802d4e5cc))
+
+
+### Dependencies
+
+* bump Go to 1.27.2 to clear stdlib govulncheck alerts ([#242](https://github.com/yo61/go-udap/issues/242)) ([1d37b09](https://github.com/yo61/go-udap/commit/1d37b09612cf4818efff0fb6703764c8db181f3e))
+
 ## [2.4.9](https://github.com/yo61/go-udap/compare/v2.4.8...v2.4.9) (2026-09-11)
 
 
