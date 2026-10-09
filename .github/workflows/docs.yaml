@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: docs/site
@@ -30,11 +30,17 @@ jobs:
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
+        env:
+          # renovate: datasource=npm depName=pnpm
+          PNPM_VERSION: 11.28.3
         with:
-          version: 11
+          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        env:
+          # renovate: datasource=node-version depName=node
+          NODE_VERSION: 22.23.3
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: docs/site/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
@@ -47,7 +53,7 @@ jobs:
   deploy:
     needs: build
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       pages: write
       id-token: write

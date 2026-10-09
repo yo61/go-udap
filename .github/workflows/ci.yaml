@@ -14,7 +14,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
+        # Renovate moves runs-on labels, not matrix values: move ubuntu-26.04 here by hand with
+        # the runs-on labels below.
+        os: [ubuntu-26.04, macos-latest, windows-2025-vs2026]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -31,7 +33,7 @@ jobs:
   # and is skipped by `prek run` automatically.
   lint:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -39,18 +41,22 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
-      # dnephin/pre-commit-golang's go-imports hook calls goimports
-      # directly; install it on PATH before prek runs.
-      - run: go install golang.org/x/tools/cmd/goimports@latest
+      # tekwizely/pre-commit-golang's go-imports hook calls goimports
+      # directly; install it on PATH before prek runs. Renovate's regex
+      # manager in renovate.json5 moves the version.
+      - run: go install golang.org/x/tools/cmd/goimports@v0.50.0
       - uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+        env:
+          # renovate: datasource=github-releases depName=j178/prek extractVersion=^v(?<version>.+)$
+          PREK_VERSION: 0.5.4
         with:
-          prek-version: 0.4.13
+          prek-version: ${{ env.PREK_VERSION }}
 
   # Syntax-check the generated bash/zsh/fish completion scripts so a
   # malformed script can't ride out in a release.
   completion-smoke:
     name: completion-smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -80,7 +86,7 @@ jobs:
   commitlint:
     name: Conventional Commits
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       pull-requests: read
     steps:
@@ -92,6 +98,6 @@ jobs:
       # commit to master since 2025-01-14, and it pins @commitlint/ensure ^19,
       # two majors behind. This fork runs commitlint v21 on node 24, and pins its
       # runtime image by digest so the SHA pin here cannot be worked around.
-      - uses: yo61/commitlint-github-action@501ff7bb31eb7133c871318c877d0e43cd1ff500  # v6.3.0 (digest-pinned)
+      - uses: yo61/commitlint-github-action@501ff7bb31eb7133c871318c877d0e43cd1ff500  # v6.3.1 (digest-pinned)
         with:
           configFile: commitlint.config.mjs

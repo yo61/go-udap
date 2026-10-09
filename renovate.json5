@@ -1,0 +1,88 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  // Two bots update this repository, each owning different pins. Dependabot keeps the pre-commit
+  // hooks, the action SHAs and docs/site's npm dependencies (.github/dependabot.yaml). Renovate
+  // owns go.mod whole (modules and the go directive), the runner image, the annotated *_VERSION
+  // values in the workflows, the `go install`/`go run` tool versions and the commitlint hook's
+  // config package. enabledManagers keeps it off everything Dependabot owns; github-actions runs
+  // only for runner images. Renovate runs from yo61/infrastructure's workflow, whose cron is the
+  // only schedule; do not add a `schedule`.
+  extends: ["config:recommended", "customManagers:githubActionsVersions"],
+  enabledManagers: ["gomod", "github-actions", "custom.regex"],
+
+  // Policy shared by every repository Renovate updates; keep the copies alike.
+  semanticCommits: "enabled",
+  dependencyDashboard: true,
+  minimumReleaseAge: "7 days",
+  minimumReleaseAgeBehaviour: "timestamp-optional",
+  prHourlyLimit: 0,
+  prConcurrentLimit: 10,
+  osvVulnerabilityAlerts: true,
+  vulnerabilityAlerts: {
+    semanticCommitType: "fix",
+    labels: ["security"],
+  },
+
+  postUpdateOptions: ["gomodTidy"],
+
+  packageRules: [
+    {
+      matchUpdateTypes: ["major"],
+      minimumReleaseAge: "14 days",
+    },
+    {
+      // Action SHAs are Dependabot's; only runs-on images are Renovate's.
+      matchManagers: ["github-actions"],
+      matchDatasources: ["!github-runners"],
+      enabled: false,
+    },
+    {
+      // go.mod changes the released binary, so its updates keep this repository's `deps` type:
+      // release-please lists them under Dependencies and cuts a patch release (see the commit
+      // type note in .github/dependabot.yaml).
+      matchManagers: ["gomod"],
+      semanticCommitType: "deps",
+      semanticCommitScope: "",
+    },
+    {
+      matchManagers: ["gomod"],
+      matchDepTypes: ["require", "indirect"],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      groupName: "go modules (minor and patch)",
+    },
+    {
+      // The go directive tracks the current Go release, minor lines included
+      // (decisions/2026-09-04-track-current-go-minor-line.md). CI and goreleaser build with it
+      // (setup-go reads go.mod). Renovate leaves it alone unless told to bump it.
+      matchManagers: ["gomod"],
+      matchDepNames: ["go"],
+      matchDepTypes: ["golang"],
+      rangeStrategy: "bump",
+    },
+    {
+      matchFileNames: [".github/workflows/**"],
+      semanticCommitScope: "ci",
+    },
+  ],
+
+  customManagers: [
+    {
+      // Go tools installed by version in CI and Taskfile.yaml; each tool's copies move together.
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/[^/]+\\.yaml$/", "/^Taskfile\\.yaml$/"],
+      matchStrings: [
+        "go (?:install|run) (?<depName>golang\\.org/x/tools)/cmd/goimports@(?<currentValue>v[0-9.]+)",
+        "go (?:install|run) (?<depName>golang\\.org/x/vuln)/cmd/govulncheck@(?<currentValue>v[0-9.]+)",
+      ],
+      datasourceTemplate: "go",
+    },
+    {
+      // The commitlint hook's config package, in additional_dependencies.
+      customType: "regex",
+      managerFilePatterns: ["/^\\.pre-commit-config\\.yaml$/"],
+      matchStrings: ["'(?<depName>@commitlint/config-conventional)@(?<currentValue>[0-9.]+)'"],
+      datasourceTemplate: "npm",
+    },
+  ],
+}

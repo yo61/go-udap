@@ -1,11 +1,15 @@
+# Dependabot keeps the pre-commit hooks, the action SHAs and docs/site's npm dependencies.
+# Renovate (renovate.json5) keeps go.mod whole (modules and the go directive), the runner image,
+# the tool versions CI installs and the commitlint hook's config package. Each pin has one owner.
+
 version: 2
 
 # Commit type decides whether an update ships. release-please treats every
 # visible changelog section as releasable, so `deps` both lists an update in
 # the changelog and cuts a patch release, while `chore` does neither. The line
 # is drawn at what reaches users: only updates that change the published
-# package use `deps`. See yo61/jobhound
-# decisions/2026-08-13-dependency-updates-and-releases.md.
+# package use `deps` (Go modules, now Renovate's, keep it in renovate.json5).
+# See yo61/jobhound decisions/2026-08-13-dependency-updates-and-releases.md.
 updates:
   # Pre-existing: pre-commit hook updates (don't remove)
   - package-ecosystem: "pre-commit"
@@ -19,19 +23,6 @@ updates:
     groups:
       hooks:
         patterns: ["*"]
-
-  # Go module updates
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    # Module updates ship in the released binary, so they keep `deps`.
-    commit-message:
-      prefix: "deps"
-    groups:
-      gomod-minor-patch:
         update-types: ["minor", "patch"]
 
   # GitHub Actions updates (SHA-pinned actions get tag-tracking PRs)
@@ -54,6 +45,7 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+      semver-major-days: 14
     ignore:
       # TypeScript 7.x is the native (Go) compiler; it drops the JS compiler
       # API that `next build` loads for type-checking. Hold on 6.x until the

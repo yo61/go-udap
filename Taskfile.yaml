@@ -287,6 +287,8 @@ tasks:
       (./udap/...) are not worth it: the timeout-sensitive tests there — transport,
       socket_unblock, multi_transport — flake under concurrent mutation and fill the survivor list
       with false positives.
+    # go-mutesting@latest on purpose: its v2.x tags lack the /v2 module path, so the Go proxy
+    # serves only main-branch pseudo-versions and there is no release to pin.
     cmds:
       - command -v go-mutesting >/dev/null || { echo "go-mutesting not in PATH; run 'go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@latest'"; exit 1; }
       - go-mutesting udap/getdata_response.go
@@ -299,7 +301,7 @@ tasks:
       is authoritative. grype is optional: the task says so on stderr and carries on without it,
       so a local pass proves less than a CI pass.
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - |
         if command -v grype >/dev/null 2>&1; then
           grype dir:.

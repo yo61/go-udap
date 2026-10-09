@@ -29,7 +29,7 @@ permissions:
 jobs:
   govulncheck:
     name: govulncheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       security-events: write  # SARIF upload to Security tab
@@ -42,8 +42,10 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Renovate's regex manager in renovate.json5 moves the version, with
+      # Taskfile.yaml's security task.
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
 
       - name: Run govulncheck (SARIF)
         id: govulncheck
@@ -68,7 +70,7 @@ jobs:
 
   sbom-scan:
     name: sbom-scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       security-events: write
