@@ -119,6 +119,10 @@ context wrap chain)
       alerts CI reports.
     - When a stdlib alert is open in the Security tab, go.mod's go
       directive is moved to a release that fixes it.
+    - Before merging a release-please PR, there are no open govulncheck
+      alerts. goreleaser builds with `go-version-file: go.mod`, so a
+      release cut while stdlib alerts are open ships binaries on the
+      vulnerable stdlib even though CI is green.
 
 ## Severity: warning
 
