@@ -32,16 +32,17 @@ context wrap chain)
 
 ## Criteria:
 
-    - Exit 0 only on success; 1 for usage/validation errors; 2 for
-      operation failures. No other codes.
+    - Exit 0 only on success; 1 for operation failures; 2 for
+      usage/validation errors. No other codes.
     - Every non-happy-path branch returns an *ExitError with the correct
       code, and a test asserts that code.
 
 ## Severity: blocking
 
-## Source: CLAUDE.md "Output ... Exit codes: 0 success, 1 usage error, 2 operation failure"
+## Source: CLAUDE.md "Output ... Exit codes: 0 success, 1 operation failure, 2 usage error" (flipped in #252)
 
-## Last triggered: never
+## Last triggered: 2026-10-09 (#252 — cobra's own parse/validation
+errors were untyped and fell through to the operation-failure code)
 
 ---
 

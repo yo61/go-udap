@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -22,6 +23,12 @@ var Version = "dev"
 // truth; consumed by every subcommand via flagTimeout.Value(). PR 2 of
 // the shell-completions feature drops this to 2*time.Second.
 const defaultTimeout = 2 * time.Second
+
+// Process exit codes. Success is 0.
+const (
+	exitFailure = 1 // the operation was attempted and failed
+	exitUsage   = 2 // the invocation or its input is invalid
+)
 
 // ExitError carries a process exit code alongside a message.
 // Use it from subcommand handlers to control go-udap's exit status.
@@ -42,7 +49,7 @@ func (e *ExitError) Unwrap() error { return e.Err }
 // ExitCode maps an error to a process exit code:
 //   - nil           → 0
 //   - *ExitError    → ee.Code
-//   - any other err → 2 (operation failure)
+//   - any other err → 1 (operation failure)
 func ExitCode(err error) int {
 	if err == nil {
 		return 0
@@ -51,7 +58,7 @@ func ExitCode(err error) int {
 	if ok {
 		return ee.Code
 	}
-	return 2
+	return exitFailure
 }
 
 // bindInterfaceSelection captures the global --bind-interface /
@@ -108,10 +115,16 @@ back into it by holding the front button for 3-6 seconds.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		currentRetries = flagRetries
 		sel := bindInterfaceSelection{name: flagBindInterface, all: flagAllInterfaces}
+		if sel.name != "" && sel.all {
+			return &ExitError{
+				Code: exitUsage,
+				Err:  errors.New("--bind-interface and --all-interfaces cannot be used together"),
+			}
+		}
 		if sel.name != "" {
 			ifs, err := udap.EnumerateInterfaces()
 			if err != nil {
-				return &ExitError{Code: 2, Err: fmt.Errorf("enumerate interfaces: %w", err)}
+				return &ExitError{Code: exitFailure, Err: fmt.Errorf("enumerate interfaces: %w", err)}
 			}
 			found := false
 			for _, iface := range ifs {
@@ -121,7 +134,9 @@ back into it by holding the front button for 3-6 seconds.`,
 				}
 			}
 			if !found {
-				return &ExitError{Code: 1, Err: fmt.Errorf("--bind-interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)", sel.name)}
+				return &ExitError{Code: exitUsage, Err: fmt.Errorf(
+					"--bind-interface: %q is not usable (must be up, broadcast-capable, with an IPv4 address)",
+					sel.name)}
 			}
 		}
 		currentBindInterface = sel
@@ -136,7 +151,7 @@ func init() {
 	f.Var(newIntWithPlaceholder("N", 0, &flagRetries), "retries", "Re-transmit each UDAP send N additional times (default 0; useful on lossy links)")
 	// --bind-interface and --all-interfaces are accepted on all platforms.
 	// Validation (against EnumerateInterfaces) runs in PersistentPreRunE on
-	// every platform — unknown names exit 1 everywhere. Platform-specific
+	// every platform — unknown names exit 2 (usage error) everywhere. Platform-specific
 	// behaviour is in newClient: Windows socket-binding returns "not
 	// supported" when the flag is actually used.
 	f.StringVar(&flagBindInterface, "bind-interface", "", "Bind discovery to one network interface")
@@ -161,12 +176,45 @@ func Root() *cobra.Command { return rootCmd }
 // stderr are the writers the command tree should produce output through;
 // stderr is wrapped in a stderrSync writer so the progress bar and the
 // structured logger don't smash together on the same terminal row.
+//
+// An untyped error returned before any subcommand's RunE started came
+// from cobra's own parsing and validation (unknown command, bad flag,
+// wrong argument count, conflicting flags), so it becomes a usage error.
 func Execute(args []string, stdout, stderr io.Writer) error {
+	trackRunEStartOnce.Do(func() { trackRunEStart(rootCmd) })
+	reachedRunE = false
 	syncErr := newStderrSync(stderr)
 	rootCmd.SetOut(stdout)
 	rootCmd.SetErr(syncErr)
 	rootCmd.SetArgs(args)
-	return rootCmd.ExecuteContext(context.Background())
+	err := rootCmd.ExecuteContext(context.Background())
+	if err == nil || reachedRunE {
+		return err
+	}
+	if _, typed := errors.AsType[*ExitError](err); typed {
+		return err
+	}
+	return &ExitError{Code: exitUsage, Err: err}
+}
+
+// reachedRunE records whether a subcommand's RunE started during the
+// current Execute.
+var (
+	reachedRunE        bool
+	trackRunEStartOnce sync.Once
+)
+
+// trackRunEStart wraps every RunE in the tree so that it sets reachedRunE.
+func trackRunEStart(cmd *cobra.Command) {
+	if run := cmd.RunE; run != nil {
+		cmd.RunE = func(c *cobra.Command, args []string) error {
+			reachedRunE = true
+			return run(c, args)
+		}
+	}
+	for _, sub := range cmd.Commands() {
+		trackRunEStart(sub)
+	}
 }
 
 // resetFlagsForTesting restores all package-level flag holders to their

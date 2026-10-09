@@ -65,7 +65,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 
 	mac, err := normalizeMAC(args[0])
 	if err != nil {
-		return &ExitError{Code: 1, Err: err}
+		return &ExitError{Code: exitUsage, Err: err}
 	}
 
 	// Collect per-param flag values that were actually set, and reject
@@ -79,7 +79,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 		}
 		val := setParamValues[p.udapName].String()
 		if err := udap.ValidateParameter(p.udapName, val); err != nil {
-			return &ExitError{Code: 1, Err: fmt.Errorf("--%s: %w", p.flagName, err)}
+			return &ExitError{Code: exitUsage, Err: fmt.Errorf("--%s: %w", p.flagName, err)}
 		}
 		flagValues[p.udapName] = val
 	}
@@ -94,7 +94,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 	case setConfigPath != "":
 		f, err := os.Open(setConfigPath)
 		if err != nil {
-			return &ExitError{Code: 1, Err: fmt.Errorf("open config: %w", err)}
+			return &ExitError{Code: exitUsage, Err: fmt.Errorf("open config: %w", err)}
 		}
 		defer f.Close()
 		fileContent = f
@@ -116,12 +116,12 @@ func runSet(cmd *cobra.Command, args []string) error {
 		flags:        flagValues,
 	}, stderr)
 	if err != nil {
-		return &ExitError{Code: 1, Err: err}
+		return &ExitError{Code: exitUsage, Err: err}
 	}
 
 	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return &ExitError{Code: exitFailure, Err: err}
 	}
 	defer client.Close()
 
@@ -149,13 +149,14 @@ func runSet(cmd *cobra.Command, args []string) error {
 	}
 	if setReboot {
 		if err := client.ResetDeviceWithContext(ctx, device); err != nil {
-			return &ExitError{Code: 2, Err: fmt.Errorf("set --reboot failed during reset: %w", err)}
+			err = fmt.Errorf("set --reboot failed during reset: %w", err)
+			return &ExitError{Code: exitFailure, Err: err}
 		}
 	}
 	stop()
 
 	if err := formatParamMap(stdout, merged); err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return &ExitError{Code: exitFailure, Err: err}
 	}
 	return nil
 }

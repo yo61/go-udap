@@ -7,7 +7,7 @@ requires all three renderings, so the compiler, not a runtime check,
 guarantees every command supports every format.
 
 - Flags: global `--format`/`-o`, with `--json` as shorthand; the two
-  are mutually exclusive (exit 1). No environment variable.
+  are mutually exclusive (exit 2, usage error). No environment variable.
 - Only stdout changes. Errors, warnings, progress and logs stay as plain
   text on stderr; exit codes stay the failure signal.
 - `text` output stays byte-identical to today.
@@ -18,11 +18,11 @@ guarantees every command supports every format.
   flattened with a prefix, and parameter maps use long form
   (`name,value`).
 - A format flag on a command that writes no Result (`reboot`, bare
-  root, `completion`) exits 1. The exceptions are `--help`, which wins,
+  root, `completion`) exits 2. The exceptions are `--help`, which wins,
   and `__complete`.
 - `--version` takes the format flags. `--build-info` adds VCS and
   runtime metadata from `debug.ReadBuildInfo`, with no new ldflags.
-  `--verbose` combined with either exits 1.
+  `--verbose` combined with either exits 2.
 - JSON and CSV shapes are a public contract: removing or renaming a
   key is a breaking (`feat!:`) change, and adding a key is not.
 

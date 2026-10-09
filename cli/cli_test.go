@@ -24,19 +24,15 @@ func TestExecutePrintsHelpWithNoArgs(t *testing.T) {
 	}
 }
 
-func TestExecuteUnknownCommandIsNonZeroExit(t *testing.T) {
+func TestExecuteUnknownCommandIsUsageError(t *testing.T) {
 	t.Cleanup(resetFlagsForTesting)
 	var stdout, stderr bytes.Buffer
 	err := Execute([]string{"flooble"}, &stdout, &stderr)
 	if err == nil {
 		t.Fatalf("expected error for unknown command")
 	}
-	// Cobra returns a plain error on unknown command, not an *ExitError.
-	// ExitCode() maps that to 2 (operation failure). Update the test to
-	// match: unknown-subcommand becomes exit 2 under Cobra (any non-ExitError
-	// -> 2). Sanity-check non-zero rather than insisting on a specific code.
-	if ExitCode(err) == 0 {
-		t.Errorf("expected non-zero exit code, got 0")
+	if ExitCode(err) != 2 {
+		t.Errorf("exit code %d, want 2 (usage error)", ExitCode(err))
 	}
 	if !strings.Contains(err.Error(), "flooble") {
 		t.Errorf("expected error to mention %q, got %q", "flooble", err.Error())
@@ -77,9 +73,9 @@ func TestVersionVariableIsOverridable(t *testing.T) {
 	}
 }
 
-func TestExitCodeReturnsZeroForNonExitError(t *testing.T) {
-	if got := ExitCode(errors.New("plain")); got != 2 {
-		t.Errorf("plain error should map to exit 2, got %d", got)
+func TestExitCodeMapsErrors(t *testing.T) {
+	if got := ExitCode(errors.New("plain")); got != 1 {
+		t.Errorf("unclassified error should map to exit 1 (operation failure), got %d", got)
 	}
 	if got := ExitCode(nil); got != 0 {
 		t.Errorf("nil error should map to exit 0, got %d", got)

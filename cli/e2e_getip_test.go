@@ -43,7 +43,7 @@ func TestE2EGetIPHappyPath(t *testing.T) {
 	}
 }
 
-func TestE2EGetIPMissingMACIsExitCodeTwo(t *testing.T) {
+func TestE2EGetIPMissingMACIsExitCodeOne(t *testing.T) {
 	network := mocksbr.NewNetwork(1, udap.NewNoOpLogger())
 	t.Cleanup(func() { _ = network.Close() })
 	prev := newClient
@@ -58,8 +58,8 @@ func TestE2EGetIPMissingMACIsExitCodeTwo(t *testing.T) {
 	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
 	err := Execute([]string{"getip", "aa:bb:cc:dd:ee:ff", "--timeout", "200ms"}, &outBuf, &errBuf)
-	if ExitCode(err) != 2 {
-		t.Errorf("exit code %d, want 2 (device not found)", ExitCode(err))
+	if ExitCode(err) != 1 {
+		t.Errorf("exit code %d, want 1 (device not found)", ExitCode(err))
 	}
 }
 
@@ -84,8 +84,8 @@ func TestE2EGetIPTimeoutWhenDeviceDropsRequest(t *testing.T) {
 	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
 	err := Execute([]string{"getip", "00:04:20:00:00:01", "--timeout", "200ms"}, &outBuf, &errBuf)
-	if ExitCode(err) != 2 {
-		t.Errorf("exit code %d, want 2 (timeout)", ExitCode(err))
+	if ExitCode(err) != 1 {
+		t.Errorf("exit code %d, want 1 (timeout)", ExitCode(err))
 	}
 }
 
@@ -110,8 +110,8 @@ func TestE2EGetIPMethodErrorPropagatesMessage(t *testing.T) {
 	t.Cleanup(resetFlagsForTesting)
 	var outBuf, errBuf bytes.Buffer
 	err := Execute([]string{"getip", "00:04:20:00:00:01", "--timeout", "500ms"}, &outBuf, &errBuf)
-	if ExitCode(err) != 2 {
-		t.Errorf("exit code %d, want 2", ExitCode(err))
+	if ExitCode(err) != 1 {
+		t.Errorf("exit code %d, want 1 (device error reply)", ExitCode(err))
 	}
 	if err == nil || !strings.Contains(err.Error(), "mocksbr: configured to fail getip") {
 		t.Errorf("error %v does not contain mocksbr's failure message", err)

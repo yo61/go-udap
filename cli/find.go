@@ -87,7 +87,7 @@ const findPollInterval = 50 * time.Millisecond
 // MAC matches as soon as it appears, cancelling discovery early
 // instead of waiting for the full timeout. The caller's ctx is used
 // directly so the discovery and the subsequent operation share one
-// time budget — review finding #4. Returns an *ExitError with code 2
+// time budget — review finding #4. Returns an *ExitError with code 1
 // if no matching device responds before ctx fires.
 func discoverAndFind(ctx context.Context, client *udap.Client, mac string) (*udap.Device, error) {
 	discoverCtx, cancelDiscover := context.WithCancel(ctx)
@@ -114,9 +114,10 @@ func discoverAndFind(ctx context.Context, client *udap.Client, mac string) (*uda
 				return d, nil
 			}
 			if err != nil && ctx.Err() == nil {
-				return nil, &ExitError{Code: 2, Err: fmt.Errorf("discovery failed: %w", err)}
+				return nil, &ExitError{Code: exitFailure, Err: fmt.Errorf("discovery failed: %w", err)}
 			}
-			return nil, &ExitError{Code: 2, Err: fmt.Errorf("device %s not found before timeout", mac)}
+			notFound := fmt.Errorf("device %s not found before timeout", mac)
+			return nil, &ExitError{Code: exitFailure, Err: notFound}
 		}
 	}
 }

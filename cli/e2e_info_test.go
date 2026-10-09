@@ -26,11 +26,11 @@ func TestE2EInfoPrintsDeviceMetadata(t *testing.T) {
 	}
 }
 
-func TestE2EInfoMissingMACIsExitCodeTwo(t *testing.T) {
+func TestE2EInfoMissingMACIsExitCodeOne(t *testing.T) {
 	env := startMockEnv(t, 1)
 	_, _, exitCode := env.runCLI(t, "info", "aa:bb:cc:dd:ee:ff", "--timeout", "200ms")
-	if exitCode != 2 {
-		t.Errorf("exit code %d, want 2 (device not found)", exitCode)
+	if exitCode != 1 {
+		t.Errorf("exit code %d, want 1 (device not found)", exitCode)
 	}
 }
 
