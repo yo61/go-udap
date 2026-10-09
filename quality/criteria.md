@@ -122,10 +122,11 @@ context wrap chain)
 
 ## Severity: warning
 
-## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115, #129, #171, #179, #188
+## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115, #129, #171, #179, #188, #241, #242
 
-## Last triggered: 2026-10-09 (sharp GHSA-wq5f-xc86-pv6w landed on
-0.35.4, above the existing `^0.35.0` floor — repeat offender again)
+## Last triggered: 2026-10-09 (#241 — sharp GHSA-wq5f-xc86-pv6w landed
+on 0.35.4, above the existing `^0.35.0` floor; #242 — 13 stdlib
+advisories against go 1.27.1, directive moved to 1.27.2)
 
 ---
 
