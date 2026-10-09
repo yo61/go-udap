@@ -4,7 +4,7 @@ description: Discover Squeezebox devices on the network
 ---
 
 ```text
-go-udap discover [--info] [--timeout DURATION]
+go-udap discover [--info] [--timeout DURATION] [--format text|json|csv | --json]
 ```
 
 ## What it does
@@ -22,9 +22,47 @@ to stderr.
 
 ## Output
 
+In the default `text` format:
+
 - Without `--info`: one MAC per line, sorted by MAC string.
 - With `--info`: per-device metadata block, blank line between
   devices.
+
+With `--json` (or `-o json`), an array with one object per device,
+sorted by MAC. Without `--info`, each object holds only the MAC:
+
+```json
+[{"mac":"00:04:20:16:06:02"}]
+```
+
+With `--info`, each object holds the device's metadata, with its
+`get_ip` result nested under `network`. Every field except `mac` is
+`null` when absent: an empty name or UUID, or a failed or factory-state
+`get_ip` (shown as `-` in text):
+
+```json
+[{"mac":"00:04:20:16:06:02","ip":"192.168.1.50","name":"Kitchen","model":"Squeezebox Receiver","firmware":"77","hardware_rev":"0005","uuid":"deadbeefcafebabe1122334455667788","state":"init","network":{"ip":"192.168.1.50","subnet_mask":"255.255.255.0","gateway":"192.168.1.1"}}]
+```
+
+With `-o csv`, a header row and one row per device. With `--info`,
+`network` is flattened into `network_*` columns. A `null` value is an
+empty cell:
+
+```text
+mac,ip,name,model,firmware,hardware_rev,uuid,state,network_ip,network_subnet_mask,network_gateway
+00:04:20:16:06:02,192.168.1.50,Kitchen,Squeezebox Receiver,77,0005,deadbeefcafebabe1122334455667788,init,192.168.1.50,255.255.255.0,192.168.1.1
+```
+
+With `--info`, every device's `get_uuid` and `get_ip` queries finish
+before anything is written, in every format.
+
+When no device replies, stderr says `no devices found within
+DURATION` and stdout is empty for `text`, `[]` for `json`, and the
+header row alone for `csv`.
+
+The JSON keys and CSV columns are a stable contract: none will be
+removed or renamed without a major version. New ones may be added. See
+[Output formats](../global-flags.mdx#output-formats).
 
 ## Flags
 
@@ -32,12 +70,14 @@ to stderr.
 |---|---|---|
 | `--info` | off | Print full metadata per device including `get_ip` results |
 | `--timeout DURATION` | `2s` | How long to wait for device replies |
+| `--format FORMAT`, `-o` | `text` | Output format: `text`, `json` or `csv` |
+| `--json` | off | Shorthand for `--format json` |
 
 ## Exit codes
 
 - `0` — success (even if zero devices found)
 - `1` — discovery failed (transport error)
-- `2` — unknown or invalid flag, or a stray argument
+- `2` — unknown or invalid flag (including a format name other than `text`, `json` or `csv`, or `--json` with `--format`), or a stray argument
 
 ## Examples
 

@@ -178,13 +178,13 @@ SBOMs are produced two ways:
 The tool is single-shot CLI; every operation is one invocation. There is no
 interactive shell.
 
-- `go-udap discover [--info]` — Discover devices; MACs only, or full metadata (including IP/subnet/gateway via per-device get_ip) with `--info`. Per-device get_ip failures are soft (dashes in output; warning gated on `--verbose`). When discovery omits TLV 0x0d (older firmware), `--info` falls back to `get_uuid` (UCP 0x000b) to populate UUID — also soft-fail with `--verbose`-gated warning.
-- `go-udap info MAC` — Show metadata for one device (MAC, IP, Name, Model, Firmware, HW Rev, UUID, State). Same `get_uuid` fallback as `discover --info`.
+- `go-udap discover [--info]` — Discover devices; MACs only, or full metadata (including IP/subnet/gateway via per-device get_ip) with `--info`. Per-device get_ip failures are soft (dashes in output; warning gated on `--verbose`). When discovery omits TLV 0x0d (older firmware), `--info` falls back to `get_uuid` (UCP 0x000b) to populate UUID — also soft-fail with `--verbose`-gated warning. Supports `--format`/`--json`; with `--info`, every device's Result (including both fallbacks) is built before anything is rendered.
+- `go-udap info MAC` — Show metadata for one device (MAC, IP, Name, Model, Firmware, HW Rev, UUID, State). Same `get_uuid` fallback as `discover --info`. Supports `--format`/`--json`.
 - `go-udap read MAC [--all/-a]` — Read parameters from a device. By default skips factory-default values (so output round-trips cleanly through `set`); pass `--all`/`-a` to dump everything including factory defaults and unrecognized `offset_NNN` entries.
 - `go-udap get MAC PARAM [PARAM...]` — Read specific parameters
 - `go-udap set MAC [--reboot/-r] [--config FILE] [--<param> VALUE ...]` — Set parameters from file, piped stdin, and/or per-param flags (CLI flags win). The wire op writes NVRAM directly (every UCP_METHOD_SET_DATA writes — there is no separate save_data wire method per the Net::UDAP reference). Pass `--reboot/-r` to also reboot after writing.
 - `go-udap reboot MAC` — Reboot the device
-- `go-udap getip MAC` — Query the device's current IP / subnet / gateway via UCP_METHOD_GET_IP (0x0002). Distinct from discovery: discover passively observes; getip actively asks
+- `go-udap getip MAC` — Query the device's current IP / subnet / gateway via UCP_METHOD_GET_IP (0x0002). Distinct from discovery: discover passively observes; getip actively asks. Supports `--format`/`--json`
 - `go-udap interfaces` — List local network interfaces usable for UDAP discovery (Up + Broadcast + has IPv4 + not loopback). Useful for picking a value for `--bind-interface NAME`. Supports `--format`/`--json`
 - `go-udap --version` / `go-udap --build-info` — Version, or version plus VCS and runtime metadata from `debug.ReadBuildInfo`. Root-only flags; both support `--format`/`--json`
 

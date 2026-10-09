@@ -40,6 +40,19 @@ func startMockEnv(t *testing.T, n int) *e2eEnv {
 	return &e2eEnv{network: network}
 }
 
+// startMockNetwork is startMockEnv with explicitly configured devices
+// instead of auto-generated ones.
+func startMockNetwork(t *testing.T, devices ...mocksbr.DeviceConfig) *e2eEnv {
+	t.Helper()
+	env := startMockEnv(t, 0)
+	for _, cfg := range devices {
+		if _, err := env.network.Add(cfg); err != nil {
+			t.Fatalf("Add %s: %v", cfg.MAC, err)
+		}
+	}
+	return env
+}
+
 // runCLI invokes Execute with the given argv. Stdout, stderr, and the exit
 // code are returned. Errors that Execute propagates are appended to stderr
 // in the same "error: <msg>" form main.go prints, so tests see what

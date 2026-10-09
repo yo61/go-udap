@@ -4,34 +4,68 @@ description: Show metadata for one device
 ---
 
 ```text
-go-udap info MAC [--timeout DURATION]
+go-udap info MAC [--timeout DURATION] [--format text|json|csv | --json]
 ```
 
 ## What it does
 
 Discovers devices on the network, then prints the full metadata block
 for the one whose MAC matches `MAC`. Same metadata as
-`discover --info` but scoped to one device.
+`discover --info` but scoped to one device, and without the `get_ip`
+network config (use [`getip`](./getip.mdx) for that).
 
-Also fires `get_ip` to populate IP / Subnet / Gateway, and (if the
-device's discovery TLV 0x0d was missing) falls back to `get_uuid`
-to populate UUID.
+If the device's discovery reply omits UUID (TLV 0x0d, missing on
+older firmware), `info` falls back to `get_uuid` to populate it.
 
 ## Output
 
-Multi-line metadata block, one field per line.
+The default `text` format is a multi-line metadata block, one field
+per line. Empty fields are omitted:
+
+```text
+MAC:      00:04:20:16:06:02
+IP:       192.168.1.50
+Name:     Kitchen
+Model:    Squeezebox Receiver
+Firmware: 77
+HW Rev:   0005
+UUID:     deadbeefcafebabe1122334455667788
+State:    init
+```
+
+With `--json` (or `-o json`), one object: the `discover --info`
+object without `network`. Every field except `mac` is `null` when
+absent:
+
+```json
+{"mac":"00:04:20:16:06:02","ip":"192.168.1.50","name":"Kitchen","model":"Squeezebox Receiver","firmware":"77","hardware_rev":"0005","uuid":null,"state":"init"}
+```
+
+With `-o csv`, a header row and one row. A `null` value is an empty
+cell:
+
+```text
+mac,ip,name,model,firmware,hardware_rev,uuid,state
+00:04:20:16:06:02,192.168.1.50,Kitchen,Squeezebox Receiver,77,0005,,init
+```
+
+The JSON keys and CSV columns are a stable contract: none will be
+removed or renamed without a major version. New ones may be added. See
+[Output formats](../global-flags.mdx#output-formats).
 
 ## Flags
 
 | Flag | Default | Description |
 |---|---|---|
 | `--timeout DURATION` | `2s` | Operation timeout |
+| `--format FORMAT`, `-o` | `text` | Output format: `text`, `json` or `csv` |
+| `--json` | off | Shorthand for `--format json` |
 
 ## Exit codes
 
 - `0` — success
 - `1` — device not found, or transport error
-- `2` — invalid MAC argument
+- `2` — invalid MAC argument, or an unknown or invalid flag (including a format name other than `text`, `json` or `csv`, or `--json` with `--format`)
 
 ## Example
 

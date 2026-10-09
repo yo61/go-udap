@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -22,14 +23,17 @@ print every Squeezebox device that responds within --timeout.
 By default only MAC addresses are printed, one per line. Pass --info to
 print full metadata per device (MAC, IP, Name, Model, Firmware, HW Rev,
 UUID, State, plus IP / subnet / gateway via a follow-up get_ip query).
+--format json or csv writes one record per device; with --info, every
+device's queries complete before anything is written.
 
 Sends always target the limited broadcast address 255.255.255.255 so
 unconfigured devices (which have no DHCP lease and so no notion of a
 subnet broadcast address) can hear them. On multi-homed hosts, use the
 global --bind-interface or --all-interfaces flags to control which NIC
 the broadcast leaves on.`,
-	Args: cobra.NoArgs,
-	RunE: runDiscover,
+	Args:        cobra.NoArgs,
+	RunE:        runDiscover,
+	Annotations: map[string]string{annotationResult: ""},
 }
 
 func init() {
@@ -38,7 +42,6 @@ func init() {
 }
 
 func runDiscover(cmd *cobra.Command, _ []string) error {
-	stdout := cmd.OutOrStdout()
 	stderr := cmd.ErrOrStderr()
 	timeout := flagTimeout.Value()
 
@@ -58,33 +61,129 @@ func runDiscover(cmd *cobra.Command, _ []string) error {
 	}
 
 	devices := client.ListDevices()
-	sort.Slice(devices, func(i, j int) bool { return devices[i].MAC.String() < devices[j].MAC.String() })
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].MAC.String() < devices[j].MAC.String()
+	})
 
 	if len(devices) == 0 {
 		fmt.Fprintf(stderr, "no devices found within %s\n", timeout)
-		return nil
 	}
+	if !discoverInfo {
+		return renderResult(cmd, discoverResult(devices))
+	}
+	return renderResult(cmd, queryDeviceDetails(ctx, client, devices, stderr))
+}
 
-	for i, d := range devices {
-		if discoverInfo {
-			if i > 0 {
-				fmt.Fprintln(stdout)
+// queryDeviceDetails runs the get_uuid fallback and get_ip for each
+// device. Failures are soft: the fields stay absent.
+func queryDeviceDetails(
+	ctx context.Context, client *udap.Client, devices []*udap.Device, stderr io.Writer,
+) discoverInfoResult {
+	result := make(discoverInfoResult, 0, len(devices))
+	for _, d := range devices {
+		maybeFillUUID(ctx, client, d, flagVerbose, stderr)
+		nc, err := client.GetDeviceNetworkConfigWithContext(ctx, d)
+		if err != nil {
+			if flagVerbose {
+				fmt.Fprintf(stderr, "warning: get_ip failed for %s: %v\n", d.MAC, err)
 			}
-			maybeFillUUID(ctx, client, d, flagVerbose, stderr)
-			formatDeviceInfo(stdout, d)
-			nc, err := client.GetDeviceNetworkConfigWithContext(ctx, d)
-			if err != nil {
-				if flagVerbose {
-					fmt.Fprintf(stderr, "warning: get_ip failed for %s: %v\n", d.MAC, err)
-				}
-				nc = udap.NetworkConfig{}
-			}
-			formatNetworkConfig(stdout, nc)
-		} else {
-			fmt.Fprintln(stdout, d.MAC)
+			nc = udap.NetworkConfig{}
+		}
+		result = append(result, discoveredDevice{device: d, network: nc})
+	}
+	return result
+}
+
+// discoverResult is the Result of `discover`.
+type discoverResult []*udap.Device
+
+type macRecord struct {
+	MAC string `json:"mac"`
+}
+
+func (r discoverResult) WriteText(w io.Writer) error {
+	for _, d := range r {
+		if _, err := fmt.Fprintln(w, d.MAC); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (r discoverResult) JSONValue() any {
+	out := make([]macRecord, 0, len(r))
+	for _, d := range r {
+		out = append(out, macRecord{MAC: d.MAC.String()})
+	}
+	return out
+}
+
+func (r discoverResult) CSVHeader() []string { return []string{"mac"} }
+
+func (r discoverResult) CSVRows() [][]*string {
+	rows := make([][]*string, 0, len(r))
+	for _, d := range r {
+		rows = append(rows, []*string{new(d.MAC.String())})
+	}
+	return rows
+}
+
+// discoverInfoResult is the Result of `discover --info`.
+type discoverInfoResult []discoveredDevice
+
+type discoveredDevice struct {
+	device  *udap.Device
+	network udap.NetworkConfig
+}
+
+type discoveredDeviceRecord struct {
+	deviceRecord
+	Network networkRecord `json:"network"`
+}
+
+func (r discoverInfoResult) WriteText(w io.Writer) error {
+	for i, d := range r {
+		if i > 0 {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		if err := formatDeviceInfo(w, d.device); err != nil {
+			return err
+		}
+		if err := formatNetworkConfig(w, d.network); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r discoverInfoResult) JSONValue() any {
+	out := make([]discoveredDeviceRecord, 0, len(r))
+	for _, d := range r {
+		out = append(out, discoveredDeviceRecord{
+			deviceRecord: newDeviceRecord(d.device),
+			Network:      newNetworkRecord(d.network),
+		})
+	}
+	return out
+}
+
+func (r discoverInfoResult) CSVHeader() []string {
+	header := slices.Clone(deviceHeader)
+	for _, name := range networkHeader {
+		header = append(header, "network_"+name)
+	}
+	return header
+}
+
+func (r discoverInfoResult) CSVRows() [][]*string {
+	rows := make([][]*string, 0, len(r))
+	for _, d := range r {
+		row := append(newDeviceRecord(d.device).cells(), newNetworkRecord(d.network).cells()...)
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // newClient constructs a udap.Client whose logger writes through the
