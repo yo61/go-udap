@@ -36,6 +36,9 @@ context wrap chain)
       usage/validation errors. No other codes.
     - Every non-happy-path branch returns an *ExitError with the correct
       code, and a test asserts that code.
+    - A test asserting a failure exit code also asserts which failure it
+      is (message or error type), so it cannot pass because an earlier,
+      unrelated check failed.
 
 ## Severity: blocking
 
@@ -43,6 +46,10 @@ context wrap chain)
 
 ## Last triggered: 2026-10-09 (#252 — cobra's own parse/validation
 errors were untyped and fell through to the operation-failure code)
+
+Third criterion added 2026-10-09 (#252): the mutual-exclusion test
+passed `eth0`, which macOS lacks, so it exited non-zero from interface
+validation without reaching the flag conflict it was named for.
 
 ---
 
