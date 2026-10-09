@@ -170,3 +170,23 @@ postflight_steps deprecation)
 
 ## Last triggered: 2026-09-05 (`postflight` deprecated; `brew style --fix`
 could not autocorrect it, so the tap's daily sweep failed)
+
+---
+
+## Category: Documentation accuracy
+
+## Criteria:
+
+    - When a change alters behaviour that a page covering several
+      commands also states (`docs/site/content/docs/reference/global-flags.mdx`,
+      `CLAUDE.md`, `CONTEXT.md`), that page is updated in the same
+      change. Check by searching the docs for the old behaviour's
+      wording or value (e.g. `rg -n '\[\]' docs/site/content`), not only
+      the pages of the commands touched.
+
+## Severity: warning
+
+## Source: #247 review — the per-command pages documented `{}` for an
+empty `read`, but `global-flags.mdx` still said empty results give `[]`
+
+## Last triggered: 2026-10-09 (#247)
