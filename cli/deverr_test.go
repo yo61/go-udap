@@ -14,8 +14,8 @@ import (
 func TestDeviceOpErrorTranslatesDeadline(t *testing.T) {
 	err := deviceOpError("getip", "00:04:20:00:00:01", 2*time.Second, context.DeadlineExceeded)
 
-	if err.Code != 2 {
-		t.Errorf("Code = %d, want 2", err.Code)
+	if err.Code != 1 {
+		t.Errorf("Code = %d, want 1", err.Code)
 	}
 	const want = "getip: no reply from 00:04:20:00:00:01 within 2s"
 	if err.Error() != want {
@@ -46,8 +46,8 @@ func TestDeviceOpErrorPreservesNonDeadlineError(t *testing.T) {
 	cause := errors.New("device rejected credentials")
 	err := deviceOpError("set", "00:04:20:00:00:01", time.Second, cause)
 
-	if err.Code != 2 {
-		t.Errorf("Code = %d, want 2", err.Code)
+	if err.Code != 1 {
+		t.Errorf("Code = %d, want 1", err.Code)
 	}
 	const want = "set failed for 00:04:20:00:00:01: device rejected credentials"
 	if err.Error() != want {

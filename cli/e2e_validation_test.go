@@ -18,11 +18,11 @@ func TestE2ESetRejectsInvalidIPViaFlag(t *testing.T) {
 	_, stderr, exitCode := env.runCLI(t, "set", "00:04:20:00:00:01",
 		"--server-address", "192.168.1.x",
 		"--timeout", "500ms")
-	// Exit 1 is usage error (CLI rejects up front, before UDP I/O);
-	// exit 2 would mean the rejection only happens at the udap layer
+	// Exit 2 is usage error (CLI rejects up front, before UDP I/O);
+	// exit 1 would mean the rejection only happens at the udap layer
 	// after a wasted discovery + read round-trip.
-	if exitCode != 1 {
-		t.Fatalf("expected exit 1 (usage error), got %d", exitCode)
+	if exitCode != 2 {
+		t.Fatalf("expected exit 2 (usage error), got %d", exitCode)
 	}
 	if !strings.Contains(stderr, "server-address") && !strings.Contains(stderr, "server_address") {
 		t.Errorf("stderr should name the offending flag; got:\n%s", stderr)
@@ -34,7 +34,7 @@ func TestE2ESetRejectsInvalidUint8ViaFlag(t *testing.T) {
 	_, _, exitCode := env.runCLI(t, "set", "00:04:20:00:00:01",
 		"--wireless-channel", "999",
 		"--timeout", "500ms")
-	if exitCode != 1 {
-		t.Fatalf("expected exit 1 (usage error), got %d", exitCode)
+	if exitCode != 2 {
+		t.Fatalf("expected exit 2 (usage error), got %d", exitCode)
 	}
 }

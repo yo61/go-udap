@@ -44,7 +44,7 @@ func runDiscover(cmd *cobra.Command, _ []string) error {
 
 	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return &ExitError{Code: exitFailure, Err: err}
 	}
 	defer client.Close()
 
@@ -54,7 +54,7 @@ func runDiscover(cmd *cobra.Command, _ []string) error {
 	err = client.DiscoverDevicesWithContext(ctx)
 	stopProgress()
 	if err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("discovery failed: %w", err)}
+		return &ExitError{Code: exitFailure, Err: fmt.Errorf("discovery failed: %w", err)}
 	}
 
 	devices := client.ListDevices()

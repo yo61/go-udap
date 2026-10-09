@@ -39,12 +39,12 @@ func runRead(cmd *cobra.Command, args []string) error {
 
 	mac, err := normalizeMAC(args[0])
 	if err != nil {
-		return &ExitError{Code: 1, Err: err}
+		return &ExitError{Code: exitUsage, Err: err}
 	}
 
 	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return &ExitError{Code: exitFailure, Err: err}
 	}
 	defer client.Close()
 
@@ -66,7 +66,7 @@ func runRead(cmd *cobra.Command, args []string) error {
 		out = filterReadOutput(out)
 	}
 	if err := formatParamMap(stdout, out); err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return &ExitError{Code: exitFailure, Err: err}
 	}
 	return nil
 }

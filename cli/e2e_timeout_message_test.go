@@ -70,7 +70,7 @@ func TestE2ESetTimeoutMessageIsPlainEnglish(t *testing.T) {
 }
 
 // assertTimeoutMessage checks the plain-English form is present, the
-// Go internals are absent, and the exit code is 2 (operation failure).
+// Go internals are absent, and the exit code is 1 (operation failure).
 func assertTimeoutMessage(t *testing.T, op, mac, timeout, stderr string, exit int) {
 	t.Helper()
 	want := op + ": no reply from " + mac + " within " + timeout
@@ -80,7 +80,7 @@ func assertTimeoutMessage(t *testing.T, op, mac, timeout, stderr string, exit in
 	if strings.Contains(stderr, "context deadline exceeded") {
 		t.Errorf("stderr leaks Go internals; got:\n%s", stderr)
 	}
-	if exit != 2 {
-		t.Errorf("exit code %d, want 2", exit)
+	if exit != 1 {
+		t.Errorf("exit code %d, want 1", exit)
 	}
 }

@@ -185,10 +185,12 @@ Global flags are accepted before OR after the subcommand
 
 `--retries N` configures send-side retransmission: N is the number of **re-transmissions** beyond the initial send, so `--retries 2` results in 3 total sends (matches squeezeplay's hardcoded triple-send). Useful on lossy links; default 0 (one send, current behavior).
 
-`--bind-interface NAME` binds discovery and all subsequent operations to a single named interface, validated pre-dispatch (unknown name → exit 1). `--all-interfaces` fans out across every usable interface via MultiTransport. The two flags are mutually exclusive (combining them → exit 1). On Windows both flags surface "not supported" since the platform-specific output-NIC binding isn't implemented there. The singular flag is `--bind-interface` (not `--interface`) so it doesn't collide with `set`'s per-param `--interface 0|1` flag (NVRAM byte at offset 52: 0=wireless, 1=wired).
+`--bind-interface NAME` binds discovery and all subsequent operations to a single named interface, validated pre-dispatch (unknown name → exit 2). `--all-interfaces` fans out across every usable interface via MultiTransport. The two flags are mutually exclusive (combining them → exit 2). On Windows both flags surface "not supported" since the platform-specific output-NIC binding isn't implemented there. The singular flag is `--bind-interface` (not `--interface`) so it doesn't collide with `set`'s per-param `--interface 0|1` flag (NVRAM byte at offset 52: 0=wireless, 1=wired).
 
 Output is on stdout; logs and warnings on stderr. Exit codes: 0 success,
-1 usage error, 2 operation failure.
+1 operation failure, 2 usage error. Untyped errors default to 1;
+`cli.Execute` turns an untyped error raised before any subcommand's
+`RunE` started (cobra's own parsing and validation) into a usage error.
 
 ## Development Notes
 

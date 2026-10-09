@@ -33,7 +33,7 @@ func runInterfaces(cmd *cobra.Command, _ []string) error {
 
 	ifs, err := udap.EnumerateInterfaces()
 	if err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("enumerate interfaces: %w", err)}
+		return &ExitError{Code: exitFailure, Err: fmt.Errorf("enumerate interfaces: %w", err)}
 	}
 	if len(ifs) == 0 {
 		fmt.Fprintln(stderr, "no usable interfaces found")

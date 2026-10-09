@@ -12,10 +12,10 @@ func TestE2ERebootSucceeds(t *testing.T) {
 	}
 }
 
-func TestE2ERebootMissingMACIsExitTwo(t *testing.T) {
+func TestE2ERebootMissingMACIsExitOne(t *testing.T) {
 	env := startMockEnv(t, 1)
 	_, _, exitCode := env.runCLI(t, "reboot", "aa:bb:cc:dd:ee:ff", "--timeout", "200ms")
-	if exitCode != 2 {
-		t.Errorf("exit code %d, want 2", exitCode)
+	if exitCode != 1 {
+		t.Errorf("exit code %d, want 1 (device not found)", exitCode)
 	}
 }

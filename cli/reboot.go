@@ -28,12 +28,12 @@ func runReboot(cmd *cobra.Command, args []string) error {
 
 	mac, err := normalizeMAC(args[0])
 	if err != nil {
-		return &ExitError{Code: 1, Err: err}
+		return &ExitError{Code: exitUsage, Err: err}
 	}
 
 	client, err := newClient(flagVerbose, stderr)
 	if err != nil {
-		return &ExitError{Code: 2, Err: err}
+		return &ExitError{Code: exitFailure, Err: err}
 	}
 	defer client.Close()
 
@@ -46,7 +46,7 @@ func runReboot(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if err := client.ResetDeviceWithContext(ctx, device); err != nil {
-		return &ExitError{Code: 2, Err: fmt.Errorf("reboot failed: %w", err)}
+		return &ExitError{Code: exitFailure, Err: fmt.Errorf("reboot failed: %w", err)}
 	}
 	return nil
 }
