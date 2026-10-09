@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -44,42 +45,108 @@ func formatGetResult(w io.Writer, requested []string, values map[string]string) 
 // formatDeviceInfo writes a multi-line metadata block for one device.
 // Used by `info` and by `discover --info`. Empty fields are skipped so
 // we don't show e.g. "State:" with nothing after it.
-func formatDeviceInfo(w io.Writer, d *udap.Device) {
-	fmt.Fprintf(w, "MAC:      %s\n", d.MAC)
-	fmt.Fprintf(w, "IP:       %s\n", d.IP)
-	if d.Name != "" {
-		fmt.Fprintf(w, "Name:     %s\n", d.Name)
+func formatDeviceInfo(w io.Writer, d *udap.Device) error {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "MAC:      %s\n", d.MAC)
+	fmt.Fprintf(&b, "IP:       %s\n", d.IP)
+	for _, field := range []struct{ label, value string }{
+		{"Name:     ", d.Name},
+		{"Model:    ", d.Model},
+		{"Firmware: ", d.Firmware},
+		{"HW Rev:   ", d.HardwareRev},
+		{"UUID:     ", d.UUID},
+		{"State:    ", d.State},
+	} {
+		if field.value != "" {
+			fmt.Fprintf(&b, "%s%s\n", field.label, field.value)
+		}
 	}
-	if d.Model != "" {
-		fmt.Fprintf(w, "Model:    %s\n", d.Model)
-	}
-	if d.Firmware != "" {
-		fmt.Fprintf(w, "Firmware: %s\n", d.Firmware)
-	}
-	if d.HardwareRev != "" {
-		fmt.Fprintf(w, "HW Rev:   %s\n", d.HardwareRev)
-	}
-	if d.UUID != "" {
-		fmt.Fprintf(w, "UUID:     %s\n", d.UUID)
-	}
-	if d.State != "" {
-		fmt.Fprintf(w, "State:    %s\n", d.State)
-	}
+	_, err := w.Write(b.Bytes())
+	return err
 }
 
 // formatNetworkConfig writes IP / Subnet / Gateway lines, using "-"
-// for any empty field.
-func formatNetworkConfig(w io.Writer, nc udap.NetworkConfig) {
-	fmt.Fprintf(w, "IP:      %s\n", ipOrDashCLI(nc.IP))
-	fmt.Fprintf(w, "Subnet:  %s\n", ipOrDashCLI(nc.SubnetMask))
-	fmt.Fprintf(w, "Gateway: %s\n", ipOrDashCLI(nc.Gateway))
+// for any absent field.
+func formatNetworkConfig(w io.Writer, nc udap.NetworkConfig) error {
+	_, err := fmt.Fprintf(w, "IP:      %s\nSubnet:  %s\nGateway: %s\n",
+		ipOrDashCLI(nc.IP), ipOrDashCLI(nc.SubnetMask), ipOrDashCLI(nc.Gateway))
+	return err
 }
 
 func ipOrDashCLI(ip net.IP) string {
-	if len(ip) == 0 || ip.IsUnspecified() {
-		return "-"
+	if s := configuredIPOrNull(ip); s != nil {
+		return *s
 	}
-	return ip.String()
+	return "-"
+}
+
+// deviceRecord is a Device's metadata as the CLI names it. An empty
+// field is absent, as it is omitted in text.
+type deviceRecord struct {
+	MAC         string  `json:"mac"`
+	IP          *string `json:"ip"`
+	Name        *string `json:"name"`
+	Model       *string `json:"model"`
+	Firmware    *string `json:"firmware"`
+	HardwareRev *string `json:"hardware_rev"`
+	UUID        *string `json:"uuid"`
+	State       *string `json:"state"`
+}
+
+var deviceHeader = []string{
+	"mac", "ip", "name", "model", "firmware", "hardware_rev", "uuid", "state",
+}
+
+func newDeviceRecord(d *udap.Device) deviceRecord {
+	return deviceRecord{
+		MAC:         d.MAC.String(),
+		IP:          stringOrNull(d.IP),
+		Name:        stringOrNull(d.Name),
+		Model:       stringOrNull(d.Model),
+		Firmware:    stringOrNull(d.Firmware),
+		HardwareRev: stringOrNull(d.HardwareRev),
+		UUID:        stringOrNull(d.UUID),
+		State:       stringOrNull(d.State),
+	}
+}
+
+func (r deviceRecord) cells() []*string {
+	return []*string{&r.MAC, r.IP, r.Name, r.Model, r.Firmware, r.HardwareRev, r.UUID, r.State}
+}
+
+func stringOrNull(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return new(s)
+}
+
+// networkRecord is a NetworkConfig as the CLI names it. A zero IP is
+// absent, as it is "-" in text.
+type networkRecord struct {
+	IP         *string `json:"ip"`
+	SubnetMask *string `json:"subnet_mask"`
+	Gateway    *string `json:"gateway"`
+}
+
+var networkHeader = []string{"ip", "subnet_mask", "gateway"}
+
+func newNetworkRecord(nc udap.NetworkConfig) networkRecord {
+	return networkRecord{
+		IP:         configuredIPOrNull(nc.IP),
+		SubnetMask: configuredIPOrNull(nc.SubnetMask),
+		Gateway:    configuredIPOrNull(nc.Gateway),
+	}
+}
+
+func (r networkRecord) cells() []*string { return []*string{r.IP, r.SubnetMask, r.Gateway} }
+
+// configuredIPOrNull is ipOrNull that also treats 0.0.0.0 as absent.
+func configuredIPOrNull(ip net.IP) *string {
+	if ip.IsUnspecified() {
+		return nil
+	}
+	return ipOrNull(ip)
 }
 
 // formatInterfacesTable writes a fixed-column table for NetInterfaces.

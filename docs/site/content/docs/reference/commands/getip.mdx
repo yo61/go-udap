@@ -4,7 +4,7 @@ description: Query the device's IP / subnet / gateway
 ---
 
 ```text
-go-udap getip MAC [--timeout DURATION]
+go-udap getip MAC [--timeout DURATION] [--format text|json|csv | --json]
 ```
 
 ## What it does
@@ -28,14 +28,35 @@ Gateway: 192.168.1.1
 If the device doesn't have a network config yet (factory state),
 each line shows `-`.
 
+With `--json` (or `-o json`), one object. A value shown as `-` in text
+is `null`:
+
+```json
+{"ip":"192.168.1.50","subnet_mask":"255.255.255.0","gateway":null}
+```
+
+With `-o csv`, a header row and one row. A `null` value is an empty
+cell:
+
+```text
+ip,subnet_mask,gateway
+192.168.1.50,255.255.255.0,
+```
+
+The JSON keys and CSV columns are a stable contract: none will be
+removed or renamed without a major version. New ones may be added. See
+[Output formats](../global-flags.mdx#output-formats).
+
 ## Flags
 
 | Flag | Default | Description |
 |---|---|---|
 | `--timeout DURATION` | `2s` | Operation timeout |
+| `--format FORMAT`, `-o` | `text` | Output format: `text`, `json` or `csv` |
+| `--json` | off | Shorthand for `--format json` |
 
 ## Exit codes
 
 - `0` — success
 - `1` — device not found, or transport error
-- `2` — invalid MAC
+- `2` — invalid MAC, or an unknown or invalid flag (including a format name other than `text`, `json` or `csv`, or `--json` with `--format`)

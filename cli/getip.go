@@ -2,15 +2,19 @@ package cli
 
 import (
 	"context"
+	"io"
 
 	"github.com/spf13/cobra"
+
+	"go-udap/udap"
 )
 
 var getipCmd = &cobra.Command{
 	Use:   "getip MAC",
 	Short: "Query device IP / subnet / gateway via UCP get_ip",
 	Long: `Actively query the device's current network configuration via
-UCP_METHOD_GET_IP (0x0002). Prints IP / subnet / gateway, one per line.
+UCP_METHOD_GET_IP (0x0002). Prints IP / subnet / gateway, one per line;
+--format json or csv writes one record.
 
 This is distinct from discover: discover passively observes the source
 address of an adv-discover response, while getip explicitly asks the
@@ -19,6 +23,7 @@ change to confirm the device picked up the new settings.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runGetIP,
+	Annotations:       map[string]string{annotationResult: ""},
 }
 
 func init() {
@@ -26,7 +31,6 @@ func init() {
 }
 
 func runGetIP(cmd *cobra.Command, args []string) error {
-	stdout := cmd.OutOrStdout()
 	stderr := cmd.ErrOrStderr()
 	timeout := flagTimeout.Value()
 
@@ -54,6 +58,20 @@ func runGetIP(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return deviceOpError("getip", mac, timeout, err)
 	}
-	formatNetworkConfig(stdout, nc)
-	return nil
+	return renderResult(cmd, getipResult(nc))
+}
+
+// getipResult is the Result of `getip`.
+type getipResult udap.NetworkConfig
+
+func (r getipResult) WriteText(w io.Writer) error {
+	return formatNetworkConfig(w, udap.NetworkConfig(r))
+}
+
+func (r getipResult) JSONValue() any { return newNetworkRecord(udap.NetworkConfig(r)) }
+
+func (r getipResult) CSVHeader() []string { return networkHeader }
+
+func (r getipResult) CSVRows() [][]*string {
+	return [][]*string{newNetworkRecord(udap.NetworkConfig(r)).cells()}
 }

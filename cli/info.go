@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"io"
 
 	"github.com/spf13/cobra"
+
+	"go-udap/udap"
 )
 
 var infoCmd = &cobra.Command{
@@ -11,6 +14,7 @@ var infoCmd = &cobra.Command{
 	Short: "Show metadata for one device",
 	Long: `Run a discovery cycle and print the metadata for one device by MAC
 address: MAC, IP, Name, Model, Firmware, HW Rev, UUID, and State.
+--format json or csv writes one record.
 
 If the discovery response omits UUID (older firmware does), info falls
 back to a get_uuid query (UCP 0x000b) to fill that field. Failures of the
@@ -18,6 +22,7 @@ fallback are soft; pass --verbose to see them on stderr.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeMACs,
 	RunE:              runInfo,
+	Annotations:       map[string]string{annotationResult: ""},
 }
 
 func init() {
@@ -25,7 +30,6 @@ func init() {
 }
 
 func runInfo(cmd *cobra.Command, args []string) error {
-	stdout := cmd.OutOrStdout()
 	stderr := cmd.ErrOrStderr()
 	timeout := flagTimeout.Value()
 
@@ -49,6 +53,20 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	maybeFillUUID(ctx, client, device, flagVerbose, stderr)
-	formatDeviceInfo(stdout, device)
-	return nil
+	return renderResult(cmd, infoResult{device})
+}
+
+// infoResult is the Result of `info`.
+type infoResult struct{ device *udap.Device }
+
+func (r infoResult) WriteText(w io.Writer) error {
+	return formatDeviceInfo(w, r.device)
+}
+
+func (r infoResult) JSONValue() any { return newDeviceRecord(r.device) }
+
+func (r infoResult) CSVHeader() []string { return deviceHeader }
+
+func (r infoResult) CSVRows() [][]*string {
+	return [][]*string{newDeviceRecord(r.device).cells()}
 }

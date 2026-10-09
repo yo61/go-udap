@@ -37,8 +37,9 @@ text on stderr, and the exit code still reports failure.
   writes `null` as an empty cell.
 - **Empty results** give `[]` in JSON and the header row alone in CSV.
 
-Commands that support the format flags in this release: `interfaces`,
-`--version` and `--build-info`. A format flag on a command that writes
+Commands that support the format flags in this release: `discover`
+(with or without `--info`), `info`, `getip`, `interfaces`, `--version`
+and `--build-info`. A format flag on a command that writes
 no data output, such as `reboot`, is a usage error (exit 2).
 `--help` always wins: `go-udap reboot --json --help` prints help.
 
