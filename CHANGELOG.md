@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0](https://github.com/yo61/go-udap/compare/v2.4.10...v3.0.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** get exits 2 when a parameter is named twice, either by the same name or by an alias and its canonical name. It used to print the value twice.
+* **cli:** usage errors (bad MAC, unknown parameter, invalid flag or value, wrong argument count, unknown subcommand, conflicting flags, unusable interface) now exit 2 instead of 1, and operation failures (device not found, timeout, transport error, device error reply) now exit 1 instead of 2. Scripts that branch on the exit code must swap the two values.
+
+### Features
+
+* **cli:** add --format/-o and --json for discover, info, getip ([#258](https://github.com/yo61/go-udap/issues/258)) ([6cdc75b](https://github.com/yo61/go-udap/commit/6cdc75bb2bd4649223aa10ab7428cb47073fbc7c))
+* **cli:** add --format/-o and --json for interfaces, --version, --build-info ([#256](https://github.com/yo61/go-udap/issues/256)) ([69c2f7b](https://github.com/yo61/go-udap/commit/69c2f7b815e4bc81bab830b117d6f179fd48e3a8)), closes [#245](https://github.com/yo61/go-udap/issues/245)
+* **cli:** add --format/-o and --json for read, get, set ([#260](https://github.com/yo61/go-udap/issues/260)) ([04c0935](https://github.com/yo61/go-udap/commit/04c0935cad6689a00b66f81188d4a991bea5bba7)), closes [#247](https://github.com/yo61/go-udap/issues/247)
+* **cli:** exit 1 on operation failure and 2 on usage error ([#254](https://github.com/yo61/go-udap/issues/254)) ([db37553](https://github.com/yo61/go-udap/commit/db37553ed89bdfcf9bad1781232a338c4c3cc0d9))
+
+
+### Bug Fixes
+
+* **cli:** print an alias's value in get ([#259](https://github.com/yo61/go-udap/issues/259)) ([7ba3204](https://github.com/yo61/go-udap/commit/7ba320451b7de459c31182753222806a965197ad))
+
 ## [2.4.10](https://github.com/yo61/go-udap/compare/v2.4.9...v2.4.10) (2026-10-09)
 
 
