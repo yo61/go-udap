@@ -247,6 +247,18 @@ func TestE2EVerboseWithVersionFlagsIsUsageError(t *testing.T) {
 	}
 }
 
+// addUnannotatedCommand adds a subcommand with neither result
+// annotation, as a newly added command would start out.
+func addUnannotatedCommand(t *testing.T) {
+	t.Helper()
+	cmd := &cobra.Command{
+		Use:  "unannotated",
+		RunE: func(*cobra.Command, []string) error { return nil },
+	}
+	rootCmd.AddCommand(cmd)
+	t.Cleanup(func() { rootCmd.RemoveCommand(cmd) })
+}
+
 func TestE2EFormatFlagRejectedWhereThereIsNoResult(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -263,9 +275,10 @@ func TestE2EFormatFlagRejectedWhereThereIsNoResult(t *testing.T) {
 			"completion bash: --format not supported (completion writes a shell script)"},
 		{"completion parent", []string{"completion", "--json"},
 			"completion: --json not supported (completion writes a shell script)"},
-		{"command not yet converted", []string{"read", "00:04:20:00:00:01", "--json"},
-			"read: --json not supported"},
+		{"command without an annotation", []string{"unannotated", "--json"},
+			"unannotated: --json not supported"},
 	}
+	addUnannotatedCommand(t)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			env := startMockEnv(t, 1)

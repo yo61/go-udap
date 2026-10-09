@@ -4,12 +4,15 @@ description: Read specific parameters from a device
 ---
 
 ```text
-go-udap get MAC PARAM [PARAM ...] [--timeout DURATION]
+go-udap get MAC PARAM [PARAM ...] [--timeout DURATION] [--format text|json|csv | --json]
 ```
 
 ## What it does
 
-Reads one or more named NVRAM parameters from the device.
+Reads one or more named NVRAM parameters from the device. Aliases
+such as `squeezecenter_address` are accepted and print under the name
+you gave. Naming a parameter twice, by the same name or by an alias and
+its canonical name, is a usage error.
 
 - Single parameter: prints the bare value (no key=).
 - Multiple parameters: prints `param=value` lines in request order.
@@ -22,17 +25,42 @@ ip=$(go-udap get 00:04:20:16:06:02 lan_network_address)
 
 ## Output
 
+In the default `text` format:
+
 - One value, no label, on single-param queries.
 - `param=value` lines on multi-param queries.
+
+With `--json` (or `-o json`), one object mapping each name you gave to
+its value, in request order. It's an object even for one parameter.
+Values are always strings:
+
+```json
+{"server_address":"192.168.1.250","hostname":"kitchen"}
+```
+
+With `-o csv`, a `name,value` header and one row per parameter, in
+request order:
+
+```text
+name,value
+server_address,192.168.1.250
+hostname,kitchen
+```
+
+The JSON keys and CSV columns are a stable contract: none will be
+removed or renamed without a major version. New ones may be added. See
+[Output formats](../global-flags.mdx#output-formats).
 
 ## Flags
 
 | Flag | Default | Description |
 |---|---|---|
 | `--timeout DURATION` | `2s` | Operation timeout |
+| `--format FORMAT`, `-o` | `text` | Output format: `text`, `json` or `csv` |
+| `--json` | off | Shorthand for `--format json` |
 
 ## Exit codes
 
 - `0` — success
 - `1` — device not found, or transport error
-- `2` — invalid MAC argument or unknown parameter name
+- `2` — invalid MAC argument, an unknown parameter name, a parameter named twice, or an unknown or invalid flag (including a format name other than `text`, `json` or `csv`, or `--json` with `--format`)

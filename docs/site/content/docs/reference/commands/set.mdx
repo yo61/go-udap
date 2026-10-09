@@ -4,7 +4,8 @@ description: Write NVRAM parameters to a device
 ---
 
 ```text
-go-udap set MAC [--reboot|-r] [--config FILE] [--<param> VALUE ...] [--timeout DURATION]
+go-udap set MAC [--reboot|-r] [--config FILE] [--<param> VALUE ...]
+            [--timeout DURATION] [--format text|json|csv | --json]
 ```
 
 ## What it does
@@ -29,6 +30,33 @@ sentinel that firmware refuses to act on. If you omit `--interface`,
 is supplied — and prints the substitution on stderr. Pass `--interface`
 explicitly to suppress the notice.
 
+## Output
+
+On success, `set` prints the parameters it wrote: the merged values
+from every source, including any `interface` substitution. The default
+`text` format is the same `param=value` lines as
+[`read`](./read.mdx), sorted by name.
+
+With `--json` (or `-o json`), one object mapping each parameter name to
+its value, sorted by name. Values are always strings:
+
+```json
+{"hostname":"den","lan_ip_mode":"0"}
+```
+
+With `-o csv`, a `name,value` header and one row per parameter, sorted
+by name:
+
+```text
+name,value
+hostname,den
+lan_ip_mode,0
+```
+
+The JSON keys and CSV columns are a stable contract: none will be
+removed or renamed without a major version. New ones may be added. See
+[Output formats](../global-flags.mdx#output-formats).
+
 ## Flags
 
 | Flag | Default | Description |
@@ -36,13 +64,15 @@ explicitly to suppress the notice.
 | `--config FILE` | — | INI-format config file. Use `-` to read from stdin |
 | `--reboot`, `-r` | off | Also reboot the device after writing |
 | `--timeout DURATION` | `2s` | Operation timeout |
+| `--format FORMAT`, `-o` | `text` | Output format: `text`, `json` or `csv` |
+| `--json` | off | Shorthand for `--format json` |
 | `--<param> VALUE` | — | One flag per parameter you want to set (see [NVRAM parameters](../nvram-parameters.mdx) for the canonical list) |
 
 ## Exit codes
 
 - `0` — success
 - `1` — device not found, or transport error
-- `2` — invalid MAC, unknown parameter, or malformed config
+- `2` — invalid MAC, unknown parameter, malformed config, or an unknown or invalid flag (including a format name other than `text`, `json` or `csv`, or `--json` with `--format`)
 
 ## Examples
 

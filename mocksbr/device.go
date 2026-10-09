@@ -66,6 +66,11 @@ type DeviceConfig struct {
 	// doesn't include UUID in adv_discover.
 	SuppressDiscoveryUUID bool
 
+	// UnknownOffsets adds NVRAM entries, keyed by offset, that match no
+	// known parameter. Every GetData reply carries them after the
+	// requested items, as a firmware with extra fields would.
+	UnknownOffsets map[uint16][]byte
+
 	// Malformed selects a deliberately broken response shape used by
 	// tests that exercise the client's error-handling path.
 	Malformed MalformedMode
