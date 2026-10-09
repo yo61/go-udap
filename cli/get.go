@@ -38,10 +38,13 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return &ExitError{Code: exitUsage, Err: err}
 	}
 	params := args[1:]
+	canonical := make(map[string]string, len(params))
 	for _, p := range params {
-		if _, ok := udap.ParameterByName(p); !ok {
+		param, ok := udap.ParameterByName(p)
+		if !ok {
 			return &ExitError{Code: exitUsage, Err: fmt.Errorf("get: unknown parameter %q", p)}
 		}
+		canonical[p] = param.Name
 	}
 
 	client, err := newClient(flagVerbose, stderr)
@@ -63,7 +66,11 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return deviceOpError("get", mac, timeout, err)
 	}
 	stop()
-	if err := formatGetResult(stdout, params, values); err != nil {
+	byRequestedName := make(map[string]string, len(params))
+	for _, p := range params {
+		byRequestedName[p] = values[canonical[p]]
+	}
+	if err := formatGetResult(stdout, params, byRequestedName); err != nil {
 		return &ExitError{Code: exitFailure, Err: err}
 	}
 	return nil
