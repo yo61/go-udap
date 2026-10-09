@@ -8,8 +8,14 @@ overrides:
   postcss@<8.5.10: ^8.5.10
   # sharp is an unused optional dep of Next (static export +
   # images.unoptimized disables the only consumer); force past
-  # GHSA-f88m-g3jw-g9cj. Next declares ^0.34.5, so this overrides it.
-  sharp@<0.35.0: ^0.35.0
+  # GHSA-f88m-g3jw-g9cj (0.35.0) and the bundled-librsvg
+  # GHSA-wq5f-xc86-pv6w (0.35.5). Next declares ^0.34.5, so this
+  # overrides it.
+  sharp@<0.35.5: ^0.35.5
+  # compression (under serve, which pins 1.8.1 exactly) leaks memory
+  # when a response closes early — DoS (GHSA-vc2v-76pw-4v95). 1.8.2
+  # fixes it.
+  compression@<1.8.2: ^1.8.2
   # brace-expansion (via minimatch@3, under serve) is vulnerable to
   # DoS from brace expansion: stack exhaustion in parseCommaParts
   # (GHSA-6j4f-fj2g-mc7p) and on nested groups (GHSA-qhr7-859c-m2p7),
