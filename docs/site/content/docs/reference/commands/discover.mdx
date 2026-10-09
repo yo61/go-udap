@@ -36,17 +36,21 @@ sorted by MAC. Without `--info`, each object holds only the MAC:
 ```
 
 With `--info`, each object holds the device's metadata, with its
-`get_ip` result nested under `network`. Every field except `mac` is
-`null` when absent: an empty name or UUID, or a failed or factory-state
-`get_ip` (shown as `-` in text):
+`get_ip` answer nested under `network`. Every field except `mac` is
+`null` when absent, such as an empty name or UUID. In text, both cases
+below show as `-`:
+
+- `network` is `null` when the device didn't answer `get_ip`.
+- A field inside `network` is `null` when the device answered without
+  it, for example no gateway, or `0.0.0.0` in factory state.
 
 ```json
 [{"mac":"00:04:20:16:06:02","ip":"192.168.1.50","name":"Kitchen","model":"Squeezebox Receiver","firmware":"77","hardware_rev":"0005","uuid":"deadbeefcafebabe1122334455667788","state":"init","network":{"ip":"192.168.1.50","subnet_mask":"255.255.255.0","gateway":"192.168.1.1"}}]
 ```
 
 With `-o csv`, a header row and one row per device. With `--info`,
-`network` is flattened into `network_*` columns. A `null` value is an
-empty cell:
+`network` is flattened into `network_*` columns, which are all empty
+when `network` is `null`. A `null` value is an empty cell:
 
 ```text
 mac,ip,name,model,firmware,hardware_rev,uuid,state,network_ip,network_subnet_mask,network_gateway

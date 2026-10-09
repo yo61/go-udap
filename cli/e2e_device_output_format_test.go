@@ -11,7 +11,8 @@ import (
 )
 
 // configuredDevice answers every query; partialDevice has no UUID and
-// drops get_ip, so its uuid and network fields are absent.
+// drops get_ip, so its uuid and network are absent; noGatewayDevice
+// answers get_ip without a gateway.
 var (
 	configuredDevice = mocksbr.DeviceConfig{
 		MAC:        "00:04:20:00:00:01",
@@ -20,7 +21,11 @@ var (
 		Gateway:    "192.168.1.1",
 		UUID:       "deadbeefcafebabe1122334455667788",
 	}
-	partialDevice = mocksbr.DeviceConfig{MAC: "00:04:20:00:00:02", DropGetIP: true}
+	partialDevice   = mocksbr.DeviceConfig{MAC: "00:04:20:00:00:02", DropGetIP: true}
+	noGatewayDevice = mocksbr.DeviceConfig{
+		MAC: "00:04:20:00:00:03", IP: "10.0.0.7", SubnetMask: "255.0.0.0",
+		UUID: "00112233445566778899aabbccddeeff",
+	}
 )
 
 func runOK(t *testing.T, env *e2eEnv, args ...string) string {
@@ -118,7 +123,7 @@ func TestE2EDiscoverJSONAndCSV(t *testing.T) {
 }
 
 func TestE2EDiscoverInfoJSONNestsNetwork(t *testing.T) {
-	env := startMockNetwork(t, configuredDevice, partialDevice)
+	env := startMockNetwork(t, configuredDevice, partialDevice, noGatewayDevice)
 	var got []map[string]any
 	decodeJSON(t, runOK(t, env, "discover", "--info", "--json"), &got)
 
@@ -127,8 +132,10 @@ func TestE2EDiscoverInfoJSONNestsNetwork(t *testing.T) {
 		"ip": "192.168.1.50", "subnet_mask": "255.255.255.0", "gateway": "192.168.1.1",
 	}
 	partial := deviceJSON("00:04:20:00:00:02", nil)
-	partial["network"] = map[string]any{"ip": nil, "subnet_mask": nil, "gateway": nil}
-	assertEqual(t, "json", got, []map[string]any{configured, partial})
+	partial["network"] = nil
+	noGateway := deviceJSON("00:04:20:00:00:03", "00112233445566778899aabbccddeeff")
+	noGateway["network"] = map[string]any{"ip": "10.0.0.7", "subnet_mask": "255.0.0.0", "gateway": nil}
+	assertEqual(t, "json", got, []map[string]any{configured, partial, noGateway})
 }
 
 func TestE2EDiscoverInfoCSVFlattensNetwork(t *testing.T) {
@@ -165,10 +172,7 @@ func TestE2EInfoJSONAndCSV(t *testing.T) {
 }
 
 func TestE2EGetIPJSONAndCSV(t *testing.T) {
-	noGateway := mocksbr.DeviceConfig{
-		MAC: "00:04:20:00:00:03", IP: "10.0.0.7", SubnetMask: "255.0.0.0",
-	}
-	env := startMockNetwork(t, configuredDevice, noGateway)
+	env := startMockNetwork(t, configuredDevice, noGatewayDevice)
 
 	var got map[string]any
 	decodeJSON(t, runOK(t, env, "getip", "00:04:20:00:00:01", "--json"), &got)

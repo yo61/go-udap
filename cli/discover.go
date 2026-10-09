@@ -75,21 +75,22 @@ func runDiscover(cmd *cobra.Command, _ []string) error {
 }
 
 // queryDeviceDetails runs the get_uuid fallback and get_ip for each
-// device. Failures are soft: the fields stay absent.
+// device. Failures are soft: the UUID or network stays absent.
 func queryDeviceDetails(
 	ctx context.Context, client *udap.Client, devices []*udap.Device, stderr io.Writer,
 ) discoverInfoResult {
 	result := make(discoverInfoResult, 0, len(devices))
 	for _, d := range devices {
 		maybeFillUUID(ctx, client, d, flagVerbose, stderr)
+		discovered := discoveredDevice{device: d}
 		nc, err := client.GetDeviceNetworkConfigWithContext(ctx, d)
-		if err != nil {
-			if flagVerbose {
-				fmt.Fprintf(stderr, "warning: get_ip failed for %s: %v\n", d.MAC, err)
-			}
-			nc = udap.NetworkConfig{}
+		switch {
+		case err == nil:
+			discovered.network = &nc
+		case flagVerbose:
+			fmt.Fprintf(stderr, "warning: get_ip failed for %s: %v\n", d.MAC, err)
 		}
-		result = append(result, discoveredDevice{device: d, network: nc})
+		result = append(result, discovered)
 	}
 	return result
 }
@@ -131,14 +132,23 @@ func (r discoverResult) CSVRows() [][]*string {
 // discoverInfoResult is the Result of `discover --info`.
 type discoverInfoResult []discoveredDevice
 
+// discoveredDevice is a device and its get_ip answer; network is nil
+// when get_ip failed.
 type discoveredDevice struct {
 	device  *udap.Device
-	network udap.NetworkConfig
+	network *udap.NetworkConfig
+}
+
+func (d discoveredDevice) networkRecord() *networkRecord {
+	if d.network == nil {
+		return nil
+	}
+	return new(newNetworkRecord(*d.network))
 }
 
 type discoveredDeviceRecord struct {
 	deviceRecord
-	Network networkRecord `json:"network"`
+	Network *networkRecord `json:"network"`
 }
 
 func (r discoverInfoResult) WriteText(w io.Writer) error {
@@ -151,7 +161,11 @@ func (r discoverInfoResult) WriteText(w io.Writer) error {
 		if err := formatDeviceInfo(w, d.device); err != nil {
 			return err
 		}
-		if err := formatNetworkConfig(w, d.network); err != nil {
+		var nc udap.NetworkConfig
+		if d.network != nil {
+			nc = *d.network
+		}
+		if err := formatNetworkConfig(w, nc); err != nil {
 			return err
 		}
 	}
@@ -163,7 +177,7 @@ func (r discoverInfoResult) JSONValue() any {
 	for _, d := range r {
 		out = append(out, discoveredDeviceRecord{
 			deviceRecord: newDeviceRecord(d.device),
-			Network:      newNetworkRecord(d.network),
+			Network:      d.networkRecord(),
 		})
 	}
 	return out
@@ -180,8 +194,11 @@ func (r discoverInfoResult) CSVHeader() []string {
 func (r discoverInfoResult) CSVRows() [][]*string {
 	rows := make([][]*string, 0, len(r))
 	for _, d := range r {
-		row := append(newDeviceRecord(d.device).cells(), newNetworkRecord(d.network).cells()...)
-		rows = append(rows, row)
+		network := make([]*string, len(networkHeader))
+		if record := d.networkRecord(); record != nil {
+			network = record.cells()
+		}
+		rows = append(rows, append(newDeviceRecord(d.device).cells(), network...))
 	}
 	return rows
 }
