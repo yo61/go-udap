@@ -124,9 +124,8 @@ context wrap chain)
 
 ## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115, #129, #171, #179, #188
 
-## Last triggered: 2026-09-04 (#213 — four highs landed on fast-uri
-3.1.5, which was already the pinned floor; a stale grype DB also
-returned a false all-clear on the unfixed tree)
+## Last triggered: 2026-10-09 (sharp GHSA-wq5f-xc86-pv6w landed on
+0.35.4, above the existing `^0.35.0` floor — repeat offender again)
 
 ---
 
