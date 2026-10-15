@@ -14,12 +14,19 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+\+*'
       - 'v[0-9]+.[0-9]+.[0-9]+-*\+*'
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
     steps:
       - id: tap_token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
