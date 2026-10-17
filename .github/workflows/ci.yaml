@@ -49,6 +49,10 @@ jobs:
       # directly; install it on PATH before prek runs.
       - run: go install golang.org/x/tools/cmd/goimports@latest
       - uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+        env:
+          # jactionlint's online rules (yo61/global decisions/2026-10-17-retire-zizmor.md).
+          JACTIONLINT_ONLINE: 1
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           prek-version: 0.4.13
 
