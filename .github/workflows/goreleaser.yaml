@@ -49,7 +49,7 @@ jobs:
         with:
           go-version-file: go.mod
           # Release build: skip setup-go's dependency cache to avoid a
-          # poisoned cache tainting published artifacts (zizmor cache-poisoning).
+          # poisoned cache tainting published artifacts (jactionlint cache-poisoning).
           cache: false
 
       # GoReleaser's sboms: block (see .goreleaser.yaml) shells out to
