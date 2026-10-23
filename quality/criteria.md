@@ -136,11 +136,13 @@ validation without reaching the flag conflict it was named for.
 
 ## Severity: warning
 
-## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115, #129, #171, #179, #188, #241, #242
+## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115,
+#129, #171, #179, #188, #241, #242, #269, #270
 
-## Last triggered: 2026-10-09 (#241 — sharp GHSA-wq5f-xc86-pv6w landed
-on 0.35.4, above the existing `^0.35.0` floor; #242 — 13 stdlib
-advisories against go 1.27.1, directive moved to 1.27.2)
+## Last triggered: 2026-10-23 (#269 — GO-2026-6809 against go 1.27.2,
+directive moved to 1.27.3, verified with `GOTOOLCHAIN` pinned; #270 —
+three next 16.4.0 advisories, Grype reproduced on the pre-fix lockfile
+before trusting the clean post-fix scan)
 
 ---
 
