@@ -28,3 +28,10 @@ repos:
         entry: scripts/check-pnpm-overrides.sh
         language: script
         files: ^docs/site/pnpm-workspace\.yaml$
+      - id: pnpm-overrides-check-tests
+        name: pnpm overrides check passes its tests
+        entry: bats scripts/check-pnpm-overrides.bats
+        language: node
+        additional_dependencies: ['bats@1.13.0']
+        files: ^scripts/check-pnpm-overrides\.
+        pass_filenames: false
