@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1](https://github.com/yo61/go-udap/compare/v3.0.0...v3.0.1) (2026-10-23)
+
+
+### Dependencies
+
+* bump Go to 1.27.3 to clear stdlib govulncheck alert ([#269](https://github.com/yo61/go-udap/issues/269)) ([b1cb3cc](https://github.com/yo61/go-udap/commit/b1cb3ccc89cdeb836442a2770a8392ad2f148148))
+
 ## [3.0.0](https://github.com/yo61/go-udap/compare/v2.4.10...v3.0.0) (2026-10-09)
 
 
