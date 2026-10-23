@@ -167,7 +167,7 @@ CI runs `govulncheck` and `grype` against every PR, every push to `main`, and on
 task security
 ```
 
-`govulncheck` (Go-native, reachability-aware) is run via `go run` so no install is needed. `grype` is optional locally — install with `brew install grype`. CI is authoritative; the local target is for quick iteration on dep upgrades.
+`govulncheck` (Go-native, reachability-aware) is run via `go run` so no install is needed, on the go.mod directive's toolchain (`GOTOOLCHAIN`) so a newer local Go can't hide stdlib alerts CI reports. `grype` skips git-ignored paths, matching CI's fresh checkout. `grype` is optional locally — install with `brew install grype`. CI is authoritative; the local target is for quick iteration on dep upgrades.
 
 SBOMs are produced two ways:
 - **Per release:** `.goreleaser.yaml` emits SPDX-JSON and CycloneDX-JSON per archive (uploaded as release artifacts).

@@ -297,12 +297,21 @@ tasks:
       Runs the same two scanners CI does: govulncheck, which is Go-native and reachability-aware,
       then grype against an in-process SBOM for broader CVE coverage. Both are advisory here — CI
       is authoritative. grype is optional: the task says so on stderr and carries on without it,
-      so a local pass proves less than a CI pass.
+      so a local pass proves less than a CI pass. govulncheck runs on the go.mod directive's
+      toolchain, as CI does, and lists unreached findings too, since CI's SARIF raises alerts for
+      them. grype skips git-ignored paths (build output, node_modules), which CI's fresh checkout
+      never has.
+    vars:
+      GO_DIRECTIVE:
+        sh: go list -m -f '{{"{{"}}.GoVersion{{"}}"}}'
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - GOTOOLCHAIN=go{{.GO_DIRECTIVE}} go run golang.org/x/vuln/cmd/govulncheck@latest -show verbose ./...
       - |
         if command -v grype >/dev/null 2>&1; then
-          grype dir:.
+          git ls-files --others --ignored --exclude-standard --directory \
+            | sed -e 's|/$|/**|' -e 's|^|--exclude=./|' \
+            | tr '\n' '\0' \
+            | xargs -0 grype dir:.
         else
           echo "grype not installed; skipping (brew install grype)" >&2
         fi

@@ -117,7 +117,9 @@ validation without reaching the flag conflict it was named for.
       advisory (or advisories) it mitigates and the version that fixes
       them. A package already listed there is a likely repeat offender,
       not a solved problem: `pkg@<X: ^X` is a floor, not a ceiling, and
-      does nothing once X itself is found vulnerable.
+      does nothing once X itself is found vulnerable. Always checked: the
+      `pnpm-overrides-cite-advisory` prek hook fails on an override with
+      no GHSA or CVE ID in the comment above it.
     - Before trusting a post-fix clean scan, the PRE-fix tree is scanned
       and the finding confirmed to reproduce, and `grype db status`
       matches the DB build the failing CI run logged. Grype scans with a
@@ -126,7 +128,8 @@ validation without reaching the flag conflict it was named for.
     - govulncheck findings are verified with the toolchain pinned
       (`GOTOOLCHAIN=goX.Y.Z`), never the local default. CI installs the
       exact go.mod directive, so a newer local toolchain masks the
-      alerts CI reports.
+      alerts CI reports. Always checked: `task security` pins
+      `GOTOOLCHAIN` to the directive.
     - When a stdlib alert is open in the Security tab, go.mod's go
       directive is moved to a release that fixes it.
     - Before merging a release-please PR, there are no open govulncheck
