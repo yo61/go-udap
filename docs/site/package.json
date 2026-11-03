@@ -6,8 +6,6 @@
     "build": "next build",
     "dev": "next dev",
     "dev:local": "BASE_PATH= next dev",
-    "start": "serve out",
-    "start:local": "BASE_PATH= SITE_URL=http://localhost:3000 next build && serve out",
     "types:check": "next typegen && fumadocs-mdx && tsc --noEmit",
     "postinstall": "fumadocs-mdx"
   },
@@ -28,7 +26,6 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "postcss": "^8.5.31",
-    "serve": "^14.2.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"
   }
