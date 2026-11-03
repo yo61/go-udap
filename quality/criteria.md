@@ -136,16 +136,26 @@ validation without reaching the flag conflict it was named for.
       alerts. goreleaser builds with `go-version-file: go.mod`, so a
       release cut while stdlib alerts are open ships binaries on the
       vulnerable stdlib even though CI is green.
+    - Before overriding a transitive dep across a major version, both are
+      checked: the vulnerable code exists in the major actually resolved
+      (search the installed package for the functions the advisory names),
+      and the forced major keeps the API the consumer calls. Advisory
+      ranges like `< latest-fix` often sweep in old majors nobody tested;
+      a false positive is dismissed with the evidence, not overridden.
 
 ## Severity: warning
 
 ## Source: PR #213 (fast-uri re-pin + Go 1.27.1); recurring across #115,
 #129, #171, #179, #188, #241, #242, #269, #270
 
-## Last triggered: 2026-10-23 (#269 — GO-2026-6809 against go 1.27.2,
-directive moved to 1.27.3, verified with `GOTOOLCHAIN` pinned; #270 —
-three next 16.4.0 advisories, Grype reproduced on the pre-fix lockfile
-before trusting the clean post-fix scan)
+## Last triggered: 2026-11-03 (Dependabot alert #14 — GHSA-g3hv-75wg-m249
+flagged minimatch@3.1.5, but the vulnerable code starts at 7.0.0, and a
+^11 override would have broken serve-handler's `require('minimatch')()`
+call; dismissed as inaccurate). Previously 2026-10-23 (#269 —
+GO-2026-6809 against go 1.27.2, directive moved to 1.27.3, verified with
+`GOTOOLCHAIN` pinned; #270 — three next 16.4.0 advisories, Grype
+reproduced on the pre-fix lockfile before trusting the clean post-fix
+scan)
 
 ---
 
@@ -195,3 +205,27 @@ could not autocorrect it, so the tap's daily sweep failed)
 empty `read`, but `global-flags.mdx` still said empty results give `[]`
 
 ## Last triggered: 2026-10-09 (#247)
+
+---
+
+## Category: Dev tooling fidelity
+
+## Criteria:
+
+    - A local tool that stands in for production (docs preview server,
+      mocksbr, a fake transport) is checked against production's
+      behaviour on the cases that matter, not only shown to run. For the
+      docs preview, that means requesting the same URLs from the local
+      server and from https://yo61.github.io/go-udap/ and comparing status
+      codes, redirect targets and 404 handling.
+    - Any known difference from production is written down (in the
+      decision or the PR), not left for someone to rediscover.
+
+## Severity: warning
+
+## Source: PR #282 / decision 2026-11-03-docs-preview-go-fileserver —
+`serve` served `/concepts` with 200 where Pages redirects to
+`/concepts/`, so the preview could hide relative-link bugs
+
+## Last triggered: 2026-11-03 (#282 — the comparison showed serve and
+sirv-cli both skipped Pages' trailing-slash redirect)
