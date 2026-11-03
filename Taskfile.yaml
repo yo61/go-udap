@@ -220,23 +220,23 @@ tasks:
       - BASE_PATH= pnpm dev
 
   docs:serve:
-    desc: 'Production-build the Fumadocs site without basePath and serve it locally'
+    desc: 'Production-build the Fumadocs site as CI does and serve it at http://localhost:3000/go-udap/'
     summary: >-
-      Production-builds the site with no basePath and serves it at http://localhost:3000. Use it
-      to check the built output before pushing, when hot reload might be masking a build-only
-      problem. For editing use docs:dev; to reproduce exactly what CI publishes use docs:build.
-    dir: docs/site
+      Runs docs:build, then serves docs/site/out with cmd/docserve at
+      http://localhost:3000/go-udap/, the way GitHub Pages does: under the /go-udap basePath,
+      with directory URLs redirected to a trailing slash and misses answered by 404.html. Use it
+      to check the published output before pushing, when hot reload might be masking a
+      build-only problem. For editing use docs:dev.
     cmds:
-      - BASE_PATH= SITE_URL=http://localhost:3000 pnpm build
-      - pnpm start
+      - task: docs:build
+      - go run ./cmd/docserve docs/site/out
 
   docs:build:
     desc: 'Production build of the Fumadocs site with the /go-udap basePath, as CI does'
     summary: >-
       Production-builds the site the way CI does, keeping the /go-udap basePath that
       next.config.mjs defaults to, so it reproduces what .github/workflows/docs.yaml publishes to
-      GitHub Pages. It is for checking the build, not for viewing it — served locally, that
-      basePath makes the assets 404. Use docs:serve to look at the output and docs:dev to edit.
+      GitHub Pages. Use docs:serve to build and look at the output and docs:dev to edit.
     dir: docs/site
     cmds:
       - pnpm build
