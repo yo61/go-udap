@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.2](https://github.com/yo61/go-udap/compare/v3.0.1...v3.0.2) (2026-11-07)
+
+
+### Dependencies
+
+* bump github.com/spf13/pflag from 1.0.10 to 1.1.0 in the gomod-minor-patch group ([#284](https://github.com/yo61/go-udap/issues/284)) ([b35148d](https://github.com/yo61/go-udap/commit/b35148daaf738bb46c9beb2d1a9a9f37beefbf37))
+
 ## [3.0.1](https://github.com/yo61/go-udap/compare/v3.0.0...v3.0.1) (2026-10-23)
 
 
