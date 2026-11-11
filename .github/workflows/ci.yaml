@@ -102,8 +102,8 @@ jobs:
           persist-credentials: false
       # Fork of wagoid/commitlint-github-action. Upstream is unmaintained: no
       # commit to master since 2025-01-14, and it pins @commitlint/ensure ^19,
-      # two majors behind. This fork runs commitlint v21 on node 24, and pins its
+      # two majors behind. This fork runs commitlint v21 on node 26, and pins its
       # runtime image by digest so the SHA pin here cannot be worked around.
-      - uses: yo61/commitlint-github-action@501ff7bb31eb7133c871318c877d0e43cd1ff500  # v6.3.0 (digest-pinned)
+      - uses: yo61/commitlint-github-action@80080805b3e239db44e1f181dfdb74824bdd2c91  # v7.1.0
         with:
           configFile: commitlint.config.mjs
