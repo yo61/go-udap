@@ -104,6 +104,6 @@ jobs:
       # commit to master since 2025-01-14, and it pins @commitlint/ensure ^19,
       # two majors behind. This fork runs commitlint v21 on node 26, and pins its
       # runtime image by digest so the SHA pin here cannot be worked around.
-      - uses: yo61/commitlint-github-action@80080805b3e239db44e1f181dfdb74824bdd2c91  # v7.1.0
+      - uses: yo61/commitlint-github-action@a7939ec6b16df871abcc3de81d1871da247f78a9  # v7.1.1
         with:
           configFile: commitlint.config.mjs
