@@ -18,7 +18,7 @@ repos:
         stages: [commit-msg]
         additional_dependencies: ['@commitlint/config-conventional']
   - repo: https://github.com/jdx/jactionlint
-    rev: baa8d685e2b27ff5821558c9eeabb2051c1da61b  # frozen: v2.4.0
+    rev: 9e87e8f34edfc00b849a27807e26eff9d00b936d  # frozen: v2.5.0
     hooks:
       - id: jactionlint
   - repo: local
